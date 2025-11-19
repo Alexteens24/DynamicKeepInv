@@ -1,0 +1,37 @@
+# DynamicKeepInv Configuration
+
+# Enable or disable the plugin functionality
+enabled: true
+
+# Keep inventory during day (time 0-12999 in Minecraft)
+keep-inventory-day: true
+
+# Keep inventory during night (time 13000-23999 in Minecraft)
+keep-inventory-night: false
+
+# Check interval in ticks (20 ticks = 1 second)
+# Default: 100 ticks = 5 seconds
+check-interval: 100
+
+# Worlds where the plugin is active (empty list = all worlds)
+# Example: 
+# enabled-worlds:
+#   - world
+#   - world_nether
+enabled-worlds: []
+
+# Debug mode - prints detailed logs
+debug: false
+
+# Broadcast settings - announce day/night changes to all players
+broadcast:
+  enabled: true
+  # Broadcast when day is detected
+  day-change: true
+  # Broadcast when night is detected
+  night-change: true
+
+# Custom time thresholds (Minecraft ticks: 0-23999)
+# Day: 0-12999, Night: 13000-23999
+day-start: 0
+night-start: 13000

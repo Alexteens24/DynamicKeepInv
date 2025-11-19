@@ -1,0 +1,79 @@
+# DynamicKeepInv Messages Configuration
+# Cấu hình ngôn ngữ DynamicKeepInv
+
+# Language: vi (Tiếng Việt) or en (English)
+# Ngôn ngữ: vi (Tiếng Việt) hoặc en (English)
+language: en
+
+messages:
+  # English Messages (Default)
+  en:
+    prefix: "&6[DynamicKeepInv]&r"
+    no-permission: "&cYou don't have permission to use this command!"
+    
+    help:
+      header: "&6=== DynamicKeepInv - Help ==="
+      status: "&e/dki status &f- Show plugin status"
+      reload: "&e/dki reload &f- Reload configuration"
+      enable: "&e/dki enable &f- Enable plugin"
+      disable: "&e/dki disable &f- Disable plugin"
+      toggle: "&e/dki toggle &f- Toggle plugin on/off"
+    
+    status:
+      header: "&6=== DynamicKeepInv Status ==="
+      enabled: "&eEnabled: &f{value}"
+      keep-inv-day: "&eKeep Inv (Day): &f{value}"
+      keep-inv-night: "&eKeep Inv (Night): &f{value}"
+      check-interval: "&eCheck Interval: &f{value} ticks"
+      world-header: "&6=== World Status ==="
+      world-info: "&e{world}: &fTime={time} &b{period} &7(KeepInv: {status}&7)"
+      day: "Day"
+      night: "Night"
+      "on": "&aON"
+      "off": "&cOFF"
+    
+    commands:
+      reload: "&aConfiguration reloaded!"
+      enabled: "&aDynamicKeepInv enabled!"
+      disabled: "&eDynamicKeepInv disabled!"
+      unknown: "&cUnknown command. Use /dki for help."
+    
+    game:
+      day-detected: "&aWorld '{world}': &eDay&a detected. Keep Inventory is now &aON"
+      night-detected: "&eWorld '{world}': &7Night&e detected. Keep Inventory is now &cOFF"
+  
+  # Vietnamese Messages
+  vi:
+    prefix: "&6[DynamicKeepInv]&r"
+    no-permission: "&cBạn không có quyền sử dụng lệnh này!"
+    
+    help:
+      header: "&6=== DynamicKeepInv - Trợ Giúp ==="
+      status: "&e/dki status &f- Xem trạng thái plugin"
+      reload: "&e/dki reload &f- Tải lại cấu hình"
+      enable: "&e/dki enable &f- Bật plugin"
+      disable: "&e/dki disable &f- Tắt plugin"
+      toggle: "&e/dki toggle &f- Chuyển đổi bật/tắt"
+    
+    status:
+      header: "&6=== Trạng Thái DynamicKeepInv ==="
+      enabled: "&eĐang bật: &f{value}"
+      keep-inv-day: "&eGiữ đồ (Ban ngày): &f{value}"
+      keep-inv-night: "&eGiữ đồ (Ban đêm): &f{value}"
+      check-interval: "&eKhoảng kiểm tra: &f{value} ticks"
+      world-header: "&6=== Trạng Thái Thế Giới ==="
+      world-info: "&e{world}: &fTime={time} &b{period} &7(KeepInv: {status}&7)"
+      day: "Ngày"
+      night: "Đêm"
+      "on": "&aON"
+      "off": "&cOFF"
+    
+    commands:
+      reload: "&aĐã tải lại cấu hình!"
+      enabled: "&aDynamicKeepInv đã được bật!"
+      disabled: "&eDynamicKeepInv đã được tắt!"
+      unknown: "&cLệnh không hợp lệ. Sử dụng /dki để xem trợ giúp."
+    
+    game:
+      day-detected: "&aThế giới '{world}': Phát hiện &eBan ngày&a. Keep Inventory đã &aBẬT"
+      night-detected: "&eThế giới '{world}': Phát hiện &7Ban đêm&e. Keep Inventory đã &cTẮT"

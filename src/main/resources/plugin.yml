@@ -1,0 +1,20 @@
+name: DynamicKeepInv
+version: '${project.version}'
+main: xyz.superez.dynamickeepinv.DynamicKeepInvPlugin
+api-version: '1.20'
+folia-supported: true
+author: SuperEZ
+description: Automatically enables keep inventory during day and disables it at night
+website: https://github.com/superez
+
+commands:
+  dynamickeepinv:
+    description: Main plugin command
+    aliases: [dki, keepinv]
+    usage: /<command> [reload|status|toggle|enable|disable]
+    permission: dynamickeepinv.admin
+
+permissions:
+  dynamickeepinv.admin:
+    description: Allows access to plugin commands
+    default: op
