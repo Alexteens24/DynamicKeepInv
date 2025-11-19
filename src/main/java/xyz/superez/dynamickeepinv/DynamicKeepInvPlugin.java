@@ -17,12 +17,16 @@ import io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.title.Title;
+import org.bukkit.entity.Player;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
+import org.bukkit.Sound;
 
 public class DynamicKeepInvPlugin extends JavaPlugin {
     public DynamicKeepInvPlugin() {
@@ -46,12 +50,21 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private volatile boolean isShuttingDown = false;
     private static final long BROADCAST_COOLDOWN = 2000;
     
+    private EconomyManager economyManager;
+
     @Override
     public void onEnable() {
         detectFolia();
         saveDefaultConfig();
         loadMessages();
+        
+        economyManager = new EconomyManager(this);
+        if (getConfig().getBoolean("advanced.economy.enabled", false)) {
+            economyManager.setupEconomy();
+        }
+
         getServer().getPluginManager().registerEvents(new WorldListener(this), this);
+        getServer().getPluginManager().registerEvents(new DeathListener(this), this);
         
         getLogger().info("DynamicKeepInv is starting... (Platform: " + (isFolia ? "Folia" : "Paper/Spigot") + ")");
         
@@ -86,6 +99,18 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         lastBroadcastTime.remove(worldName);
     }
 
+    public EconomyManager getEconomyManager() {
+        return economyManager;
+    }
+
+    public boolean isWorldEnabled(World world) {
+        List<String> enabledWorlds = getConfig().getStringList("enabled-worlds");
+        if (enabledWorlds == null || enabledWorlds.isEmpty()) {
+            return true;
+        }
+        return enabledWorlds.contains(world.getName());
+    }
+
     private void detectFolia() {
         try {
             Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
@@ -106,7 +131,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         lang = messagesConfig.getString("language", "vi");
     }
     
-    private String getMessage(String path) {
+    public String getMessage(String path) {
         String message = messagesConfig.getString("messages." + lang + "." + path);
         if (message == null) {
             message = messagesConfig.getString("messages.en." + path);
@@ -119,7 +144,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         return message;
     }
     
-    private Component parseMessage(String message) {
+    public Component parseMessage(String message) {
         return LegacyComponentSerializer.legacyAmpersand().deserialize(message);
     }
     
@@ -222,8 +247,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
                         Long lastTime = lastBroadcastTime.get(world.getName());
                         if (lastTime == null || (currentTime - lastTime) >= BROADCAST_COOLDOWN) {
                             lastBroadcastTime.put(world.getName(), currentTime);
-                            Component broadcastMsg = parseMessage(message);
-                            Bukkit.broadcast(broadcastMsg);
+                            sendNotifications(world, message, isDay);
                         }
                     }
                 }
@@ -231,6 +255,56 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
 
         lastWasDayMap.put(world.getName(), isDay);
+    }
+
+    private boolean shouldBroadcast(boolean isDay) {
+        if (!getConfig().getBoolean("broadcast.enabled", true)) return false;
+        if (isDay && !getConfig().getBoolean("broadcast.day-change", true)) return false;
+        if (!isDay && !getConfig().getBoolean("broadcast.night-change", true)) return false;
+        return true;
+    }
+
+    private void sendNotifications(World world, String message, boolean isDay) {
+        Component component = parseMessage(message);
+        
+        // Chat
+        if (getConfig().getBoolean("broadcast.chat", true)) {
+            for (Player p : world.getPlayers()) {
+                p.sendMessage(component);
+            }
+        }
+        
+        // Action Bar
+        if (getConfig().getBoolean("broadcast.action-bar", false)) {
+            for (Player p : world.getPlayers()) {
+                p.sendActionBar(component);
+            }
+        }
+        
+        // Title
+        if (getConfig().getBoolean("broadcast.title", false)) {
+            Title title = Title.title(
+                Component.empty(),
+                component,
+                Title.Times.times(Duration.ofMillis(500), Duration.ofMillis(3000), Duration.ofMillis(1000))
+            );
+            for (Player p : world.getPlayers()) {
+                p.showTitle(title);
+            }
+        }
+        
+        // Sound
+        if (getConfig().getBoolean("broadcast.sound.enabled", false)) {
+            String soundName = isDay ? getConfig().getString("broadcast.sound.day") : getConfig().getString("broadcast.sound.night");
+            try {
+                Sound sound = Sound.valueOf(soundName);
+                for (Player p : world.getPlayers()) {
+                    p.playSound(p.getLocation(), sound, 1.0f, 1.0f);
+                }
+            } catch (Exception e) {
+                getLogger().warning("Invalid sound name: " + soundName);
+            }
+        }
     }
 
     private void rememberOriginalGameRule(World world, Boolean currentValue) {
@@ -362,14 +436,6 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             
             sender.sendMessage(parseMessage(worldInfo));
         }
-    }
-    
-    private boolean shouldBroadcast(boolean isDay) {
-        if (!getConfig().getBoolean("broadcast.enabled", true)) {
-            return false;
-        }
-        return isDay ? getConfig().getBoolean("broadcast.day-change", true) 
-                     : getConfig().getBoolean("broadcast.night-change", true);
     }
     
     private void debug(String message) {

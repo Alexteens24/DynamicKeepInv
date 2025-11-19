@@ -30,8 +30,63 @@ broadcast:
   day-change: true
   # Broadcast when night is detected
   night-change: true
+  
+  # Visual settings
+  # Enable different types of notifications
+  chat: true
+  action-bar: false
+  title: false
+  
+  # Sound settings
+  sound:
+    enabled: false
+    day: "ENTITY_PLAYER_LEVELUP"
+    night: "ENTITY_WITHER_SPAWN"
 
 # Custom time thresholds (Minecraft ticks: 0-23999)
 # Day: 0-12999, Night: 13000-23999
 day-start: 0
 night-start: 13000
+
+# Advanced Features
+# These settings allow for more granular control over what is kept/dropped.
+advanced:
+  # Enable advanced features (listeners)
+  enabled: true
+  
+  # If true, players with 'dynamickeepinv.bypass' permission will always keep inventory/xp
+  # regardless of the time or world settings.
+  bypass-permission: true
+  
+  # Economy settings (Vault required)
+  economy:
+    enabled: false
+    # Cost to keep inventory/xp when the plugin saves it via Advanced settings
+    cost: 100.0
+    
+  # Death Cause Settings
+  # Define specific rules based on how the player died.
+  # These settings override the time-based settings if enabled.
+  death-cause:
+    enabled: false
+    # Player vs Player
+    pvp:
+      keep-items: false
+      keep-xp: false
+    # Player vs Environment (Mobs, Fall, Lava, etc.)
+    pve:
+      keep-items: true
+      keep-xp: true
+  
+  # Separate settings for Items and XP
+  # These override the global behavior if advanced.enabled is true
+  
+  # During Day (when keep-inventory-day is true)
+  day:
+    keep-items: true
+    keep-xp: true
+    
+  # During Night (when keep-inventory-night is false)
+  night:
+    keep-items: false
+    keep-xp: false

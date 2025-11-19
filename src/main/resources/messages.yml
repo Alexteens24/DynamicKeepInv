@@ -41,6 +41,10 @@ messages:
     game:
       day-detected: "&aWorld '{world}': &eDay&a detected. Keep Inventory is now &aON"
       night-detected: "&eWorld '{world}': &7Night&e detected. Keep Inventory is now &cOFF"
+    
+    economy:
+      paid: "&aYou paid &6{amount} &ato keep your inventory."
+      not-enough-money: "&cYou did not have enough money ({amount}) to keep your inventory!"
   
   # Vietnamese Messages
   vi:
@@ -77,3 +81,7 @@ messages:
     game:
       day-detected: "&aThế giới '{world}': Phát hiện &eBan ngày&a. Keep Inventory đã &aBẬT"
       night-detected: "&eThế giới '{world}': Phát hiện &7Ban đêm&e. Keep Inventory đã &cTẮT"
+
+    economy:
+      paid: "&aBạn đã trả &6{amount} &ađể giữ lại kho đồ."
+      not-enough-money: "&cBạn không đủ tiền ({amount}) để giữ lại kho đồ!"

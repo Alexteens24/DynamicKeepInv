@@ -18,3 +18,6 @@ permissions:
   dynamickeepinv.admin:
     description: Allows access to plugin commands
     default: op
+  dynamickeepinv.bypass:
+    description: Allows bypassing inventory loss at night
+    default: false
