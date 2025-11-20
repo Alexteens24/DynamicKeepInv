@@ -32,7 +32,9 @@ public class DeathListener implements Listener {
                 event.setKeepInventory(true);
                 event.setKeepLevel(true);
                 event.setDroppedExp(0);
-                event.getDrops().clear();
+                if (event.getDrops() != null) {
+                    event.getDrops().clear();
+                }
                 return;
             }
         }
@@ -45,9 +47,11 @@ public class DeathListener implements Listener {
         plugin.debug("Death event: Time=" + time + ", dayStart=" + dayStart + ", nightStart=" + nightStart + ", isNight=" + isNight);
 
         String settingPath = isNight ? "advanced.night" : "advanced.day";
-        
-        boolean keepItems = plugin.getConfig().getBoolean(settingPath + ".keep-items", isDay);
-        boolean keepXp = plugin.getConfig().getBoolean(settingPath + ".keep-xp", isDay);
+        boolean defaultKeepItems = isDay
+            ? plugin.getConfig().getBoolean("keep-inventory-day", true)
+            : plugin.getConfig().getBoolean("keep-inventory-night", false);
+        boolean keepItems = plugin.getConfig().getBoolean(settingPath + ".keep-items", defaultKeepItems);
+        boolean keepXp = plugin.getConfig().getBoolean(settingPath + ".keep-xp", defaultKeepItems);
 
         if (plugin.getConfig().getBoolean("advanced.death-cause.enabled", false)) {
             boolean isPvp = player.getKiller() != null;
@@ -101,7 +105,9 @@ public class DeathListener implements Listener {
         
         if (keepItems) {
             event.setKeepInventory(true);
-            event.getDrops().clear();
+            if (event.getDrops() != null) {
+                event.getDrops().clear();
+            }
         } else {
             event.setKeepInventory(false);
         }

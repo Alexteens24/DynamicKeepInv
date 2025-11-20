@@ -25,6 +25,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import org.bukkit.Sound;
 
@@ -51,8 +52,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private static final long BROADCAST_COOLDOWN = 10000;
     private static final long ECONOMY_RETRY_DELAY_MS = 10000;
     
-    private EconomyManager economyManager;
-    private long nextEconomyRetryTimeMs = 0L;
+    private volatile EconomyManager economyManager;
+    private final AtomicLong nextEconomyRetryTimeMs = new AtomicLong(0L);
 
     @Override
     public void onEnable() {
@@ -60,7 +61,6 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         saveDefaultConfig();
         loadMessages();
         
-        economyManager = new EconomyManager(this);
         if (getConfig().getBoolean("advanced.economy.enabled", false)) {
             getEconomyManager();
         }
@@ -107,13 +107,17 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
 
         if (economyManager == null) {
-            economyManager = new EconomyManager(this);
+            synchronized (this) {
+                if (economyManager == null) {
+                    economyManager = new EconomyManager(this);
+                }
+            }
         }
 
         if (!economyManager.isEnabled()) {
             long now = System.currentTimeMillis();
-            if (now >= nextEconomyRetryTimeMs) {
-                nextEconomyRetryTimeMs = now + ECONOMY_RETRY_DELAY_MS;
+            if (now >= nextEconomyRetryTimeMs.get()) {
+                nextEconomyRetryTimeMs.set(now + ECONOMY_RETRY_DELAY_MS);
                 economyManager.setupEconomy();
             }
         }
@@ -284,39 +288,46 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
     private void sendNotifications(World world, String message, boolean isDay) {
         Component component = parseMessage(message);
+        boolean chat = getConfig().getBoolean("broadcast.chat", true);
+        boolean actionBar = getConfig().getBoolean("broadcast.action-bar", false);
+        boolean titleEnabled = getConfig().getBoolean("broadcast.title", false);
+        boolean soundEnabled = getConfig().getBoolean("broadcast.sound.enabled", false);
+        String soundName = isDay ? getConfig().getString("broadcast.sound.day") : getConfig().getString("broadcast.sound.night");
+        Sound sound = null;
         
-        if (getConfig().getBoolean("broadcast.chat", true)) {
-            for (Player p : world.getPlayers()) {
-                p.sendMessage(component);
-            }
-        }
-        
-        if (getConfig().getBoolean("broadcast.action-bar", false)) {
-            for (Player p : world.getPlayers()) {
-                p.sendActionBar(component);
-            }
-        }
-        
-        if (getConfig().getBoolean("broadcast.title", false)) {
-            Title title = Title.title(
-                Component.empty(),
-                component,
-                Title.Times.times(Duration.ofMillis(500), Duration.ofMillis(3000), Duration.ofMillis(1000))
-            );
-            for (Player p : world.getPlayers()) {
-                p.showTitle(title);
-            }
-        }
-        
-        if (getConfig().getBoolean("broadcast.sound.enabled", false)) {
-            String soundName = isDay ? getConfig().getString("broadcast.sound.day") : getConfig().getString("broadcast.sound.night");
+        if (soundEnabled) {
             try {
-                Sound sound = Sound.valueOf(soundName);
-                for (Player p : world.getPlayers()) {
-                    p.playSound(p.getLocation(), sound, 1.0f, 1.0f);
-                }
+                sound = Sound.valueOf(soundName);
             } catch (Exception e) {
                 getLogger().warning("Invalid sound name: " + soundName);
+                soundEnabled = false;
+            }
+        }
+
+        final Sound finalSound = sound;
+        final boolean finalSoundEnabled = soundEnabled;
+
+        for (Player p : world.getPlayers()) {
+            Runnable notificationTask = () -> {
+                if (chat) p.sendMessage(component);
+                if (actionBar) p.sendActionBar(component);
+                if (titleEnabled) {
+                    Title title = Title.title(
+                        Component.empty(),
+                        component,
+                        Title.Times.times(Duration.ofMillis(500), Duration.ofMillis(3000), Duration.ofMillis(1000))
+                    );
+                    p.showTitle(title);
+                }
+                if (finalSoundEnabled && finalSound != null) {
+                    p.playSound(p.getLocation(), finalSound, 1.0f, 1.0f);
+                }
+            };
+
+            if (isFolia) {
+                p.getScheduler().execute(this, notificationTask, null, 1L);
+            } else {
+                notificationTask.run();
             }
         }
     }
