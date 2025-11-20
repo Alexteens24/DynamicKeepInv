@@ -1,6 +1,11 @@
 # Changelog
 
-## [1.1.0-beta] - 2025-11-19
+## [1.0.3] - 2025-11-20
+
+### Changed
+- Code cleanup: Removed all inline comments from source files for cleaner codebase.
+
+## [1.0.2] - 2025-11-19
 
 ### Added
 - Advanced configuration section for granular control over inventory and XP preservation.

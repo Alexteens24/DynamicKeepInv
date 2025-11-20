@@ -48,9 +48,11 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private String lang;
     private boolean isFolia = false;
     private volatile boolean isShuttingDown = false;
-    private static final long BROADCAST_COOLDOWN = 2000;
+    private static final long BROADCAST_COOLDOWN = 10000;
+    private static final long ECONOMY_RETRY_DELAY_MS = 10000;
     
     private EconomyManager economyManager;
+    private long nextEconomyRetryTimeMs = 0L;
 
     @Override
     public void onEnable() {
@@ -60,7 +62,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         
         economyManager = new EconomyManager(this);
         if (getConfig().getBoolean("advanced.economy.enabled", false)) {
-            economyManager.setupEconomy();
+            getEconomyManager();
         }
 
         getServer().getPluginManager().registerEvents(new WorldListener(this), this);
@@ -100,6 +102,22 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     public EconomyManager getEconomyManager() {
+        if (!getConfig().getBoolean("advanced.economy.enabled", false)) {
+            return economyManager;
+        }
+
+        if (economyManager == null) {
+            economyManager = new EconomyManager(this);
+        }
+
+        if (!economyManager.isEnabled()) {
+            long now = System.currentTimeMillis();
+            if (now >= nextEconomyRetryTimeMs) {
+                nextEconomyRetryTimeMs = now + ECONOMY_RETRY_DELAY_MS;
+                economyManager.setupEconomy();
+            }
+        }
+
         return economyManager;
     }
 
@@ -222,7 +240,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
         
         long time = world.getTime();
-        boolean isDay = time >= dayStart && time < nightStart;
+        boolean isDay = isTimeInRange(time, dayStart, nightStart);
         boolean shouldKeepInv = isDay ? keepInvDay : keepInvNight;
 
         Boolean currentKeepInv = world.getGameRuleValue(GameRule.KEEP_INVENTORY);
@@ -267,21 +285,18 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private void sendNotifications(World world, String message, boolean isDay) {
         Component component = parseMessage(message);
         
-        // Chat
         if (getConfig().getBoolean("broadcast.chat", true)) {
             for (Player p : world.getPlayers()) {
                 p.sendMessage(component);
             }
         }
         
-        // Action Bar
         if (getConfig().getBoolean("broadcast.action-bar", false)) {
             for (Player p : world.getPlayers()) {
                 p.sendActionBar(component);
             }
         }
         
-        // Title
         if (getConfig().getBoolean("broadcast.title", false)) {
             Title title = Title.title(
                 Component.empty(),
@@ -293,7 +308,6 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             }
         }
         
-        // Sound
         if (getConfig().getBoolean("broadcast.sound.enabled", false)) {
             String soundName = isDay ? getConfig().getString("broadcast.sound.day") : getConfig().getString("broadcast.sound.night");
             try {
@@ -419,10 +433,11 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
                 .replace("{value}", String.valueOf(getConfig().getInt("check-interval", 100)))));
         
         sender.sendMessage(parseMessage(getMessage("status.world-header")));
+        long dayStart = getConfig().getLong("day-start", 0);
+        long nightStart = getConfig().getLong("night-start", 13000);
         for (World world : Bukkit.getWorlds()) {
             long time = world.getTime();
-            boolean isDay = time >= getConfig().getLong("day-start", 0) && 
-                           time < getConfig().getLong("night-start", 13000);
+            boolean isDay = isTimeInRange(time, dayStart, nightStart);
             Boolean keepInv = world.getGameRuleValue(GameRule.KEEP_INVENTORY);
             
             String period = isDay ? getMessage("status.day") : getMessage("status.night");
@@ -438,7 +453,26 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
     }
     
-    private void debug(String message) {
+    public boolean isTimeInRange(long time, long rangeStart, long rangeEnd) {
+        long normalizedTime = ((time % 24000L) + 24000L) % 24000L;
+        long start = ((rangeStart % 24000L) + 24000L) % 24000L;
+        long end = ((rangeEnd % 24000L) + 24000L) % 24000L;
+
+        if (start == end) {
+            return true;
+        }
+
+        if (start < end) {
+            return normalizedTime >= start && normalizedTime < end;
+        }
+        return normalizedTime >= start || normalizedTime < end;
+    }
+
+    public boolean isDayTime(long time) {
+        return isTimeInRange(time, getConfig().getLong("day-start", 0), getConfig().getLong("night-start", 13000));
+    }
+
+    public void debug(String message) {
         if (getConfig().getBoolean("debug", false)) {
             getLogger().log(Level.INFO, "[DEBUG] " + message);
         }

@@ -45,6 +45,7 @@ messages:
     economy:
       paid: "&aYou paid &6{amount} &ato keep your inventory."
       not-enough-money: "&cYou did not have enough money ({amount}) to keep your inventory!"
+      payment-failed: "&cPayment could not be processed ({amount}). Your inventory will be dropped."
   
   # Vietnamese Messages
   vi:
@@ -85,3 +86,4 @@ messages:
     economy:
       paid: "&aBạn đã trả &6{amount} &ađể giữ lại kho đồ."
       not-enough-money: "&cBạn không đủ tiền ({amount}) để giữ lại kho đồ!"
+      payment-failed: "&cThanh toán ({amount}) thất bại. Kho đồ của bạn sẽ bị rơi."

@@ -3,6 +3,7 @@ version: '${project.version}'
 main: xyz.superez.dynamickeepinv.DynamicKeepInvPlugin
 api-version: '1.20'
 folia-supported: true
+softdepend: [Vault]
 author: SuperEZ
 description: Automatically enables keep inventory during day and disables it at night
 website: https://github.com/superez
