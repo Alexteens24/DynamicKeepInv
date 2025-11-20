@@ -52,6 +52,7 @@ night-start: 13000
 # These settings allow for more granular control over what is kept/dropped.
 advanced:
   # Enable advanced features (listeners)
+  # This might not working as expected.
   enabled: true
   
   # If true, players with 'dynamickeepinv.bypass' permission will always keep inventory/xp
