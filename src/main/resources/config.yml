@@ -1,4 +1,6 @@
 # DynamicKeepInv Configuration
+# DO NOT EDIT THIS VALUE - Used for automatic config updates
+config-version: 1
 
 # Enable or disable the plugin functionality
 enabled: true

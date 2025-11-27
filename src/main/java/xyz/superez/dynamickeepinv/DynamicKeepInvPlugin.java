@@ -57,6 +57,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     
     private volatile EconomyManager economyManager;
     private final AtomicLong nextEconomyRetryTimeMs = new AtomicLong(0L);
+    private static final int CONFIG_VERSION = 1;
     
     private LandsHook landsHook;
     private GriefPreventionHook griefPreventionHook;
@@ -65,6 +66,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     public void onEnable() {
         detectFolia();
         saveDefaultConfig();
+        checkConfigVersion();
         loadMessages();
         
         if (getConfig().getBoolean("advanced.economy.enabled", false)) {
@@ -155,6 +157,16 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         } catch (ClassNotFoundException e) {
             isFolia = false;
             getLogger().info("Paper/Spigot detected! Using standard scheduler.");
+        }
+    }
+    
+    private void checkConfigVersion() {
+        int currentVersion = getConfig().getInt("config-version", 0);
+        if (currentVersion < CONFIG_VERSION) {
+            getLogger().warning("Config outdated (v" + currentVersion + " -> v" + CONFIG_VERSION + "). Some new options may be missing.");
+            getLogger().warning("Consider regenerating config.yml or adding missing options manually.");
+            getConfig().set("config-version", CONFIG_VERSION);
+            saveConfig();
         }
     }
     

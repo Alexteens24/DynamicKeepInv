@@ -1,4 +1,10 @@
 # Changelog
+## [1.0.7] - 2025-11-27
+- Add Lands plugin integration for land-based keep inventory
+- Add GriefPrevention plugin integration for claim-based settings
+- Separate settings for own/other land/claim
+- Safe API version mismatch handling (auto-disable on incompatible)
+- Downgrade to Java 17 for MC 1.20.4+ support
 
 ## [1.0.6] - 2025-11-27
 - Added economy mode option (charge-to-keep / charge-to-bypass)
