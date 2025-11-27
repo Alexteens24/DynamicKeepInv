@@ -110,6 +110,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             synchronized (this) {
                 if (economyManager == null) {
                     economyManager = new EconomyManager(this);
+                    economyManager.setupEconomy();
                 }
             }
         }
@@ -307,7 +308,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         final Sound finalSound = sound;
         final boolean finalSoundEnabled = soundEnabled;
 
-        for (Player p : world.getPlayers()) {
+        for (Player p : new java.util.ArrayList<>(world.getPlayers())) {
             Runnable notificationTask = () -> {
                 if (chat) p.sendMessage(component);
                 if (actionBar) p.sendActionBar(component);

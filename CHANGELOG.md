@@ -1,5 +1,8 @@
 # Changelog
 
+## [1.0.5] - 2025-11-27
+- Bug fixes
+
 ## [1.0.4] - 2025-11-20
 - Fixed bypass permission path to handle plugins that return null drops
 - Advanced day/night item and XP defaults now respect the base keep-inventory settings
