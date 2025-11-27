@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.6] - 2025-11-27
+- Added economy mode option (charge-to-keep / charge-to-bypass)
+- Fixed DeathListener event priority
+- Improved debug logging
+
 ## [1.0.5] - 2025-11-27
 - Bug fixes
 

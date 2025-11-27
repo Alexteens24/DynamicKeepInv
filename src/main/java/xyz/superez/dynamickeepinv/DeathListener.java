@@ -3,6 +3,7 @@ package xyz.superez.dynamickeepinv;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 
@@ -13,7 +14,7 @@ public class DeathListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
         if (!plugin.getConfig().getBoolean("advanced.enabled", false)) {
             return;
@@ -25,6 +26,8 @@ public class DeathListener implements Listener {
         if (!plugin.isWorldEnabled(world)) {
             return;
         }
+
+        plugin.debug("Advanced death handling triggered for " + player.getName());
 
         if (plugin.getConfig().getBoolean("advanced.bypass-permission", true)) {
             if (player.hasPermission("dynamickeepinv.bypass")) {
@@ -62,10 +65,20 @@ public class DeathListener implements Listener {
             keepXp = plugin.getConfig().getBoolean(causePath + ".keep-xp", keepXp);
         }
 
-        if ((keepItems || keepXp) && plugin.getConfig().getBoolean("advanced.economy.enabled", false)) {
+        if (plugin.getConfig().getBoolean("advanced.economy.enabled", false)) {
             double cost = plugin.getConfig().getDouble("advanced.economy.cost", 0.0);
-            plugin.debug("Economy enabled. Cost=" + cost);
-            if (cost > 0) {
+            String mode = plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep");
+            plugin.debug("Economy enabled. Cost=" + cost + ", Mode=" + mode);
+            
+            boolean shouldProcessEconomy = false;
+            if ("charge-to-bypass".equalsIgnoreCase(mode)) {
+                shouldProcessEconomy = !keepItems || !keepXp;
+                plugin.debug("Bypass mode check: keepItems=" + keepItems + ", keepXp=" + keepXp + ", shouldProcess=" + shouldProcessEconomy);
+            } else {
+                shouldProcessEconomy = keepItems || keepXp;
+            }
+            
+            if (cost > 0 && shouldProcessEconomy) {
                 EconomyManager eco = plugin.getEconomyManager();
                 if (eco == null) {
                     plugin.debug("EconomyManager is null, skipping economy check.");
@@ -75,8 +88,12 @@ public class DeathListener implements Listener {
                         String msg = plugin.getMessage("economy.not-enough-money")
                                 .replace("{amount}", eco.format(cost));
                         player.sendMessage(plugin.parseMessage(msg));
-                        keepItems = false;
-                        keepXp = false;
+                        if ("charge-to-bypass".equalsIgnoreCase(mode)) {
+                            plugin.debug("Bypass mode: Player cannot afford, items will drop.");
+                        } else {
+                            keepItems = false;
+                            keepXp = false;
+                        }
                     } else {
                         plugin.debug("Charging player " + player.getName() + " " + cost);
                         boolean success = eco.withdraw(player, cost);
@@ -85,12 +102,21 @@ public class DeathListener implements Listener {
                             String msg = plugin.getMessage("economy.payment-failed")
                                 .replace("{amount}", eco.format(cost));
                             player.sendMessage(plugin.parseMessage(msg));
-                            keepItems = false;
-                            keepXp = false;
+                            if ("charge-to-bypass".equalsIgnoreCase(mode)) {
+                                plugin.debug("Bypass mode: Payment failed, items will drop.");
+                            } else {
+                                keepItems = false;
+                                keepXp = false;
+                            }
                         } else {
                             String msg = plugin.getMessage("economy.paid")
                                 .replace("{amount}", eco.format(cost));
                             player.sendMessage(plugin.parseMessage(msg));
+                            if ("charge-to-bypass".equalsIgnoreCase(mode)) {
+                                plugin.debug("Bypass mode: Payment successful, keeping items.");
+                                keepItems = true;
+                                keepXp = true;
+                            }
                         }
                     }
                 } else {
@@ -98,7 +124,7 @@ public class DeathListener implements Listener {
                 }
             }
         } else {
-            plugin.debug("Economy check skipped. KeepItems=" + keepItems + ", KeepXP=" + keepXp + ", EcoEnabled=" + plugin.getConfig().getBoolean("advanced.economy.enabled", false));
+            plugin.debug("Economy check skipped. EcoEnabled=" + plugin.getConfig().getBoolean("advanced.economy.enabled", false));
         }
 
         plugin.debug("Final decision: keepItems=" + keepItems + ", keepXp=" + keepXp);

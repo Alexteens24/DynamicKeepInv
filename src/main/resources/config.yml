@@ -64,6 +64,10 @@ advanced:
     enabled: false
     # Cost to keep inventory/xp when the plugin saves it via Advanced settings
     cost: 100.0
+    # Economy mode:
+    # - "charge-to-keep": Only charge when player would keep items anyway (pay for the privilege)
+    # - "charge-to-bypass": Allow players to PAY to keep items even when they would normally lose them
+    mode: "charge-to-keep"
     
   # Death Cause Settings
   # Define specific rules based on how the player died.
