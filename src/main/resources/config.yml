@@ -59,6 +59,34 @@ advanced:
   # regardless of the time or world settings.
   bypass-permission: true
   
+  # Land Protection Plugin Integration
+  # Settings based on land/claim protection plugins (Lands, GriefPrevention)
+  # These settings are checked FIRST and override time-based and death-cause settings
+  protection:
+    # Lands Plugin Integration (https://www.spigotmc.org/resources/lands.53313/)
+    lands:
+      enabled: false
+      # Settings when dying in YOUR OWN land or land you're trusted in
+      in-own-land:
+        keep-items: true
+        keep-xp: true
+      # Settings when dying in SOMEONE ELSE'S land
+      in-other-land:
+        keep-items: false
+        keep-xp: false
+    
+    # GriefPrevention Plugin Integration (https://www.spigotmc.org/resources/griefprevention.1884/)
+    griefprevention:
+      enabled: false
+      # Settings when dying in YOUR OWN claim or claim you have access to
+      in-own-claim:
+        keep-items: true
+        keep-xp: true
+      # Settings when dying in SOMEONE ELSE'S claim
+      in-other-claim:
+        keep-items: false
+        keep-xp: false
+  
   # Economy settings (Vault required)
   economy:
     enabled: false

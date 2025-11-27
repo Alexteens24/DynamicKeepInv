@@ -1,11 +1,14 @@
 package xyz.superez.dynamickeepinv;
 
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import xyz.superez.dynamickeepinv.hooks.LandsHook;
+import xyz.superez.dynamickeepinv.hooks.GriefPreventionHook;
 
 public class DeathListener implements Listener {
     private final DynamicKeepInvPlugin plugin;
@@ -22,6 +25,7 @@ public class DeathListener implements Listener {
 
         Player player = event.getEntity();
         World world = player.getWorld();
+        Location deathLocation = player.getLocation();
 
         if (!plugin.isWorldEnabled(world)) {
             return;
@@ -40,6 +44,13 @@ public class DeathListener implements Listener {
                 }
                 return;
             }
+        }
+
+        ProtectionResult protectionResult = checkProtectionPlugins(player, deathLocation);
+        if (protectionResult.handled) {
+            plugin.debug("Death handled by protection plugin: keepItems=" + protectionResult.keepItems + ", keepXp=" + protectionResult.keepXp);
+            applyKeepInventorySettings(event, protectionResult.keepItems, protectionResult.keepXp);
+            return;
         }
 
         long time = world.getTime();
@@ -128,7 +139,48 @@ public class DeathListener implements Listener {
         }
 
         plugin.debug("Final decision: keepItems=" + keepItems + ", keepXp=" + keepXp);
+        applyKeepInventorySettings(event, keepItems, keepXp);
+    }
+    
+    private ProtectionResult checkProtectionPlugins(Player player, Location location) {
+        if (plugin.isLandsEnabled() && plugin.getConfig().getBoolean("advanced.protection.lands.enabled", false)) {
+            LandsHook lands = plugin.getLandsHook();
+            if (lands.isInLand(location)) {
+                plugin.debug("Player died in a Lands area: " + lands.getLandName(location));
+                
+                boolean isOwnLand = lands.isInOwnLand(player);
+                String configPath = isOwnLand ? "advanced.protection.lands.in-own-land" : "advanced.protection.lands.in-other-land";
+                
+                if (plugin.getConfig().contains(configPath)) {
+                    boolean keepItems = plugin.getConfig().getBoolean(configPath + ".keep-items", false);
+                    boolean keepXp = plugin.getConfig().getBoolean(configPath + ".keep-xp", false);
+                    plugin.debug("Lands settings for " + (isOwnLand ? "own" : "other") + " land: keepItems=" + keepItems + ", keepXp=" + keepXp);
+                    return new ProtectionResult(true, keepItems, keepXp);
+                }
+            }
+        }
         
+        if (plugin.isGriefPreventionEnabled() && plugin.getConfig().getBoolean("advanced.protection.griefprevention.enabled", false)) {
+            GriefPreventionHook gp = plugin.getGriefPreventionHook();
+            if (gp.isInClaim(location)) {
+                plugin.debug("Player died in a GriefPrevention claim owned by: " + gp.getClaimOwnerName(location));
+                
+                boolean isOwnClaim = gp.isInOwnClaim(player);
+                String configPath = isOwnClaim ? "advanced.protection.griefprevention.in-own-claim" : "advanced.protection.griefprevention.in-other-claim";
+                
+                if (plugin.getConfig().contains(configPath)) {
+                    boolean keepItems = plugin.getConfig().getBoolean(configPath + ".keep-items", false);
+                    boolean keepXp = plugin.getConfig().getBoolean(configPath + ".keep-xp", false);
+                    plugin.debug("GriefPrevention settings for " + (isOwnClaim ? "own" : "other") + " claim: keepItems=" + keepItems + ", keepXp=" + keepXp);
+                    return new ProtectionResult(true, keepItems, keepXp);
+                }
+            }
+        }
+        
+        return new ProtectionResult(false, false, false);
+    }
+    
+    private void applyKeepInventorySettings(PlayerDeathEvent event, boolean keepItems, boolean keepXp) {
         if (keepItems) {
             event.setKeepInventory(true);
             if (event.getDrops() != null) {
@@ -143,6 +195,18 @@ public class DeathListener implements Listener {
             event.setDroppedExp(0);
         } else {
             event.setKeepLevel(false);
+        }
+    }
+    
+    private static class ProtectionResult {
+        final boolean handled;
+        final boolean keepItems;
+        final boolean keepXp;
+        
+        ProtectionResult(boolean handled, boolean keepItems, boolean keepXp) {
+            this.handled = handled;
+            this.keepItems = keepItems;
+            this.keepXp = keepXp;
         }
     }
 }

@@ -20,6 +20,9 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
 import org.bukkit.entity.Player;
 
+import xyz.superez.dynamickeepinv.hooks.LandsHook;
+import xyz.superez.dynamickeepinv.hooks.GriefPreventionHook;
+
 import java.io.File;
 import java.time.Duration;
 import java.util.List;
@@ -54,6 +57,9 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     
     private volatile EconomyManager economyManager;
     private final AtomicLong nextEconomyRetryTimeMs = new AtomicLong(0L);
+    
+    private LandsHook landsHook;
+    private GriefPreventionHook griefPreventionHook;
 
     @Override
     public void onEnable() {
@@ -63,6 +69,13 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         
         if (getConfig().getBoolean("advanced.economy.enabled", false)) {
             getEconomyManager();
+        }
+        
+        if (getConfig().getBoolean("advanced.protection.lands.enabled", false)) {
+            landsHook = new LandsHook(this);
+        }
+        if (getConfig().getBoolean("advanced.protection.griefprevention.enabled", false)) {
+            griefPreventionHook = new GriefPreventionHook(this);
         }
 
         getServer().getPluginManager().registerEvents(new WorldListener(this), this);
@@ -488,5 +501,21 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         if (getConfig().getBoolean("debug", false)) {
             getLogger().log(Level.INFO, "[DEBUG] " + message);
         }
+    }
+    
+    public LandsHook getLandsHook() {
+        return landsHook;
+    }
+    
+    public GriefPreventionHook getGriefPreventionHook() {
+        return griefPreventionHook;
+    }
+    
+    public boolean isLandsEnabled() {
+        return landsHook != null && landsHook.isAvailable();
+    }
+    
+    public boolean isGriefPreventionEnabled() {
+        return griefPreventionHook != null && griefPreventionHook.isAvailable();
     }
 }

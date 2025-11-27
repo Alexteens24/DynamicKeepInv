@@ -46,6 +46,18 @@ messages:
       paid: "&aYou paid &6{amount} &ato keep your inventory."
       not-enough-money: "&cYou did not have enough money ({amount}) to keep your inventory!"
       payment-failed: "&cPayment could not be processed ({amount}). Your inventory will be dropped."
+    
+    protection:
+      lands:
+        own-land-keep: "&aYou died in your own land. Inventory preserved!"
+        other-land-keep: "&aYou died in {land}'s land. Inventory preserved!"
+        own-land-lost: "&cYou died in your own land. Inventory dropped!"
+        other-land-lost: "&cYou died in {land}'s land. Inventory dropped!"
+      griefprevention:
+        own-claim-keep: "&aYou died in your own claim. Inventory preserved!"
+        other-claim-keep: "&aYou died in {owner}'s claim. Inventory preserved!"
+        own-claim-lost: "&cYou died in your own claim. Inventory dropped!"
+        other-claim-lost: "&cYou died in {owner}'s claim. Inventory dropped!"
   
   # Vietnamese Messages
   vi:
@@ -87,3 +99,15 @@ messages:
       paid: "&aBạn đã trả &6{amount} &ađể giữ lại kho đồ."
       not-enough-money: "&cBạn không đủ tiền ({amount}) để giữ lại kho đồ!"
       payment-failed: "&cThanh toán ({amount}) thất bại. Kho đồ của bạn sẽ bị rơi."
+    
+    protection:
+      lands:
+        own-land-keep: "&aBạn chết trong vùng đất của mình. Kho đồ được giữ lại!"
+        other-land-keep: "&aBạn chết trong vùng đất của {land}. Kho đồ được giữ lại!"
+        own-land-lost: "&cBạn chết trong vùng đất của mình. Kho đồ bị rơi!"
+        other-land-lost: "&cBạn chết trong vùng đất của {land}. Kho đồ bị rơi!"
+      griefprevention:
+        own-claim-keep: "&aBạn chết trong claim của mình. Kho đồ được giữ lại!"
+        other-claim-keep: "&aBạn chết trong claim của {owner}. Kho đồ được giữ lại!"
+        own-claim-lost: "&cBạn chết trong claim của mình. Kho đồ bị rơi!"
+        other-claim-lost: "&cBạn chết trong claim của {owner}. Kho đồ bị rơi!"

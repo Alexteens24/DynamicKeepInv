@@ -6,7 +6,7 @@
 
     <groupId>xyz.superez</groupId>
     <artifactId>DynamicKeepInv</artifactId>
-    <version>1.0.6</version>
+    <version>1.0.7</version>
     <packaging>jar</packaging>
 
     <name>DynamicKeepInv</name>
@@ -14,7 +14,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>21</maven.compiler.release>
+        <maven.compiler.release>17</maven.compiler.release>
     </properties>
 
     <repositories>
@@ -31,11 +31,11 @@
     </repositories>
 
     <dependencies>
-        <!-- Paper API - Support 1.19+ with Folia compatibility -->
+        <!-- Paper API - Support 1.20.4+ with Folia compatibility -->
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>1.20.6-R0.1-SNAPSHOT</version>
+            <version>1.20.4-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
 
@@ -44,6 +44,22 @@
             <groupId>com.github.MilkBowl</groupId>
             <artifactId>VaultAPI</artifactId>
             <version>1.7</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Lands API -->
+        <dependency>
+            <groupId>com.github.angeschossen</groupId>
+            <artifactId>LandsAPI</artifactId>
+            <version>7.10.13</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- GriefPrevention API -->
+        <dependency>
+            <groupId>com.github.GriefPrevention</groupId>
+            <artifactId>GriefPrevention</artifactId>
+            <version>16.18.2</version>
             <scope>provided</scope>
         </dependency>
 
@@ -58,8 +74,8 @@
         <!-- MockBukkit for Minecraft plugin testing -->
         <dependency>
             <groupId>com.github.seeseemelk</groupId>
-            <artifactId>MockBukkit-v1.21</artifactId>
-            <version>3.122.0</version>
+            <artifactId>MockBukkit-v1.20</artifactId>
+            <version>3.86.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
