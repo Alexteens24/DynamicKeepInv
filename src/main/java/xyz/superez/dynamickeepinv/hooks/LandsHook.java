@@ -9,7 +9,7 @@ import xyz.superez.dynamickeepinv.DynamicKeepInvPlugin;
 public class LandsHook {
     private final DynamicKeepInvPlugin plugin;
     private LandsIntegration landsApi;
-    private boolean enabled = false;
+    private volatile boolean enabled = false;
 
     public LandsHook(DynamicKeepInvPlugin plugin) {
         this.plugin = plugin;

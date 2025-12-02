@@ -10,7 +10,7 @@ import xyz.superez.dynamickeepinv.DynamicKeepInvPlugin;
 public class GriefPreventionHook {
     private final DynamicKeepInvPlugin plugin;
     private GriefPrevention gp;
-    private boolean enabled = false;
+    private volatile boolean enabled = false;
 
     public GriefPreventionHook(DynamicKeepInvPlugin plugin) {
         this.plugin = plugin;

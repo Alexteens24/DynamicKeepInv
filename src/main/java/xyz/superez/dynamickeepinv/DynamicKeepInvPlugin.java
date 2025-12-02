@@ -56,6 +56,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private static final long ECONOMY_RETRY_DELAY_MS = 10000;
     
     private volatile EconomyManager economyManager;
+    private final Object economyLock = new Object();
     private final AtomicLong nextEconomyRetryTimeMs = new AtomicLong(0L);
     private static final int CONFIG_VERSION = 1;
     
@@ -68,17 +69,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         saveDefaultConfig();
         checkConfigVersion();
         loadMessages();
-        
-        if (getConfig().getBoolean("advanced.economy.enabled", false)) {
-            getEconomyManager();
-        }
-        
-        if (getConfig().getBoolean("advanced.protection.lands.enabled", false)) {
-            landsHook = new LandsHook(this);
-        }
-        if (getConfig().getBoolean("advanced.protection.griefprevention.enabled", false)) {
-            griefPreventionHook = new GriefPreventionHook(this);
-        }
+        reloadIntegrations();
 
         getServer().getPluginManager().registerEvents(new WorldListener(this), this);
         getServer().getPluginManager().registerEvents(new DeathListener(this), this);
@@ -121,24 +112,31 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             return economyManager;
         }
 
-        if (economyManager == null) {
-            synchronized (this) {
-                if (economyManager == null) {
-                    economyManager = new EconomyManager(this);
-                    economyManager.setupEconomy();
+        EconomyManager localRef = economyManager;
+        if (localRef == null) {
+            synchronized (economyLock) {
+                localRef = economyManager;
+                if (localRef == null) {
+                    localRef = new EconomyManager(this);
+                    localRef.setupEconomy();
+                    economyManager = localRef;
                 }
             }
         }
 
-        if (!economyManager.isEnabled()) {
+        if (!localRef.isEnabled()) {
             long now = System.currentTimeMillis();
             if (now >= nextEconomyRetryTimeMs.get()) {
-                nextEconomyRetryTimeMs.set(now + ECONOMY_RETRY_DELAY_MS);
-                economyManager.setupEconomy();
+                synchronized (economyLock) {
+                    if (now >= nextEconomyRetryTimeMs.get()) {
+                        nextEconomyRetryTimeMs.set(now + ECONOMY_RETRY_DELAY_MS);
+                        localRef.setupEconomy();
+                    }
+                }
             }
         }
 
-        return economyManager;
+        return localRef;
     }
 
     public boolean isWorldEnabled(World world) {
@@ -177,6 +175,29 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
         messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
         lang = messagesConfig.getString("language", "vi");
+    }
+
+    private void reloadIntegrations() {
+        boolean economyEnabled = getConfig().getBoolean("advanced.economy.enabled", false);
+        synchronized (economyLock) {
+            economyManager = null;
+            nextEconomyRetryTimeMs.set(0L);
+        }
+        if (economyEnabled) {
+            getEconomyManager();
+        }
+
+        if (getConfig().getBoolean("advanced.protection.lands.enabled", false)) {
+            landsHook = new LandsHook(this);
+        } else {
+            landsHook = null;
+        }
+
+        if (getConfig().getBoolean("advanced.protection.griefprevention.enabled", false)) {
+            griefPreventionHook = new GriefPreventionHook(this);
+        } else {
+            griefPreventionHook = null;
+        }
     }
     
     public String getMessage(String path) {
@@ -359,11 +380,28 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     private void rememberOriginalGameRule(World world, Boolean currentValue) {
-        originalKeepInvValues.computeIfAbsent(world.getName(), k -> currentValue);
+        if (world == null) {
+            return;
+        }
+
+        String worldName = world.getName();
+        if (originalKeepInvValues.containsKey(worldName)) {
+            return;
+        }
+
+        Boolean valueToStore = currentValue;
+        if (valueToStore == null) {
+            valueToStore = Boolean.FALSE;
+            debug("World " + worldName + " reported null keepInventory, defaulting to false for restoration");
+        }
+
+        originalKeepInvValues.put(worldName, valueToStore);
     }
 
     private void restoreOriginalGamerules() {
         for (World world : Bukkit.getWorlds()) {
+            if (world == null) continue;
+            
             String worldName = world.getName();
             if (!originalKeepInvValues.containsKey(worldName)) {
                 continue;
@@ -371,14 +409,18 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
             Boolean originalValue = originalKeepInvValues.get(worldName);
             if (originalValue != null) {
-                if (isFolia && !isShuttingDown) {
-                    Bukkit.getRegionScheduler().execute(this, world.getSpawnLocation(), () -> {
+                try {
+                    if (isFolia && !isShuttingDown) {
+                        Bukkit.getRegionScheduler().execute(this, world.getSpawnLocation(), () -> {
+                            world.setGameRule(GameRule.KEEP_INVENTORY, originalValue);
+                            getLogger().info("Restored keepInventory for " + worldName + " to " + originalValue);
+                        });
+                    } else {
                         world.setGameRule(GameRule.KEEP_INVENTORY, originalValue);
                         getLogger().info("Restored keepInventory for " + worldName + " to " + originalValue);
-                    });
-                } else {
-                    world.setGameRule(GameRule.KEEP_INVENTORY, originalValue);
-                    getLogger().info("Restored keepInventory for " + worldName + " to " + originalValue);
+                    }
+                } catch (Exception e) {
+                    getLogger().warning("Failed to restore gamerule for " + worldName + ": " + e.getMessage());
                 }
             } else {
                 debug("Original value for " + worldName + " was null, leaving unchanged");
@@ -415,6 +457,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             case "reload":
                 reloadConfig();
                 loadMessages();
+                reloadIntegrations();
                 if (getConfig().getBoolean("enabled", true)) {
                     startChecking();
                 } else {

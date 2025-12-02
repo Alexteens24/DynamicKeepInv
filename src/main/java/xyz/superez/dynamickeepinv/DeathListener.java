@@ -32,6 +32,8 @@ public class DeathListener implements Listener {
         }
 
         plugin.debug("Advanced death handling triggered for " + player.getName());
+        plugin.debug("Current gamerule KEEP_INVENTORY: " + world.getGameRuleValue(org.bukkit.GameRule.KEEP_INVENTORY));
+        plugin.debug("Event keepInventory before processing: " + event.getKeepInventory());
 
         if (plugin.getConfig().getBoolean("advanced.bypass-permission", true)) {
             if (player.hasPermission("dynamickeepinv.bypass")) {
@@ -70,11 +72,20 @@ public class DeathListener implements Listener {
         if (plugin.getConfig().getBoolean("advanced.death-cause.enabled", false)) {
             boolean isPvp = player.getKiller() != null;
             String causePath = isPvp ? "advanced.death-cause.pvp" : "advanced.death-cause.pve";
-            plugin.debug("Death cause enabled. isPvp=" + isPvp);
+            plugin.debug("Death cause enabled. isPvp=" + isPvp + " (cause: " + (isPvp ? "PvP" : "PvE") + ")");
             
+            boolean oldKeepItems = keepItems;
+            boolean oldKeepXp = keepXp;
             keepItems = plugin.getConfig().getBoolean(causePath + ".keep-items", keepItems);
             keepXp = plugin.getConfig().getBoolean(causePath + ".keep-xp", keepXp);
+            
+            if (oldKeepItems != keepItems || oldKeepXp != keepXp) {
+                plugin.debug("Death cause OVERRIDE: keepItems " + oldKeepItems + " -> " + keepItems + ", keepXp " + oldKeepXp + " -> " + keepXp);
+            }
         }
+
+        final boolean baseKeepItems = keepItems;
+        final boolean baseKeepXp = keepXp;
 
         if (plugin.getConfig().getBoolean("advanced.economy.enabled", false)) {
             double cost = plugin.getConfig().getDouble("advanced.economy.cost", 0.0);
@@ -83,9 +94,11 @@ public class DeathListener implements Listener {
             
             boolean shouldProcessEconomy = false;
             if ("charge-to-bypass".equalsIgnoreCase(mode)) {
+                // Bypass mode: charge player to KEEP items when they would normally DROP
                 shouldProcessEconomy = !keepItems || !keepXp;
                 plugin.debug("Bypass mode check: keepItems=" + keepItems + ", keepXp=" + keepXp + ", shouldProcess=" + shouldProcessEconomy);
             } else {
+                // Charge-to-keep mode: charge player when they WOULD keep items
                 shouldProcessEconomy = keepItems || keepXp;
             }
             
@@ -100,8 +113,11 @@ public class DeathListener implements Listener {
                                 .replace("{amount}", eco.format(cost));
                         player.sendMessage(plugin.parseMessage(msg));
                         if ("charge-to-bypass".equalsIgnoreCase(mode)) {
-                            plugin.debug("Bypass mode: Player cannot afford, items will drop.");
+                            plugin.debug("Bypass mode: Player cannot afford, using original keep settings.");
+                            keepItems = baseKeepItems;
+                            keepXp = baseKeepXp;
                         } else {
+                            // charge-to-keep mode: can't pay = can't keep
                             keepItems = false;
                             keepXp = false;
                         }
@@ -114,7 +130,9 @@ public class DeathListener implements Listener {
                                 .replace("{amount}", eco.format(cost));
                             player.sendMessage(plugin.parseMessage(msg));
                             if ("charge-to-bypass".equalsIgnoreCase(mode)) {
-                                plugin.debug("Bypass mode: Payment failed, items will drop.");
+                                plugin.debug("Bypass mode: Payment failed, reverting to original keep settings.");
+                                keepItems = baseKeepItems;
+                                keepXp = baseKeepXp;
                             } else {
                                 keepItems = false;
                                 keepXp = false;
@@ -128,6 +146,7 @@ public class DeathListener implements Listener {
                                 keepItems = true;
                                 keepXp = true;
                             }
+                            // charge-to-keep mode: payment success, keepItems/keepXp stay as configured
                         }
                     }
                 } else {
@@ -139,13 +158,21 @@ public class DeathListener implements Listener {
         }
 
         plugin.debug("Final decision: keepItems=" + keepItems + ", keepXp=" + keepXp);
+        plugin.debug("Event keepInventory after processing: " + event.getKeepInventory());
         applyKeepInventorySettings(event, keepItems, keepXp);
+        plugin.debug("Event keepInventory FINAL: " + event.getKeepInventory());
     }
     
     private ProtectionResult checkProtectionPlugins(Player player, Location location) {
+        plugin.debug("Checking protection plugins...");
+        plugin.debug("Lands hook available: " + plugin.isLandsEnabled() + ", Config enabled: " + plugin.getConfig().getBoolean("advanced.protection.lands.enabled", false));
+        
         if (plugin.isLandsEnabled() && plugin.getConfig().getBoolean("advanced.protection.lands.enabled", false)) {
             LandsHook lands = plugin.getLandsHook();
-            if (lands.isInLand(location)) {
+            boolean inLand = lands.isInLand(location);
+            plugin.debug("Player in Lands area: " + inLand);
+            
+            if (inLand) {
                 plugin.debug("Player died in a Lands area: " + lands.getLandName(location));
                 
                 boolean isOwnLand = lands.isInOwnLand(player);
@@ -157,6 +184,8 @@ public class DeathListener implements Listener {
                     plugin.debug("Lands settings for " + (isOwnLand ? "own" : "other") + " land: keepItems=" + keepItems + ", keepXp=" + keepXp);
                     return new ProtectionResult(true, keepItems, keepXp);
                 }
+            } else {
+                plugin.debug("Player died in WILDERNESS (outside any land)");
             }
         }
         
@@ -181,13 +210,52 @@ public class DeathListener implements Listener {
     }
     
     private void applyKeepInventorySettings(PlayerDeathEvent event, boolean keepItems, boolean keepXp) {
+        Player player = event.getEntity();
+        plugin.debug("applyKeepInventorySettings: keepItems=" + keepItems + ", keepXp=" + keepXp);
+        plugin.debug("Current drops size: " + (event.getDrops() != null ? event.getDrops().size() : "null"));
+        plugin.debug("Current keepInventory: " + event.getKeepInventory());
+        
         if (keepItems) {
             event.setKeepInventory(true);
             if (event.getDrops() != null) {
                 event.getDrops().clear();
             }
+            plugin.debug("Set to KEEP inventory");
         } else {
             event.setKeepInventory(false);
+            
+            // Only force add inventory to drops if drops list is EMPTY
+            // AND the gamerule keepInventory was true (server didn't create drops)
+            // This prevents duplication when server already created drops
+            Boolean gameruleKeepInv = player.getWorld().getGameRuleValue(org.bukkit.GameRule.KEEP_INVENTORY);
+            boolean wasKeepingInventory = gameruleKeepInv != null && gameruleKeepInv;
+            if (event.getDrops() != null && event.getDrops().isEmpty() && wasKeepingInventory) {
+                plugin.debug("Drops empty and gamerule was keepInventory=true, forcing inventory to drops...");
+                int addedItems = 0;
+                for (org.bukkit.inventory.ItemStack item : player.getInventory().getContents()) {
+                    if (item != null && !item.getType().isAir()) {
+                        event.getDrops().add(item.clone());
+                        addedItems++;
+                    }
+                }
+                for (org.bukkit.inventory.ItemStack item : player.getInventory().getArmorContents()) {
+                    if (item != null && !item.getType().isAir()) {
+                        event.getDrops().add(item.clone());
+                        addedItems++;
+                    }
+                }
+                org.bukkit.inventory.ItemStack offhand = player.getInventory().getItemInOffHand();
+                if (offhand != null && !offhand.getType().isAir()) {
+                    event.getDrops().add(offhand.clone());
+                    addedItems++;
+                }
+                plugin.debug("Added " + addedItems + " items to drops");
+                player.getInventory().clear();
+            } else {
+                int dropSize = (event.getDrops() != null) ? event.getDrops().size() : 0;
+                plugin.debug("Drops already exist (" + dropSize + " items), skipping force drop");
+            }
+            plugin.debug("Set to DROP inventory");
         }
 
         if (keepXp) {
@@ -195,6 +263,12 @@ public class DeathListener implements Listener {
             event.setDroppedExp(0);
         } else {
             event.setKeepLevel(false);
+            // Force drop XP if gamerule was keeping it (droppedExp would be 0)
+            if (event.getDroppedExp() == 0) {
+                int level = player.getLevel();
+                int exp = Math.min(level * 7, 100);
+                event.setDroppedExp(exp);
+            }
         }
     }
     

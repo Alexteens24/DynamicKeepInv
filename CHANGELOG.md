@@ -1,4 +1,10 @@
 # Changelog
+## [1.0.8] - 2025-12-02
+- Fixed thread-safety issues with protection hooks on Folia
+- Fixed item duplication bug when forcing inventory drops
+- Improved reload command to reinitialize economy and protection hooks
+- Fixed null gamerule handling that could crash the scheduler
+
 ## [1.0.7] - 2025-11-27
 - Add Lands plugin integration for land-based keep inventory
 - Add GriefPrevention plugin integration for claim-based settings
