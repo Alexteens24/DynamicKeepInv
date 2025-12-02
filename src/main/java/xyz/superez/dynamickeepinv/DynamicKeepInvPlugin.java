@@ -90,10 +90,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         
         if (originalKeepInvValues.containsKey(worldName)) {
             Boolean originalValue = originalKeepInvValues.get(worldName);
-            if (originalValue != null) {
-                world.setGameRule(GameRule.KEEP_INVENTORY, originalValue);
-                debug("Restored keepInventory for unloading world " + worldName + " to " + originalValue);
-            }
+            world.setGameRule(GameRule.KEEP_INVENTORY, originalValue);
+            debug("Restored keepInventory for unloading world " + worldName + " to " + originalValue);
             originalKeepInvValues.remove(worldName);
         }
         
@@ -297,11 +295,16 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         Sound sound = null;
         
         if (soundEnabled) {
-            try {
-                sound = Sound.valueOf(soundName);
-            } catch (Exception e) {
-                getLogger().warning("Invalid sound name: " + soundName);
+            if (soundName == null || soundName.isEmpty()) {
+                getLogger().warning("Sound name is not configured for " + (isDay ? "day" : "night"));
                 soundEnabled = false;
+            } else {
+                try {
+                    sound = Sound.valueOf(soundName);
+                } catch (IllegalArgumentException e) {
+                    getLogger().warning("Invalid sound name: " + soundName);
+                    soundEnabled = false;
+                }
             }
         }
 
@@ -334,7 +337,11 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     private void rememberOriginalGameRule(World world, Boolean currentValue) {
-        originalKeepInvValues.computeIfAbsent(world.getName(), k -> currentValue);
+        // Only remember if we haven't saved this world's value yet
+        // Use a default of false if currentValue is null (game rule was never set)
+        if (!originalKeepInvValues.containsKey(world.getName())) {
+            originalKeepInvValues.put(world.getName(), currentValue != null ? currentValue : Boolean.FALSE);
+        }
     }
 
     private void restoreOriginalGamerules() {
@@ -345,18 +352,14 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             }
 
             Boolean originalValue = originalKeepInvValues.get(worldName);
-            if (originalValue != null) {
-                if (isFolia && !isShuttingDown) {
-                    Bukkit.getRegionScheduler().execute(this, world.getSpawnLocation(), () -> {
-                        world.setGameRule(GameRule.KEEP_INVENTORY, originalValue);
-                        getLogger().info("Restored keepInventory for " + worldName + " to " + originalValue);
-                    });
-                } else {
+            if (isFolia && !isShuttingDown) {
+                Bukkit.getRegionScheduler().execute(this, world.getSpawnLocation(), () -> {
                     world.setGameRule(GameRule.KEEP_INVENTORY, originalValue);
                     getLogger().info("Restored keepInventory for " + worldName + " to " + originalValue);
-                }
+                });
             } else {
-                debug("Original value for " + worldName + " was null, leaving unchanged");
+                world.setGameRule(GameRule.KEEP_INVENTORY, originalValue);
+                getLogger().info("Restored keepInventory for " + worldName + " to " + originalValue);
             }
         }
 
@@ -390,6 +393,17 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             case "reload":
                 reloadConfig();
                 loadMessages();
+                
+                // Re-initialize economy manager if settings changed
+                if (getConfig().getBoolean("advanced.economy.enabled", false)) {
+                    synchronized (this) {
+                        if (economyManager == null) {
+                            economyManager = new EconomyManager(this);
+                        }
+                        economyManager.setupEconomy();
+                    }
+                }
+                
                 if (getConfig().getBoolean("enabled", true)) {
                     startChecking();
                 } else {
