@@ -123,6 +123,22 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
         return economyManager;
     }
+    
+    private void reloadEconomyManager() {
+        if (getConfig().getBoolean("advanced.economy.enabled", false)) {
+            synchronized (this) {
+                if (economyManager == null) {
+                    economyManager = new EconomyManager(this);
+                }
+                economyManager.setupEconomy();
+            }
+        } else {
+            // Economy was disabled - clear the reference
+            synchronized (this) {
+                economyManager = null;
+            }
+        }
+    }
 
     public boolean isWorldEnabled(World world) {
         List<String> enabledWorlds = getConfig().getStringList("enabled-worlds");
@@ -394,15 +410,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
                 reloadConfig();
                 loadMessages();
                 
-                // Re-initialize economy manager if settings changed
-                if (getConfig().getBoolean("advanced.economy.enabled", false)) {
-                    synchronized (this) {
-                        if (economyManager == null) {
-                            economyManager = new EconomyManager(this);
-                        }
-                        economyManager.setupEconomy();
-                    }
-                }
+                // Re-initialize or cleanup economy manager based on settings
+                reloadEconomyManager();
                 
                 if (getConfig().getBoolean("enabled", true)) {
                     startChecking();
