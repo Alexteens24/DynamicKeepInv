@@ -318,7 +318,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
                 try {
                     sound = Sound.valueOf(soundName);
                 } catch (IllegalArgumentException e) {
-                    getLogger().warning("Invalid sound name: " + soundName);
+                    getLogger().warning("Invalid sound name: " + soundName + ": " + e.getMessage());
                     soundEnabled = false;
                 }
             }
