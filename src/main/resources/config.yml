@@ -88,7 +88,11 @@ advanced:
   
   # Land Protection Plugin Integration
   # Settings based on land/claim protection plugins (Lands, GriefPrevention)
-  # These settings are checked FIRST and override time-based and death-cause settings
+  # Priority order:
+  #   1. Claimed areas (in-own-land, in-other-land) - HIGHEST, no override possible
+  #   2. Death Cause (PvP/PvE) - overrides wilderness and time-based
+  #   3. Wilderness settings - base values, can be overridden by death-cause
+  #   4. Time-based settings (day/night) - LOWEST priority
   protection:
     # Lands Plugin Integration (https://www.spigotmc.org/resources/lands.53313/)
     # WARNING: Lands plugin has its own keepInventory feature!
@@ -109,7 +113,9 @@ advanced:
         keep-items: false
         keep-xp: false
       # Settings when dying in WILDERNESS (outside any land)
-      # This is the main use case - Lands doesn't protect wilderness
+      # NOTE: Death-cause settings can OVERRIDE wilderness settings!
+      # Example: wilderness.keep-items=false but pvp.keep-items=true
+      #          -> PvP in wilderness will keep items
       wilderness:
         enabled: false
         keep-items: false
@@ -153,9 +159,13 @@ advanced:
     
   # Death Cause Settings
   # Define specific rules based on how the player died.
-  # WARNING: These settings OVERRIDE time-based settings (keep-inventory-day/night)!
-  # If you want day/night to control keepInventory, set death-cause.enabled to false.
-  # Priority order: Protection Plugins > Death Cause > Time-based settings
+  # These settings OVERRIDE wilderness and time-based settings!
+  # But claimed area settings (in-own-land, in-other-land) have higher priority.
+  # 
+  # Example with user config:
+  #   wilderness.keep-items: false, pvp.keep-items: true
+  #   -> PvP in wilderness = KEEP items (death-cause overrides)
+  #   -> PvE in wilderness = DROP items (uses wilderness setting)
   death-cause:
     enabled: false
     # Player vs Player

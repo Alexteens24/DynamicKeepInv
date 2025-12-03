@@ -1,4 +1,14 @@
 # Changelog
+## [1.0.10] - 2025-12-03
+### Bug Fixes
+- Fixed death-cause not overriding wilderness settings
+- PvP/PvE now correctly overrides wilderness keep-items/keep-xp
+- Claimed areas (in-own-land, in-other-land) still have highest priority
+
+### Improvements
+- Updated priority order documentation in config
+- Clearer comments explaining how settings interact
+
 ## [1.0.9] - 2025-12-03
 ### New Features
 - Added per-world settings (world-settings section)

@@ -50,25 +50,41 @@ public class DeathListener implements Listener {
         }
 
         ProtectionResult protectionResult = checkProtectionPlugins(player, deathLocation);
-        if (protectionResult.handled) {
-            plugin.debug("Death handled by protection plugin: keepItems=" + protectionResult.keepItems + ", keepXp=" + protectionResult.keepXp);
+        
+        // Protection plugins in claimed areas have highest priority - return immediately
+        if (protectionResult.handled && !protectionResult.reason.contains("wilderness")) {
+            plugin.debug("Death handled by protection plugin (claimed area): keepItems=" + protectionResult.keepItems + ", keepXp=" + protectionResult.keepXp);
             applyKeepInventorySettings(event, protectionResult.keepItems, protectionResult.keepXp);
             sendDeathMessage(player, protectionResult.keepItems, protectionResult.keepXp, protectionResult.reason);
             return;
         }
+        
+        // For wilderness, use protection settings as base but allow death-cause to override
+        boolean keepItems, keepXp;
+        String baseReason;
+        
+        if (protectionResult.handled) {
+            // Wilderness - use as base values
+            keepItems = protectionResult.keepItems;
+            keepXp = protectionResult.keepXp;
+            baseReason = protectionResult.reason;
+            plugin.debug("Wilderness base settings: keepItems=" + keepItems + ", keepXp=" + keepXp);
+        } else {
+            // No protection plugin handling - use time-based settings
+            long time = world.getTime();
+            long dayStart = plugin.getConfig().getLong("day-start", 0);
+            long nightStart = plugin.getConfig().getLong("night-start", 13000);
+            boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
+            
+            String settingPath = isDay ? "advanced.day" : "advanced.night";
+            boolean defaultKeepItems = getWorldKeepInventory(world, isDay);
+            keepItems = plugin.getConfig().getBoolean(settingPath + ".keep-items", defaultKeepItems);
+            keepXp = plugin.getConfig().getBoolean(settingPath + ".keep-xp", defaultKeepItems);
+            baseReason = isDay ? "time-day" : "time-night";
+            plugin.debug("Time-based settings: Time=" + time + ", isDay=" + isDay + ", keepItems=" + keepItems + ", keepXp=" + keepXp);
+        }
 
-        long time = world.getTime();
-        long dayStart = plugin.getConfig().getLong("day-start", 0);
-        long nightStart = plugin.getConfig().getLong("night-start", 13000);
-        boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
-        boolean isNight = !isDay;
-        plugin.debug("Death event: Time=" + time + ", dayStart=" + dayStart + ", nightStart=" + nightStart + ", isNight=" + isNight);
-
-        String settingPath = isNight ? "advanced.night" : "advanced.day";
-        boolean defaultKeepItems = getWorldKeepInventory(world, isDay);
-        boolean keepItems = plugin.getConfig().getBoolean(settingPath + ".keep-items", defaultKeepItems);
-        boolean keepXp = plugin.getConfig().getBoolean(settingPath + ".keep-xp", defaultKeepItems);
-
+        // Death cause can override both wilderness and time-based settings
         if (plugin.getConfig().getBoolean("advanced.death-cause.enabled", false)) {
             boolean isPvp = player.getKiller() != null;
             String causePath = isPvp ? "advanced.death-cause.pvp" : "advanced.death-cause.pve";
@@ -81,6 +97,7 @@ public class DeathListener implements Listener {
             
             if (oldKeepItems != keepItems || oldKeepXp != keepXp) {
                 plugin.debug("Death cause OVERRIDE: keepItems " + oldKeepItems + " -> " + keepItems + ", keepXp " + oldKeepXp + " -> " + keepXp);
+                baseReason = isPvp ? "pvp" : "pve";
             }
         }
 
@@ -165,10 +182,8 @@ public class DeathListener implements Listener {
         
         if (economyBypass) {
             reason = "economy-bypass";
-        } else if (plugin.getConfig().getBoolean("advanced.death-cause.enabled", false)) {
-            reason = (player.getKiller() != null) ? "pvp" : "pve";
         } else {
-            reason = isDay ? "time-day" : "time-night";
+            reason = baseReason;
         }
         sendDeathMessage(player, keepItems, keepXp, reason);
         
