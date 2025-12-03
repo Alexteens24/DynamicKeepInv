@@ -94,11 +94,9 @@ public class DeathListener implements Listener {
             
             boolean shouldProcessEconomy = false;
             if ("charge-to-bypass".equalsIgnoreCase(mode)) {
-                // Bypass mode: charge player to KEEP items when they would normally DROP
                 shouldProcessEconomy = !keepItems || !keepXp;
                 plugin.debug("Bypass mode check: keepItems=" + keepItems + ", keepXp=" + keepXp + ", shouldProcess=" + shouldProcessEconomy);
             } else {
-                // Charge-to-keep mode: charge player when they WOULD keep items
                 shouldProcessEconomy = keepItems || keepXp;
             }
             
@@ -117,7 +115,6 @@ public class DeathListener implements Listener {
                             keepItems = baseKeepItems;
                             keepXp = baseKeepXp;
                         } else {
-                            // charge-to-keep mode: can't pay = can't keep
                             keepItems = false;
                             keepXp = false;
                         }
@@ -146,7 +143,6 @@ public class DeathListener implements Listener {
                                 keepItems = true;
                                 keepXp = true;
                             }
-                            // charge-to-keep mode: payment success, keepItems/keepXp stay as configured
                         }
                     }
                 } else {
@@ -161,12 +157,11 @@ public class DeathListener implements Listener {
         plugin.debug("Event keepInventory after processing: " + event.getKeepInventory());
         applyKeepInventorySettings(event, keepItems, keepXp);
         
-        // Determine death message reason
         String reason;
         boolean economyBypass = plugin.getConfig().getBoolean("advanced.economy.enabled", false) 
                 && "charge-to-bypass".equalsIgnoreCase(plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep"))
                 && (keepItems || keepXp)
-                && (!baseKeepItems || !baseKeepXp); // Player originally wouldn't keep, but now does
+                && (!baseKeepItems || !baseKeepXp);
         
         if (economyBypass) {
             reason = "economy-bypass";
@@ -243,7 +238,6 @@ public class DeathListener implements Listener {
             plugin.debug("Player in Lands area: " + inLand + ", Override Lands settings: " + overrideLands);
             
             if (inLand) {
-                // If override-lands is false, let Lands handle keep inventory in claimed areas
                 if (!overrideLands) {
                     plugin.debug("In land but override-lands=false, letting Lands handle it.");
                     return new ProtectionResult(false, false, false, null);
@@ -263,7 +257,6 @@ public class DeathListener implements Listener {
                 }
             } else {
                 plugin.debug("Player died in WILDERNESS (outside any land)");
-                // Check wilderness config for Lands
                 if (plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.enabled", false)) {
                     boolean keepItems = plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.keep-items", false);
                     boolean keepXp = plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.keep-xp", false);
@@ -289,7 +282,6 @@ public class DeathListener implements Listener {
                     return new ProtectionResult(true, keepItems, keepXp, reason);
                 }
             } else {
-                // Check wilderness config for GriefPrevention
                 if (plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.enabled", false)) {
                     boolean keepItems = plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.keep-items", false);
                     boolean keepXp = plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.keep-xp", false);
@@ -317,9 +309,6 @@ public class DeathListener implements Listener {
         } else {
             event.setKeepInventory(false);
             
-            // Only force add inventory to drops if drops list is EMPTY
-            // AND the gamerule keepInventory was true (server didn't create drops)
-            // This prevents duplication when server already created drops
             Boolean gameruleKeepInv = player.getWorld().getGameRuleValue(org.bukkit.GameRule.KEEP_INVENTORY);
             boolean wasKeepingInventory = gameruleKeepInv != null && gameruleKeepInv;
             if (event.getDrops() != null && event.getDrops().isEmpty() && wasKeepingInventory) {
@@ -356,7 +345,6 @@ public class DeathListener implements Listener {
             event.setDroppedExp(0);
         } else {
             event.setKeepLevel(false);
-            // Force drop XP if gamerule was keeping it (droppedExp would be 0)
             if (event.getDroppedExp() == 0) {
                 int level = player.getLevel();
                 int exp = Math.min(level * 7, 100);

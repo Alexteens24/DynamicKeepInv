@@ -265,7 +265,6 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         long dayStart = getConfig().getLong("day-start", 0);
         long nightStart = getConfig().getLong("night-start", 13000);
         
-        // Custom gamerule change times (-1 means use day-start/night-start)
         long dayTrigger = getConfig().getLong("gamerule-change.day-trigger", -1);
         long nightTrigger = getConfig().getLong("gamerule-change.night-trigger", -1);
         if (dayTrigger < 0) dayTrigger = dayStart;
@@ -299,14 +298,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
         
         long time = world.getTime();
-        // Use dayStart/nightStart for determining "isDay" status (for messages/logic)
         boolean isDay = isTimeInRange(time, dayStart, nightStart);
-        
-        // Use custom trigger times for actually changing the gamerule
-        // This allows "grace periods" or delayed gamerule changes
         boolean shouldTriggerDay = isTimeInRange(time, dayTrigger, nightTrigger);
-        
-        // Check per-world settings first
         boolean shouldKeepInv = getWorldKeepInventory(world, shouldTriggerDay, keepInvDay, keepInvNight);
 
         Boolean currentKeepInv = world.getGameRuleValue(GameRule.KEEP_INVENTORY);
