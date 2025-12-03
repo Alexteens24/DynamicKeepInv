@@ -1,6 +1,6 @@
 # DynamicKeepInv Configuration
 # DO NOT EDIT THIS VALUE - Used for automatic config updates
-config-version: 1
+config-version: 2
 
 # Enable or disable the plugin functionality
 enabled: true
@@ -21,6 +21,18 @@ check-interval: 100
 #   - world
 #   - world_nether
 enabled-worlds: []
+
+# Per-world settings (override global keep-inventory-day/night)
+# If a world is listed here, it uses these settings instead of global ones
+# Example:
+# world-settings:
+#   world_nether:
+#     keep-inventory-day: false
+#     keep-inventory-night: false
+#   world_the_end:
+#     keep-inventory-day: true
+#     keep-inventory-night: true
+world-settings: {}
 
 # Debug mode - prints detailed logs
 debug: false
@@ -50,12 +62,25 @@ broadcast:
 day-start: 0
 night-start: 13000
 
+# Custom gamerule change times
+# By default, gamerule changes at day-start and night-start times.
+# Use these settings to customize when the gamerule actually changes.
+# This is useful if you want a "grace period" or different trigger times.
+# Set to -1 to use day-start/night-start values (default behavior)
+gamerule-change:
+  # Time when keepInventory turns ON (set to day-start value by default)
+  # Example: 1000 = slightly after sunrise
+  day-trigger: -1
+  # Time when keepInventory turns OFF (set to night-start value by default)  
+  # Example: 12500 = slightly before night
+  night-trigger: -1
+
 # Advanced Features
 # These settings allow for more granular control over what is kept/dropped.
 advanced:
   # Enable advanced features (listeners)
   # Enable advanced death handling features (requires testing in your environment).
-  enabled: true
+  enabled: false
   
   # If true, players with 'dynamickeepinv.bypass' permission will always keep inventory/xp
   # regardless of the time or world settings.
@@ -66,14 +91,27 @@ advanced:
   # These settings are checked FIRST and override time-based and death-cause settings
   protection:
     # Lands Plugin Integration (https://www.spigotmc.org/resources/lands.53313/)
+    # WARNING: Lands plugin has its own keepInventory feature!
+    # Only enable this if you want DynamicKeepInv to OVERRIDE Lands' settings.
+    # Recommended: Keep disabled and use Lands' built-in keep inventory instead.
     lands:
       enabled: false
+      # Override mode: If true, DynamicKeepInv settings override Lands' settings
+      # If false, only applies when Lands doesn't handle keep inventory
+      override-lands: false
       # Settings when dying in YOUR OWN land or land you're trusted in
+      # NOTE: Lands already has its own settings for this - consider using those instead
       in-own-land:
-        keep-items: true
-        keep-xp: true
+        keep-items: false
+        keep-xp: false
       # Settings when dying in SOMEONE ELSE'S land
       in-other-land:
+        keep-items: false
+        keep-xp: false
+      # Settings when dying in WILDERNESS (outside any land)
+      # This is the main use case - Lands doesn't protect wilderness
+      wilderness:
+        enabled: false
         keep-items: false
         keep-xp: false
     
@@ -88,6 +126,20 @@ advanced:
       in-other-claim:
         keep-items: false
         keep-xp: false
+      # Settings when dying in WILDERNESS (outside any claim)
+      # If not configured, falls back to time-based settings
+      wilderness:
+        enabled: false
+        keep-items: false
+        keep-xp: false
+  
+  # Death message settings - notify player about their inventory status on death
+  death-message:
+    enabled: true
+    # Show message in chat
+    chat: true
+    # Show message in action bar
+    action-bar: false
   
   # Economy settings (Vault required)
   economy:
@@ -101,7 +153,9 @@ advanced:
     
   # Death Cause Settings
   # Define specific rules based on how the player died.
-  # These settings override the time-based settings if enabled.
+  # WARNING: These settings OVERRIDE time-based settings (keep-inventory-day/night)!
+  # If you want day/night to control keepInventory, set death-cause.enabled to false.
+  # Priority order: Protection Plugins > Death Cause > Time-based settings
   death-cause:
     enabled: false
     # Player vs Player

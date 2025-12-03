@@ -58,7 +58,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private volatile EconomyManager economyManager;
     private final Object economyLock = new Object();
     private final AtomicLong nextEconomyRetryTimeMs = new AtomicLong(0L);
-    private static final int CONFIG_VERSION = 1;
+    private static final int CONFIG_VERSION = 2;
     
     private LandsHook landsHook;
     private GriefPreventionHook griefPreventionHook;
@@ -264,18 +264,26 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         boolean keepInvNight = getConfig().getBoolean("keep-inventory-night", false);
         long dayStart = getConfig().getLong("day-start", 0);
         long nightStart = getConfig().getLong("night-start", 13000);
+        
+        // Custom gamerule change times (-1 means use day-start/night-start)
+        long dayTrigger = getConfig().getLong("gamerule-change.day-trigger", -1);
+        long nightTrigger = getConfig().getLong("gamerule-change.night-trigger", -1);
+        if (dayTrigger < 0) dayTrigger = dayStart;
+        if (nightTrigger < 0) nightTrigger = nightStart;
 
         for (World world : Bukkit.getWorlds()) {
             if (shouldSkipWorld(world, enabledWorlds)) {
                 continue;
             }
 
+            final long finalDayTrigger = dayTrigger;
+            final long finalNightTrigger = nightTrigger;
             if (isFolia) {
                 final World currentWorld = world;
                 Bukkit.getRegionScheduler().execute(this, currentWorld.getSpawnLocation(), () ->
-                        processWorld(currentWorld, keepInvDay, keepInvNight, dayStart, nightStart));
+                        processWorld(currentWorld, keepInvDay, keepInvNight, dayStart, nightStart, finalDayTrigger, finalNightTrigger));
             } else {
-                processWorld(world, keepInvDay, keepInvNight, dayStart, nightStart);
+                processWorld(world, keepInvDay, keepInvNight, dayStart, nightStart, dayTrigger, nightTrigger);
             }
         }
     }
@@ -285,21 +293,28 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     private void processWorld(World world, boolean keepInvDay, boolean keepInvNight,
-                              long dayStart, long nightStart) {
+                              long dayStart, long nightStart, long dayTrigger, long nightTrigger) {
         if (isShuttingDown) {
             return;
         }
         
         long time = world.getTime();
+        // Use dayStart/nightStart for determining "isDay" status (for messages/logic)
         boolean isDay = isTimeInRange(time, dayStart, nightStart);
-        boolean shouldKeepInv = isDay ? keepInvDay : keepInvNight;
+        
+        // Use custom trigger times for actually changing the gamerule
+        // This allows "grace periods" or delayed gamerule changes
+        boolean shouldTriggerDay = isTimeInRange(time, dayTrigger, nightTrigger);
+        
+        // Check per-world settings first
+        boolean shouldKeepInv = getWorldKeepInventory(world, shouldTriggerDay, keepInvDay, keepInvNight);
 
         Boolean currentKeepInv = world.getGameRuleValue(GameRule.KEEP_INVENTORY);
         if (currentKeepInv == null || currentKeepInv != shouldKeepInv) {
             rememberOriginalGameRule(world, currentKeepInv);
             
-            debug(String.format("Updating World: %s, Time: %d, IsDay: %s, KeepInv: %s -> %s",
-                    world.getName(), time, isDay, currentKeepInv, shouldKeepInv));
+            debug(String.format("Updating World: %s, Time: %d, IsDay: %s, TriggerDay: %s, KeepInv: %s -> %s",
+                    world.getName(), time, isDay, shouldTriggerDay, currentKeepInv, shouldKeepInv));
             
             world.setGameRule(GameRule.KEEP_INVENTORY, shouldKeepInv);
 
@@ -550,6 +565,21 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
     public boolean isDayTime(long time) {
         return isTimeInRange(time, getConfig().getLong("day-start", 0), getConfig().getLong("night-start", 13000));
+    }
+    
+    private boolean getWorldKeepInventory(World world, boolean isDay, boolean globalKeepInvDay, boolean globalKeepInvNight) {
+        String worldName = world.getName();
+        String worldPath = "world-settings." + worldName;
+        
+        if (getConfig().contains(worldPath)) {
+            String timePath = isDay ? ".keep-inventory-day" : ".keep-inventory-night";
+            if (getConfig().contains(worldPath + timePath)) {
+                return getConfig().getBoolean(worldPath + timePath);
+            }
+        }
+        
+        // Fallback to global settings
+        return isDay ? globalKeepInvDay : globalKeepInvNight;
     }
 
     public void debug(String message) {

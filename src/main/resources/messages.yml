@@ -53,11 +53,27 @@ messages:
         other-land-keep: "&aYou died in {land}'s land. Inventory preserved!"
         own-land-lost: "&cYou died in your own land. Inventory dropped!"
         other-land-lost: "&cYou died in {land}'s land. Inventory dropped!"
+        wilderness-keep: "&aYou died in the wilderness. Inventory preserved!"
+        wilderness-lost: "&cYou died in the wilderness. Inventory dropped!"
       griefprevention:
         own-claim-keep: "&aYou died in your own claim. Inventory preserved!"
         other-claim-keep: "&aYou died in {owner}'s claim. Inventory preserved!"
         own-claim-lost: "&cYou died in your own claim. Inventory dropped!"
         other-claim-lost: "&cYou died in {owner}'s claim. Inventory dropped!"
+        wilderness-keep: "&aYou died in the wilderness. Inventory preserved!"
+        wilderness-lost: "&cYou died in the wilderness. Inventory dropped!"
+    
+    death:
+      keep-all: "&aYour inventory and XP have been preserved!"
+      keep-items: "&aYour inventory has been preserved! &c(XP dropped)"
+      keep-xp: "&aYour XP has been preserved! &c(Items dropped)"
+      lost-all: "&cYour inventory and XP have been dropped!"
+      bypass: "&aYou have bypass permission. Inventory preserved!"
+      economy-bypass: "&aYou paid to keep your items!"
+      time-day: "&7(Daytime protection)"
+      time-night: "&7(Nighttime - no protection)"
+      pvp: "&7(PvP death)"
+      pve: "&7(PvE death)"
   
   # Vietnamese Messages
   vi:
@@ -106,8 +122,24 @@ messages:
         other-land-keep: "&aBạn chết trong vùng đất của {land}. Kho đồ được giữ lại!"
         own-land-lost: "&cBạn chết trong vùng đất của mình. Kho đồ bị rơi!"
         other-land-lost: "&cBạn chết trong vùng đất của {land}. Kho đồ bị rơi!"
+        wilderness-keep: "&aBạn chết ở vùng hoang dã. Kho đồ được giữ lại!"
+        wilderness-lost: "&cBạn chết ở vùng hoang dã. Kho đồ bị rơi!"
       griefprevention:
         own-claim-keep: "&aBạn chết trong claim của mình. Kho đồ được giữ lại!"
         other-claim-keep: "&aBạn chết trong claim của {owner}. Kho đồ được giữ lại!"
         own-claim-lost: "&cBạn chết trong claim của mình. Kho đồ bị rơi!"
         other-claim-lost: "&cBạn chết trong claim của {owner}. Kho đồ bị rơi!"
+        wilderness-keep: "&aBạn chết ở vùng hoang dã. Kho đồ được giữ lại!"
+        wilderness-lost: "&cBạn chết ở vùng hoang dã. Kho đồ bị rơi!"
+    
+    death:
+      keep-all: "&aKho đồ và kinh nghiệm của bạn đã được giữ lại!"
+      keep-items: "&aKho đồ đã được giữ lại! &c(XP bị rơi)"
+      keep-xp: "&aXP đã được giữ lại! &c(Đồ bị rơi)"
+      lost-all: "&cKho đồ và kinh nghiệm của bạn đã bị rơi!"
+      bypass: "&aBạn có quyền bypass. Kho đồ được giữ lại!"
+      economy-bypass: "&aBạn đã trả tiền để giữ đồ!"
+      time-day: "&7(Bảo vệ ban ngày)"
+      time-night: "&7(Ban đêm - không bảo vệ)"
+      pvp: "&7(Chết do PvP)"
+      pve: "&7(Chết do PvE)"

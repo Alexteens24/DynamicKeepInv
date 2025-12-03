@@ -1,4 +1,24 @@
 # Changelog
+## [1.0.9] - 2025-12-03
+### New Features
+- Added per-world settings (world-settings section)
+- Added wilderness config for Lands/GriefPrevention
+- Added death message notifications (chat/action-bar)
+- Added custom gamerule change times (day-trigger/night-trigger)
+
+### Improvements
+- Advanced settings now disabled by default (safer for new users)
+- Nerfed Lands integration to avoid conflicts with Lands' built-in keepInventory
+- Added override-lands option for explicit control
+- Improved config comments explaining priority order
+- Fixed economy bypass death message reason
+
+### Config Changes
+- Config version updated to 2 (auto-migration supported)
+- Added gamerule-change section
+- Added death-message section
+- Added wilderness settings under protection plugins
+
 ## [1.0.8] - 2025-12-02
 - Fixed thread-safety issues with protection hooks on Folia
 - Fixed item duplication bug when forcing inventory drops

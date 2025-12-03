@@ -44,6 +44,7 @@ public class DeathListener implements Listener {
                 if (event.getDrops() != null) {
                     event.getDrops().clear();
                 }
+                sendDeathMessage(player, true, true, "bypass");
                 return;
             }
         }
@@ -52,6 +53,7 @@ public class DeathListener implements Listener {
         if (protectionResult.handled) {
             plugin.debug("Death handled by protection plugin: keepItems=" + protectionResult.keepItems + ", keepXp=" + protectionResult.keepXp);
             applyKeepInventorySettings(event, protectionResult.keepItems, protectionResult.keepXp);
+            sendDeathMessage(player, protectionResult.keepItems, protectionResult.keepXp, protectionResult.reason);
             return;
         }
 
@@ -63,9 +65,7 @@ public class DeathListener implements Listener {
         plugin.debug("Death event: Time=" + time + ", dayStart=" + dayStart + ", nightStart=" + nightStart + ", isNight=" + isNight);
 
         String settingPath = isNight ? "advanced.night" : "advanced.day";
-        boolean defaultKeepItems = isDay
-            ? plugin.getConfig().getBoolean("keep-inventory-day", true)
-            : plugin.getConfig().getBoolean("keep-inventory-night", false);
+        boolean defaultKeepItems = getWorldKeepInventory(world, isDay);
         boolean keepItems = plugin.getConfig().getBoolean(settingPath + ".keep-items", defaultKeepItems);
         boolean keepXp = plugin.getConfig().getBoolean(settingPath + ".keep-xp", defaultKeepItems);
 
@@ -160,7 +160,76 @@ public class DeathListener implements Listener {
         plugin.debug("Final decision: keepItems=" + keepItems + ", keepXp=" + keepXp);
         plugin.debug("Event keepInventory after processing: " + event.getKeepInventory());
         applyKeepInventorySettings(event, keepItems, keepXp);
+        
+        // Determine death message reason
+        String reason;
+        boolean economyBypass = plugin.getConfig().getBoolean("advanced.economy.enabled", false) 
+                && "charge-to-bypass".equalsIgnoreCase(plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep"))
+                && (keepItems || keepXp)
+                && (!baseKeepItems || !baseKeepXp); // Player originally wouldn't keep, but now does
+        
+        if (economyBypass) {
+            reason = "economy-bypass";
+        } else if (plugin.getConfig().getBoolean("advanced.death-cause.enabled", false)) {
+            reason = (player.getKiller() != null) ? "pvp" : "pve";
+        } else {
+            reason = isDay ? "time-day" : "time-night";
+        }
+        sendDeathMessage(player, keepItems, keepXp, reason);
+        
         plugin.debug("Event keepInventory FINAL: " + event.getKeepInventory());
+    }
+    
+    private boolean getWorldKeepInventory(World world, boolean isDay) {
+        String worldName = world.getName();
+        String worldPath = "world-settings." + worldName;
+        
+        if (plugin.getConfig().contains(worldPath)) {
+            String timePath = isDay ? ".keep-inventory-day" : ".keep-inventory-night";
+            if (plugin.getConfig().contains(worldPath + timePath)) {
+                return plugin.getConfig().getBoolean(worldPath + timePath);
+            }
+        }
+        
+        // Fallback to global settings
+        return isDay 
+            ? plugin.getConfig().getBoolean("keep-inventory-day", true)
+            : plugin.getConfig().getBoolean("keep-inventory-night", false);
+    }
+    
+    private void sendDeathMessage(Player player, boolean keepItems, boolean keepXp, String reason) {
+        if (!plugin.getConfig().getBoolean("advanced.death-message.enabled", true)) {
+            return;
+        }
+        
+        String messageKey;
+        if (keepItems && keepXp) {
+            messageKey = "death.keep-all";
+        } else if (keepItems) {
+            messageKey = "death.keep-items";
+        } else if (keepXp) {
+            messageKey = "death.keep-xp";
+        } else {
+            messageKey = "death.lost-all";
+        }
+        
+        if ("bypass".equals(reason)) {
+            messageKey = "death.bypass";
+        }
+        
+        String message = plugin.getMessage(messageKey);
+        String reasonMsg = plugin.getMessage("death." + reason);
+        if (reasonMsg != null && !reasonMsg.startsWith("Missing message:")) {
+            message = message + " " + reasonMsg;
+        }
+        
+        if (plugin.getConfig().getBoolean("advanced.death-message.chat", true)) {
+            player.sendMessage(plugin.parseMessage(message));
+        }
+        
+        if (plugin.getConfig().getBoolean("advanced.death-message.action-bar", false)) {
+            player.sendActionBar(plugin.parseMessage(message));
+        }
     }
     
     private ProtectionResult checkProtectionPlugins(Player player, Location location) {
@@ -170,9 +239,16 @@ public class DeathListener implements Listener {
         if (plugin.isLandsEnabled() && plugin.getConfig().getBoolean("advanced.protection.lands.enabled", false)) {
             LandsHook lands = plugin.getLandsHook();
             boolean inLand = lands.isInLand(location);
-            plugin.debug("Player in Lands area: " + inLand);
+            boolean overrideLands = plugin.getConfig().getBoolean("advanced.protection.lands.override-lands", false);
+            plugin.debug("Player in Lands area: " + inLand + ", Override Lands settings: " + overrideLands);
             
             if (inLand) {
+                // If override-lands is false, let Lands handle keep inventory in claimed areas
+                if (!overrideLands) {
+                    plugin.debug("In land but override-lands=false, letting Lands handle it.");
+                    return new ProtectionResult(false, false, false, null);
+                }
+                
                 plugin.debug("Player died in a Lands area: " + lands.getLandName(location));
                 
                 boolean isOwnLand = lands.isInOwnLand(player);
@@ -182,10 +258,18 @@ public class DeathListener implements Listener {
                     boolean keepItems = plugin.getConfig().getBoolean(configPath + ".keep-items", false);
                     boolean keepXp = plugin.getConfig().getBoolean(configPath + ".keep-xp", false);
                     plugin.debug("Lands settings for " + (isOwnLand ? "own" : "other") + " land: keepItems=" + keepItems + ", keepXp=" + keepXp);
-                    return new ProtectionResult(true, keepItems, keepXp);
+                    String reason = isOwnLand ? "lands-own" : "lands-other";
+                    return new ProtectionResult(true, keepItems, keepXp, reason);
                 }
             } else {
                 plugin.debug("Player died in WILDERNESS (outside any land)");
+                // Check wilderness config for Lands
+                if (plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.enabled", false)) {
+                    boolean keepItems = plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.keep-items", false);
+                    boolean keepXp = plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.keep-xp", false);
+                    plugin.debug("Lands wilderness settings: keepItems=" + keepItems + ", keepXp=" + keepXp);
+                    return new ProtectionResult(true, keepItems, keepXp, "lands-wilderness");
+                }
             }
         }
         
@@ -201,12 +285,21 @@ public class DeathListener implements Listener {
                     boolean keepItems = plugin.getConfig().getBoolean(configPath + ".keep-items", false);
                     boolean keepXp = plugin.getConfig().getBoolean(configPath + ".keep-xp", false);
                     plugin.debug("GriefPrevention settings for " + (isOwnClaim ? "own" : "other") + " claim: keepItems=" + keepItems + ", keepXp=" + keepXp);
-                    return new ProtectionResult(true, keepItems, keepXp);
+                    String reason = isOwnClaim ? "gp-own" : "gp-other";
+                    return new ProtectionResult(true, keepItems, keepXp, reason);
+                }
+            } else {
+                // Check wilderness config for GriefPrevention
+                if (plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.enabled", false)) {
+                    boolean keepItems = plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.keep-items", false);
+                    boolean keepXp = plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.keep-xp", false);
+                    plugin.debug("GriefPrevention wilderness settings: keepItems=" + keepItems + ", keepXp=" + keepXp);
+                    return new ProtectionResult(true, keepItems, keepXp, "gp-wilderness");
                 }
             }
         }
         
-        return new ProtectionResult(false, false, false);
+        return new ProtectionResult(false, false, false, null);
     }
     
     private void applyKeepInventorySettings(PlayerDeathEvent event, boolean keepItems, boolean keepXp) {
@@ -276,11 +369,13 @@ public class DeathListener implements Listener {
         final boolean handled;
         final boolean keepItems;
         final boolean keepXp;
+        final String reason;
         
-        ProtectionResult(boolean handled, boolean keepItems, boolean keepXp) {
+        ProtectionResult(boolean handled, boolean keepItems, boolean keepXp, String reason) {
             this.handled = handled;
             this.keepItems = keepItems;
             this.keepXp = keepXp;
+            this.reason = reason;
         }
     }
 }
