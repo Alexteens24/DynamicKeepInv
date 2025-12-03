@@ -35,6 +35,13 @@ public class DeathListener implements Listener {
         plugin.debug("Current gamerule KEEP_INVENTORY: " + world.getGameRuleValue(org.bukkit.GameRule.KEEP_INVENTORY));
         plugin.debug("Event keepInventory before processing: " + event.getKeepInventory());
 
+        // If gamerule keepInventory is already true, no need to process or show messages
+        Boolean gameruleValue = world.getGameRuleValue(org.bukkit.GameRule.KEEP_INVENTORY);
+        if (gameruleValue != null && gameruleValue) {
+            plugin.debug("Gamerule KEEP_INVENTORY is true, skipping advanced death handling.");
+            return;
+        }
+
         if (plugin.getConfig().getBoolean("advanced.bypass-permission", true)) {
             if (player.hasPermission("dynamickeepinv.bypass")) {
                 plugin.debug("Player " + player.getName() + " has bypass permission. Keeping inventory.");

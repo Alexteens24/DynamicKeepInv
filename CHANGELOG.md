@@ -5,6 +5,10 @@
 - When enabled, wilderness deaths use death-cause (PvP/PvE) instead of fixed values
 - Allows Lands to control claimed areas while death-cause controls wilderness
 
+### Bug Fixes
+- Fixed death messages showing during daytime when keepInventory gamerule is already true
+- Plugin now skips advanced processing when gamerule handles everything
+
 ### Config Changes
 - Config version updated to 4
 - Added `wilderness.use-death-cause` for Lands and GriefPrevention
