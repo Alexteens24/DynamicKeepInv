@@ -1,4 +1,9 @@
 # Changelog
+## [1.0.11] - 2025-12-03
+- Simplified config.yml (removed verbose comments)
+- Added wiki documentation
+- Config version updated to 3
+
 ## [1.0.10] - 2025-12-03
 ### Bug Fixes
 - Fixed death-cause not overriding wilderness settings

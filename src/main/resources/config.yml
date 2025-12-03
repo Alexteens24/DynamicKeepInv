@@ -1,191 +1,100 @@
 # DynamicKeepInv Configuration
-# DO NOT EDIT THIS VALUE - Used for automatic config updates
-config-version: 2
+# Wiki: https://github.com/Alexteens24/DynamicKeepInv/wiki
+config-version: 3
 
-# Enable or disable the plugin functionality
 enabled: true
-
-# Keep inventory during day (time 0-12999 in Minecraft)
 keep-inventory-day: true
-
-# Keep inventory during night (time 13000-23999 in Minecraft)
 keep-inventory-night: false
-
-# Check interval in ticks (20 ticks = 1 second)
-# Default: 100 ticks = 5 seconds
 check-interval: 100
+day-start: 0
+night-start: 13000
 
-# Worlds where the plugin is active (empty list = all worlds)
-# Example: 
-# enabled-worlds:
-#   - world
-#   - world_nether
+# Empty = all worlds
 enabled-worlds: []
 
-# Per-world settings (override global keep-inventory-day/night)
-# If a world is listed here, it uses these settings instead of global ones
-# Example:
-# world-settings:
-#   world_nether:
-#     keep-inventory-day: false
-#     keep-inventory-night: false
-#   world_the_end:
-#     keep-inventory-day: true
-#     keep-inventory-night: true
+# Per-world override (see wiki)
 world-settings: {}
 
-# Debug mode - prints detailed logs
 debug: false
 
-# Broadcast settings - announce day/night changes to all players
 broadcast:
   enabled: true
-  # Broadcast when day is detected
   day-change: true
-  # Broadcast when night is detected
   night-change: true
-  
-  # Visual settings
-  # Enable different types of notifications
   chat: true
   action-bar: false
   title: false
-  
-  # Sound settings
   sound:
     enabled: false
     day: "ENTITY_PLAYER_LEVELUP"
     night: "ENTITY_WITHER_SPAWN"
 
-# Custom time thresholds (Minecraft ticks: 0-23999)
-# Day: 0-12999, Night: 13000-23999
-day-start: 0
-night-start: 13000
-
-# Custom gamerule change times
-# By default, gamerule changes at day-start and night-start times.
-# Use these settings to customize when the gamerule actually changes.
-# This is useful if you want a "grace period" or different trigger times.
-# Set to -1 to use day-start/night-start values (default behavior)
+# Custom trigger times (-1 = use day-start/night-start)
 gamerule-change:
-  # Time when keepInventory turns ON (set to day-start value by default)
-  # Example: 1000 = slightly after sunrise
   day-trigger: -1
-  # Time when keepInventory turns OFF (set to night-start value by default)  
-  # Example: 12500 = slightly before night
   night-trigger: -1
 
-# Advanced Features
-# These settings allow for more granular control over what is kept/dropped.
+# === ADVANCED SETTINGS ===
+# See wiki for detailed documentation
 advanced:
-  # Enable advanced features (listeners)
-  # Enable advanced death handling features (requires testing in your environment).
   enabled: false
-  
-  # If true, players with 'dynamickeepinv.bypass' permission will always keep inventory/xp
-  # regardless of the time or world settings.
   bypass-permission: true
   
-  # Land Protection Plugin Integration
-  # Settings based on land/claim protection plugins (Lands, GriefPrevention)
-  # Priority order:
-  #   1. Claimed areas (in-own-land, in-other-land) - HIGHEST, no override possible
-  #   2. Death Cause (PvP/PvE) - overrides wilderness and time-based
-  #   3. Wilderness settings - base values, can be overridden by death-cause
-  #   4. Time-based settings (day/night) - LOWEST priority
+  # Lands plugin integration
   protection:
-    # Lands Plugin Integration (https://www.spigotmc.org/resources/lands.53313/)
-    # WARNING: Lands plugin has its own keepInventory feature!
-    # Only enable this if you want DynamicKeepInv to OVERRIDE Lands' settings.
-    # Recommended: Keep disabled and use Lands' built-in keep inventory instead.
     lands:
       enabled: false
-      # Override mode: If true, DynamicKeepInv settings override Lands' settings
-      # If false, only applies when Lands doesn't handle keep inventory
       override-lands: false
-      # Settings when dying in YOUR OWN land or land you're trusted in
-      # NOTE: Lands already has its own settings for this - consider using those instead
       in-own-land:
         keep-items: false
         keep-xp: false
-      # Settings when dying in SOMEONE ELSE'S land
       in-other-land:
         keep-items: false
         keep-xp: false
-      # Settings when dying in WILDERNESS (outside any land)
-      # NOTE: Death-cause settings can OVERRIDE wilderness settings!
-      # Example: wilderness.keep-items=false but pvp.keep-items=true
-      #          -> PvP in wilderness will keep items
       wilderness:
         enabled: false
         keep-items: false
         keep-xp: false
     
-    # GriefPrevention Plugin Integration (https://www.spigotmc.org/resources/griefprevention.1884/)
+    # GriefPrevention plugin integration
     griefprevention:
       enabled: false
-      # Settings when dying in YOUR OWN claim or claim you have access to
       in-own-claim:
         keep-items: true
         keep-xp: true
-      # Settings when dying in SOMEONE ELSE'S claim
       in-other-claim:
         keep-items: false
         keep-xp: false
-      # Settings when dying in WILDERNESS (outside any claim)
-      # If not configured, falls back to time-based settings
       wilderness:
         enabled: false
         keep-items: false
         keep-xp: false
   
-  # Death message settings - notify player about their inventory status on death
   death-message:
     enabled: true
-    # Show message in chat
     chat: true
-    # Show message in action bar
     action-bar: false
   
-  # Economy settings (Vault required)
+  # Economy (requires Vault)
   economy:
     enabled: false
-    # Cost to keep inventory/xp when the plugin saves it via Advanced settings
     cost: 100.0
-    # Economy mode:
-    # - "charge-to-keep": Only charge when player would keep items anyway (pay for the privilege)
-    # - "charge-to-bypass": Allow players to PAY to keep items even when they would normally lose them
     mode: "charge-to-keep"
-    
-  # Death Cause Settings
-  # Define specific rules based on how the player died.
-  # These settings OVERRIDE wilderness and time-based settings!
-  # But claimed area settings (in-own-land, in-other-land) have higher priority.
-  # 
-  # Example with user config:
-  #   wilderness.keep-items: false, pvp.keep-items: true
-  #   -> PvP in wilderness = KEEP items (death-cause overrides)
-  #   -> PvE in wilderness = DROP items (uses wilderness setting)
+  
+  # Death cause rules (PvP vs PvE)
   death-cause:
     enabled: false
-    # Player vs Player
     pvp:
       keep-items: false
       keep-xp: false
-    # Player vs Environment (Mobs, Fall, Lava, etc.)
     pve:
       keep-items: true
       keep-xp: true
   
-  # Separate settings for Items and XP
-  # These override the global behavior if advanced.enabled is true
-  
-  # During Day (when keep-inventory-day is true)
+  # Time-based overrides
   day:
     keep-items: true
     keep-xp: true
-    
-  # During Night (when keep-inventory-night is false)
   night:
     keep-items: false
     keep-xp: false
