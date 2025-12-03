@@ -1,4 +1,14 @@
 # Changelog
+## [1.0.12] - 2025-12-03
+### New Features
+- Added `use-death-cause` option for wilderness settings
+- When enabled, wilderness deaths use death-cause (PvP/PvE) instead of fixed values
+- Allows Lands to control claimed areas while death-cause controls wilderness
+
+### Config Changes
+- Config version updated to 4
+- Added `wilderness.use-death-cause` for Lands and GriefPrevention
+
 ## [1.0.11] - 2025-12-03
 - Simplified config.yml (removed verbose comments)
 - Added wiki documentation

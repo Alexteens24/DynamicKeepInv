@@ -59,16 +59,41 @@ public class DeathListener implements Listener {
             return;
         }
         
-        // For wilderness, use protection settings as base but allow death-cause to override
+        // Check if wilderness should use death-cause instead
+        boolean wildernessUseDeathCause = false;
+        if (protectionResult.handled && protectionResult.reason.contains("wilderness")) {
+            // Check which protection plugin's wilderness setting
+            if (protectionResult.reason.contains("lands")) {
+                wildernessUseDeathCause = plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.use-death-cause", false);
+            } else if (protectionResult.reason.contains("griefprevention")) {
+                wildernessUseDeathCause = plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.use-death-cause", false);
+            }
+            plugin.debug("Wilderness use-death-cause: " + wildernessUseDeathCause);
+        }
+        
+        // For wilderness with use-death-cause=true, skip wilderness settings and go straight to death-cause
         boolean keepItems, keepXp;
         String baseReason;
         
-        if (protectionResult.handled) {
-            // Wilderness - use as base values
+        if (protectionResult.handled && !wildernessUseDeathCause) {
+            // Wilderness with fixed settings - use as base values
             keepItems = protectionResult.keepItems;
             keepXp = protectionResult.keepXp;
             baseReason = protectionResult.reason;
             plugin.debug("Wilderness base settings: keepItems=" + keepItems + ", keepXp=" + keepXp);
+        } else if (protectionResult.handled && wildernessUseDeathCause) {
+            // Wilderness but defer to death-cause - use time-based as fallback
+            long time = world.getTime();
+            long dayStart = plugin.getConfig().getLong("day-start", 0);
+            long nightStart = plugin.getConfig().getLong("night-start", 13000);
+            boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
+            
+            String settingPath = isDay ? "advanced.day" : "advanced.night";
+            boolean defaultKeepItems = getWorldKeepInventory(world, isDay);
+            keepItems = plugin.getConfig().getBoolean(settingPath + ".keep-items", defaultKeepItems);
+            keepXp = plugin.getConfig().getBoolean(settingPath + ".keep-xp", defaultKeepItems);
+            baseReason = isDay ? "time-day" : "time-night";
+            plugin.debug("Wilderness with use-death-cause=true, using time-based: Time=" + time + ", isDay=" + isDay + ", keepItems=" + keepItems + ", keepXp=" + keepXp);
         } else {
             // No protection plugin handling - use time-based settings
             long time = world.getTime();
@@ -84,7 +109,7 @@ public class DeathListener implements Listener {
             plugin.debug("Time-based settings: Time=" + time + ", isDay=" + isDay + ", keepItems=" + keepItems + ", keepXp=" + keepXp);
         }
 
-        // Death cause can override both wilderness and time-based settings
+        // Death cause can override wilderness (with use-death-cause) and time-based settings
         if (plugin.getConfig().getBoolean("advanced.death-cause.enabled", false)) {
             boolean isPvp = player.getKiller() != null;
             String causePath = isPvp ? "advanced.death-cause.pvp" : "advanced.death-cause.pve";

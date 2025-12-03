@@ -1,6 +1,6 @@
 # DynamicKeepInv Configuration
 # Wiki: https://github.com/Alexteens24/DynamicKeepInv/wiki
-config-version: 3
+config-version: 4
 
 enabled: true
 keep-inventory-day: true
@@ -53,6 +53,7 @@ advanced:
         keep-xp: false
       wilderness:
         enabled: false
+        use-death-cause: false  # true = use death-cause settings, false = use below values
         keep-items: false
         keep-xp: false
     
@@ -67,6 +68,7 @@ advanced:
         keep-xp: false
       wilderness:
         enabled: false
+        use-death-cause: false
         keep-items: false
         keep-xp: false
   

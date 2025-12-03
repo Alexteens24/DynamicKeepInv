@@ -120,3 +120,59 @@ advanced:
       keep-items: false
       keep-xp: false
 ```
+
+---
+
+## Integration Questions
+
+### Q: I use Lands and want simple time-based rules. Do I need death-cause?
+**A:** No! If you just want:
+- Day = keep inventory
+- Night = drop items
+- Lands handles its own areas
+
+Just disable death-cause:
+```yaml
+advanced:
+  enabled: true
+  death-cause:
+    enabled: false  # Disable this
+  protection:
+    lands:
+      enabled: true
+      override-lands: false  # Let Lands handle its own settings
+```
+
+This way:
+- Inside Lands → Lands' keepInventory setting applies
+- Outside Lands (wilderness) → Time-based rules apply
+- No death-cause complexity
+
+### Q: Death-cause vs Wilderness vs Lands - what takes priority?
+**A:** Priority order (highest to lowest):
+1. **Bypass permission** - `dynamickeepinv.bypass`
+2. **Claimed areas** - in-own-land, in-other-land (Lands/GriefPrevention)
+3. **Death cause** - PvP/PvE settings
+4. **Wilderness** - Outside claimed areas
+5. **Time-based** - Day/Night rules
+
+Example: Player dies at night, killed by another player, in wilderness:
+- If `death-cause.enabled: true` → PvP settings apply
+- If `death-cause.enabled: false` → Night settings apply
+
+### Q: I want Lands to fully control its areas, plugin only controls wilderness
+**A:** 
+```yaml
+advanced:
+  enabled: true
+  protection:
+    lands:
+      enabled: true
+      override-lands: false  # Important!
+      wilderness:
+        enabled: true
+        keep-items: false
+        keep-xp: true
+```
+
+With `override-lands: false`, the plugin won't touch areas inside Lands. Only wilderness (unclaimed) will use your settings.
