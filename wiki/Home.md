@@ -44,6 +44,7 @@ Out of the box:
 | [Installation](Installation) | Requirements and setup |
 | [Basic Configuration](Basic-Configuration) | Time, world, and broadcast settings |
 | [Advanced Configuration](Advanced-Configuration) | Death cause, protection plugins, economy |
+| [Placeholders](Placeholders) | PlaceholderAPI integration |
 | [Commands](Commands) | All available commands |
 | [Permissions](Permissions) | Permission nodes |
 | [FAQ](FAQ) | Common questions and examples |
