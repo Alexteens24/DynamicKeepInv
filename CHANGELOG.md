@@ -1,4 +1,9 @@
 # Changelog
+## [1.0.13] - 2025-12-04
+### New Features
+- Added PlaceholderAPI support with 14 placeholders
+- Placeholders: `%dynamickeepinv_enabled%`, `%dynamickeepinv_keepinventory%`, `%dynamickeepinv_time%`, `%dynamickeepinv_isday%`, `%dynamickeepinv_isnight%`, `%dynamickeepinv_period%`, and more
+
 ## [1.0.12] - 2025-12-03
 ### New Features
 - Added `use-death-cause` option for wilderness settings

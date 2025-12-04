@@ -62,6 +62,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     
     private LandsHook landsHook;
     private GriefPreventionHook griefPreventionHook;
+    private DynamicKeepInvExpansion placeholderExpansion;
 
     @Override
     public void onEnable() {
@@ -73,6 +74,13 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new WorldListener(this), this);
         getServer().getPluginManager().registerEvents(new DeathListener(this), this);
+        
+        // Register PlaceholderAPI expansion
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            placeholderExpansion = new DynamicKeepInvExpansion(this);
+            placeholderExpansion.register();
+            getLogger().info("PlaceholderAPI hooked!");
+        }
         
         getLogger().info("DynamicKeepInv is starting... (Platform: " + (isFolia ? "Folia" : "Paper/Spigot") + ")");
         
