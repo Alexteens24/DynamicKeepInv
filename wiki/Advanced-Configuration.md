@@ -1,23 +1,37 @@
 # Advanced Configuration
 
-⚠️ **These settings are for experienced users.** Make sure you understand how they work before enabling.
+These settings give you fine-grained control over keep inventory behavior.
 
-## Enable Advanced Features
+> ⚠️ **Note:** You must set `advanced.enabled: true` to use any of these features.
+
+---
+
+## How It Works
+
+When a player dies, the plugin checks settings in this order:
+
+```
+1. Bypass Permission     → Always keep (if player has permission)
+      ↓
+2. Claimed Area         → in-own-land / in-other-land settings
+      ↓
+3. Death Cause          → PvP or PvE settings
+      ↓
+4. Wilderness           → Outside claimed areas (if use-death-cause: false)
+      ↓
+5. Time-based           → Day or night settings
+```
+
+The first matching rule is applied. Higher rules override lower ones.
+
+---
+
+## Enable Advanced Mode
 
 ```yaml
 advanced:
-  enabled: true  # Must be true to use any advanced features
+  enabled: true  # REQUIRED for any advanced feature
 ```
-
-## Priority Order
-
-When multiple settings apply, this is the priority (highest first):
-
-1. **Bypass permission** - `dynamickeepinv.bypass` always keeps inventory
-2. **Claimed areas** - in-own-land, in-other-land (if using Lands/GP)
-3. **Death cause** - PvP or PvE rules
-4. **Wilderness** - Outside any claimed area
-5. **Time-based** - Day/night settings (lowest priority)
 
 ---
 
@@ -28,41 +42,68 @@ advanced:
   bypass-permission: true
 ```
 
-Players with `dynamickeepinv.bypass` will **always keep inventory**, regardless of any other settings.
+Players with `dynamickeepinv.bypass` will **always** keep their inventory, ignoring all other rules.
+
+**Use case:** Give this to staff or donators.
 
 ---
 
-## Lands Plugin Integration
+## Lands Integration
+
+For servers using the [Lands](https://www.spigotmc.org/resources/lands.53313/) plugin:
 
 ```yaml
 advanced:
   protection:
     lands:
       enabled: true
-      override-lands: false  # true = override Lands' own keep inventory
+      override-lands: false
       
-      in-own-land:           # Your land or land you're trusted in
+      in-own-land:
         keep-items: true
         keep-xp: true
       
-      in-other-land:         # Someone else's land
+      in-other-land:
         keep-items: true
         keep-xp: true
       
-      wilderness:            # Outside any land
+      wilderness:
         enabled: true
+        use-death-cause: false
         keep-items: false
         keep-xp: false
 ```
 
-### Notes:
-- Lands plugin has its own keep inventory feature
-- Set `override-lands: true` only if you want this plugin to control instead
-- Wilderness settings can be overridden by death-cause settings
+### Settings Explained
+
+| Setting | Description |
+|---------|-------------|
+| `enabled` | Enable Lands integration |
+| `override-lands` | `true` = override Lands' built-in keep inventory. `false` = let Lands handle it |
+| `in-own-land` | Settings for land you own or are trusted in |
+| `in-other-land` | Settings for someone else's land |
+| `wilderness.enabled` | Enable wilderness rules |
+| `wilderness.use-death-cause` | `true` = use PvP/PvE rules in wilderness. `false` = use wilderness settings |
+
+### Recommended Setup
+
+**Let Lands control its areas, plugin controls wilderness:**
+```yaml
+advanced:
+  protection:
+    lands:
+      enabled: true
+      override-lands: false  # Let Lands handle its areas
+      wilderness:
+        enabled: true
+        use-death-cause: true  # Use PvP/PvE rules outside Lands
+```
 
 ---
 
 ## GriefPrevention Integration
+
+For servers using [GriefPrevention](https://www.spigotmc.org/resources/griefprevention.1884/):
 
 ```yaml
 advanced:
@@ -80,15 +121,18 @@ advanced:
       
       wilderness:
         enabled: true
+        use-death-cause: false
         keep-items: false
         keep-xp: false
 ```
 
+Same logic as Lands - `in-own-claim` is claims you own or are trusted in.
+
 ---
 
-## Death Cause Settings
+## Death Cause Rules
 
-Different rules for PvP vs PvE deaths:
+Different rules based on how the player died:
 
 ```yaml
 advanced:
@@ -99,59 +143,80 @@ advanced:
       keep-items: true
       keep-xp: true
     
-    pve:                    # Killed by mob, fall, lava, etc.
+    pve:                    # Everything else (mobs, fall, lava, etc.)
       keep-items: false
       keep-xp: true
 ```
 
-### Examples:
+### What counts as PvP?
 
-| Scenario | Config | Result |
-|----------|--------|--------|
-| PvP in wilderness | `wilderness.keep-items: false`, `pvp.keep-items: true` | **KEEP** (death-cause overrides) |
-| PvE in wilderness | `wilderness.keep-items: false`, `pve.keep-items: false` | **DROP** |
-| PvP in own land | `in-own-land.keep-items: true` | **KEEP** (claimed area has priority) |
+- Direct player kill (sword, bow, etc.)
+- Player's wolf/pet kills
+
+### What counts as PvE?
+
+- Mob kills (zombie, skeleton, creeper, etc.)
+- Environmental (fall damage, lava, drowning, fire)
+- Commands (`/kill`)
+
+### Examples
+
+| Scenario | Result |
+|----------|--------|
+| Player A kills Player B | PvP settings apply |
+| Zombie kills player | PvE settings apply |
+| Player falls into lava | PvE settings apply |
+| Player dies in wilderness to mob | Wilderness or PvE (depending on config) |
 
 ---
 
-## Economy Settings
+## Economy System
 
-Requires [Vault](https://www.spigotmc.org/resources/vault.34315/) plugin.
+Charge players to keep their inventory. Requires [Vault](https://www.spigotmc.org/resources/vault.34315/) + an economy plugin.
 
 ```yaml
 advanced:
   economy:
     enabled: true
     cost: 100.0
-    mode: "charge-to-keep"  # or "charge-to-bypass"
+    mode: "charge-to-keep"
 ```
 
-### Modes:
+### Modes
 
-| Mode | Description |
-|------|-------------|
-| `charge-to-keep` | Pay when you WOULD keep items (pay for the service) |
-| `charge-to-bypass` | Pay to KEEP items when you would normally LOSE them |
+| Mode | When charged | Behavior if can't pay |
+|------|--------------|----------------------|
+| `charge-to-keep` | When player would keep items | Keeps items for free (no penalty) |
+| `charge-to-bypass` | When player would lose items | Loses items (can't afford protection) |
+
+**Example - charge-to-bypass:**
+- Player dies at night (would lose items)
+- Has $100? → Pay and keep items
+- No money? → Lose items as normal
 
 ---
 
-## Death Message
+## Death Messages
 
-Notify player about their inventory status when they die:
+Show players what happened to their inventory:
 
 ```yaml
 advanced:
   death-message:
     enabled: true
-    chat: true
-    action-bar: false
+    chat: true        # Show in chat
+    action-bar: false # Show above hotbar
 ```
+
+Messages show:
+- Whether items/XP were kept or lost
+- The reason (PvP, PvE, time-based, etc.)
 
 ---
 
 ## Time-based Item/XP Control
 
-Separate control for items and XP:
+Separate control over items and XP:
 
 ```yaml
 advanced:
@@ -161,20 +226,33 @@ advanced:
   
   night:
     keep-items: false
-    keep-xp: true   # Keep XP even at night
+    keep-xp: true     # Keep XP but lose items at night
 ```
 
 ---
 
-## Complete Example
+## Complete Example Configs
 
-Here's a complete advanced config for a typical survival server:
-
+### PvP Server
+No item loss in PvP, but PvE is punishing:
 ```yaml
 advanced:
   enabled: true
-  bypass-permission: true
-  
+  death-cause:
+    enabled: true
+    pvp:
+      keep-items: true
+      keep-xp: true
+    pve:
+      keep-items: false
+      keep-xp: false
+```
+
+### Casual Survival with Lands
+Keep items in claimed areas, lose them in wilderness:
+```yaml
+advanced:
+  enabled: true
   protection:
     lands:
       enabled: true
@@ -187,29 +265,35 @@ advanced:
         keep-xp: true
       wilderness:
         enabled: true
-        keep-items: false
-        keep-xp: true
-  
+        use-death-cause: true  # Use PvP/PvE rules
   death-cause:
     enabled: true
     pvp:
-      keep-items: true    # No penalty for PvP
+      keep-items: true   # No penalty for PvP in wilderness
       keep-xp: true
     pve:
-      keep-items: false   # Drop items when killed by mobs
-      keep-xp: true       # But keep XP
-  
-  economy:
-    enabled: false
-  
-  death-message:
-    enabled: true
-    chat: true
-    action-bar: false
+      keep-items: false  # Lose items to mobs in wilderness
+      keep-xp: true
 ```
 
-With this config:
-- In any land: Keep everything
-- In wilderness + PvP: Keep everything
-- In wilderness + PvE: Drop items, keep XP
-- Admins with bypass: Always keep everything
+### Economy Server
+Pay to keep items:
+```yaml
+advanced:
+  enabled: true
+  economy:
+    enabled: true
+    cost: 500.0
+    mode: "charge-to-bypass"
+  night:
+    keep-items: false
+    keep-xp: false
+```
+
+---
+
+## Related Pages
+
+- [Basic Configuration](Basic-Configuration) - Time and world settings
+- [Permissions](Permissions) - Permission nodes
+- [FAQ](FAQ) - Common questions
