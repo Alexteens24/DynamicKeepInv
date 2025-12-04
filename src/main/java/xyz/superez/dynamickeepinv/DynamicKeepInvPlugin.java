@@ -58,7 +58,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private volatile EconomyManager economyManager;
     private final Object economyLock = new Object();
     private final AtomicLong nextEconomyRetryTimeMs = new AtomicLong(0L);
-    private static final int CONFIG_VERSION = 2;
+    private static final int CONFIG_VERSION = 4;
     
     private LandsHook landsHook;
     private GriefPreventionHook griefPreventionHook;
