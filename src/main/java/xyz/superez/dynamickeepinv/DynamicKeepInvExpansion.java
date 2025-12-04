@@ -22,14 +22,12 @@ public class DynamicKeepInvExpansion extends PlaceholderExpansion {
     
     @Override
     public @NotNull String getAuthor() {
-        return plugin.getDescription().getAuthors().isEmpty() 
-            ? "SuperEz" 
-            : String.join(", ", plugin.getDescription().getAuthors());
+        return "SuperEZ";
     }
     
     @Override
     public @NotNull String getVersion() {
-        return plugin.getDescription().getVersion();
+        return "1.0.13";
     }
     
     @Override
