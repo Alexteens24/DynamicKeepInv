@@ -1,53 +1,48 @@
 # DynamicKeepInv
 
-Automatically toggles keepInventory gamerule based on Minecraft day/night cycle.
+A lightweight Minecraft plugin that dynamically controls the keepInventory gamerule based on in-game time, protection plugins, and death causes.
 
 ## Features
 
-- Automatic keep inventory during day, disabled at night
-- Supports Paper/Spigot 1.20+ and Folia
-- Per-world configuration
-- Customizable time thresholds
-- Broadcast notifications
-- Multi-language support (English/Vietnamese)
+- **Time-based Control** - Keep inventory during day, drop items at night
+- **Protection Plugin Integration** - Lands and GriefPrevention support with per-area settings
+- **Death Cause Rules** - Different settings for PvP vs PvE deaths
+- **Economy Support** - Charge players to keep inventory (requires Vault)
+- **Per-world Settings** - Configure each world independently
+- **Folia Compatible** - Full support for Paper, Spigot, and Folia servers
+- **Minimal Performance Impact** - Efficient tick-based checking
 
-## Installation
+## Requirements
 
-1. Download the plugin JAR file
-2. Place it in your server's `plugins/` folder
-3. Restart the server
-4. Configure `plugins/DynamicKeepInv/config.yml` as needed
+- Minecraft 1.20.4+
+- Java 17+
+- Paper/Spigot/Folia server
 
-## Configuration
+## Quick Start
 
-**config.yml:**
-```yaml
-enabled: true
-keep-inventory-day: true
-keep-inventory-night: false
-check-interval: 100
-day-start: 0
-night-start: 13000
-enabled-worlds: []
-debug: false
-```
+1. Download the latest release
+2. Place JAR in `plugins/` folder
+3. Restart server
+4. Edit `config.yml` to customize
 
-**messages.yml:**
-```yaml
-language: en  # or 'vi' for Vietnamese
-```
+## Documentation
+
+Full documentation available on the [Wiki](https://github.com/Alexteens24/DynamicKeepInv/wiki).
 
 ## Commands
 
 | Command | Description | Permission |
 |---------|-------------|------------|
-| `/dki status` | Show plugin status | `dynamickeepinv.admin` |
+| `/dki status` | Show current status | `dynamickeepinv.admin` |
 | `/dki reload` | Reload configuration | `dynamickeepinv.admin` |
-| `/dki enable` | Enable plugin | `dynamickeepinv.admin` |
-| `/dki disable` | Disable plugin | `dynamickeepinv.admin` |
 | `/dki toggle` | Toggle plugin on/off | `dynamickeepinv.admin` |
 
-Aliases: `/dki`, `/keepinv`, `/dynamickeepinv`
+## Permissions
+
+| Permission | Description |
+|------------|-------------|
+| `dynamickeepinv.admin` | Access to all commands |
+| `dynamickeepinv.bypass` | Always keep inventory |
 
 ## Building
 
@@ -55,8 +50,6 @@ Aliases: `/dki`, `/keepinv`, `/dynamickeepinv`
 mvn clean package
 ```
 
-Output: `target/DynamicKeepInv-1.0.0.jar`
-
 ## License
 
-This project is licensed under the Apache License 2.0.
+Apache License 2.0
