@@ -137,6 +137,14 @@ public class StatsManager {
         }
     }
     
+    /**
+     * Internal method to update death reason statistics.
+     * MUST be called from within a synchronized(connectionLock) block.
+     * 
+     * @param uuid Player UUID
+     * @param reason Death reason
+     * @param saved Whether the death was saved or lost
+     */
     private void updateReasonStatsInternal(UUID uuid, String reason, boolean saved) {
         String insertSql = "INSERT OR IGNORE INTO death_reasons (uuid, reason) VALUES (?, ?)";
         try (PreparedStatement pstmt = connection.prepareStatement(insertSql)) {
@@ -345,41 +353,63 @@ public class StatsManager {
     
     public int getGlobalDeathsSaved() {
         synchronized (connectionLock) {
-            String sql = "SELECT COALESCE(SUM(deaths_saved), 0) FROM player_stats";
-            try (Statement stmt = connection.createStatement();
-                 ResultSet rs = stmt.executeQuery(sql)) {
-                if (rs.next()) {
-                    return rs.getInt(1);
-                }
-            } catch (SQLException e) {
-                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
-            }
-            return 0;
+            return getGlobalDeathsSavedInternal();
         }
     }
     
     public int getGlobalDeathsLost() {
         synchronized (connectionLock) {
-            String sql = "SELECT COALESCE(SUM(deaths_lost), 0) FROM player_stats";
-            try (Statement stmt = connection.createStatement();
-                 ResultSet rs = stmt.executeQuery(sql)) {
-                if (rs.next()) {
-                    return rs.getInt(1);
-                }
-            } catch (SQLException e) {
-                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
-            }
-            return 0;
+            return getGlobalDeathsLostInternal();
         }
     }
     
     public int getGlobalTotalDeaths() {
-        return getGlobalDeathsSaved() + getGlobalDeathsLost();
+        synchronized (connectionLock) {
+            return getGlobalDeathsSavedInternal() + getGlobalDeathsLostInternal();
+        }
     }
     
     public double getGlobalSaveRate() {
-        int total = getGlobalTotalDeaths();
-        if (total == 0) return 0.0;
-        return (double) getGlobalDeathsSaved() / total * 100.0;
+        synchronized (connectionLock) {
+            int saved = getGlobalDeathsSavedInternal();
+            int lost = getGlobalDeathsLostInternal();
+            int total = saved + lost;
+            if (total == 0) return 0.0;
+            return (double) saved / total * 100.0;
+        }
+    }
+    
+    /**
+     * Internal method to get global deaths saved count.
+     * MUST be called from within a synchronized(connectionLock) block.
+     */
+    private int getGlobalDeathsSavedInternal() {
+        String sql = "SELECT COALESCE(SUM(deaths_saved), 0) FROM player_stats";
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+        }
+        return 0;
+    }
+    
+    /**
+     * Internal method to get global deaths lost count.
+     * MUST be called from within a synchronized(connectionLock) block.
+     */
+    private int getGlobalDeathsLostInternal() {
+        String sql = "SELECT COALESCE(SUM(deaths_lost), 0) FROM player_stats";
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+        }
+        return 0;
     }
 }
