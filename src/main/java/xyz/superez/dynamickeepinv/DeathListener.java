@@ -189,6 +189,10 @@ public class DeathListener implements Listener {
                             String msg = plugin.getMessage("economy.paid")
                                 .replace("{amount}", eco.format(cost));
                             player.sendMessage(plugin.parseMessage(msg));
+                            StatsManager stats = plugin.getStatsManager();
+                            if (stats != null) {
+                                stats.recordEconomyPayment(player, cost);
+                            }
                             if ("charge-to-bypass".equalsIgnoreCase(mode)) {
                                 plugin.debug("Bypass mode: Payment successful, keeping items.");
                                 keepItems = true;

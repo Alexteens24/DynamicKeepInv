@@ -64,6 +64,7 @@ public class StatsManager {
     }
     
     private void ensurePlayerExists(UUID uuid, String playerName) {
+        if (!isConnectionValid()) return;
         String sql = "INSERT OR IGNORE INTO player_stats (uuid, player_name) VALUES (?, ?)";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, uuid.toString());
@@ -74,7 +75,16 @@ public class StatsManager {
         }
     }
     
+    private boolean isConnectionValid() {
+        try {
+            return connection != null && !connection.isClosed();
+        } catch (SQLException e) {
+            return false;
+        }
+    }
+    
     public void recordDeathSaved(Player player, String reason) {
+        if (!isConnectionValid()) return;
         UUID uuid = player.getUniqueId();
         ensurePlayerExists(uuid, player.getName());
         
@@ -101,6 +111,7 @@ public class StatsManager {
     }
     
     public void recordDeathLost(Player player, String reason) {
+        if (!isConnectionValid()) return;
         UUID uuid = player.getUniqueId();
         ensurePlayerExists(uuid, player.getName());
         
@@ -127,6 +138,7 @@ public class StatsManager {
     }
     
     private void updateReasonStats(UUID uuid, String reason, boolean saved) {
+        if (!isConnectionValid()) return;
         String insertSql = "INSERT OR IGNORE INTO death_reasons (uuid, reason) VALUES (?, ?)";
         try (PreparedStatement pstmt = connection.prepareStatement(insertSql)) {
             pstmt.setString(1, uuid.toString());
@@ -150,6 +162,7 @@ public class StatsManager {
     }
     
     public void recordEconomyPayment(Player player, double amount) {
+        if (!isConnectionValid()) return;
         UUID uuid = player.getUniqueId();
         ensurePlayerExists(uuid, player.getName());
         
@@ -180,6 +193,7 @@ public class StatsManager {
     }
     
     public long getLastDeathTime(UUID uuid) {
+        if (!isConnectionValid()) return 0;
         String sql = "SELECT last_death_time FROM player_stats WHERE uuid = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, uuid.toString());
@@ -194,6 +208,7 @@ public class StatsManager {
     }
     
     public String getLastDeathReason(UUID uuid) {
+        if (!isConnectionValid()) return "none";
         String sql = "SELECT last_death_reason FROM player_stats WHERE uuid = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, uuid.toString());
@@ -212,6 +227,7 @@ public class StatsManager {
     }
     
     public double getTotalEconomyPaid(UUID uuid) {
+        if (!isConnectionValid()) return 0;
         String sql = "SELECT economy_total_paid FROM player_stats WHERE uuid = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, uuid.toString());
@@ -230,6 +246,7 @@ public class StatsManager {
     }
     
     public int getReasonSavedCount(UUID uuid, String reason) {
+        if (!isConnectionValid()) return 0;
         String sql = "SELECT saved_count FROM death_reasons WHERE uuid = ? AND reason = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, uuid.toString());
@@ -245,6 +262,7 @@ public class StatsManager {
     }
     
     public int getReasonLostCount(UUID uuid, String reason) {
+        if (!isConnectionValid()) return 0;
         String sql = "SELECT lost_count FROM death_reasons WHERE uuid = ? AND reason = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, uuid.toString());
@@ -260,6 +278,7 @@ public class StatsManager {
     }
     
     private int getIntStat(UUID uuid, String column) {
+        if (!isConnectionValid()) return 0;
         String sql = "SELECT " + column + " FROM player_stats WHERE uuid = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, uuid.toString());
@@ -280,6 +299,7 @@ public class StatsManager {
     }
     
     public void resetPlayerStats(UUID uuid) {
+        if (!isConnectionValid()) return;
         try {
             try (PreparedStatement pstmt = connection.prepareStatement("DELETE FROM player_stats WHERE uuid = ?")) {
                 pstmt.setString(1, uuid.toString());
@@ -295,6 +315,7 @@ public class StatsManager {
     }
     
     public int getGlobalDeathsSaved() {
+        if (!isConnectionValid()) return 0;
         String sql = "SELECT COALESCE(SUM(deaths_saved), 0) FROM player_stats";
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -308,6 +329,7 @@ public class StatsManager {
     }
     
     public int getGlobalDeathsLost() {
+        if (!isConnectionValid()) return 0;
         String sql = "SELECT COALESCE(SUM(deaths_lost), 0) FROM player_stats";
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {

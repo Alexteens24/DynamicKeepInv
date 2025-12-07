@@ -555,7 +555,14 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             if (target != null) {
                 statsGUI.openStats(player, target.getUniqueId(), target.getName());
             } else {
-                sender.sendMessage(parseMessage(getMessage("stats.player-not-found").replace("{player}", args[1])));
+                @SuppressWarnings("deprecation")
+                org.bukkit.OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(args[1]);
+                if (offlineTarget.hasPlayedBefore() || offlineTarget.isOnline()) {
+                    String displayName = offlineTarget.getName() != null ? offlineTarget.getName() : args[1];
+                    statsGUI.openStats(player, offlineTarget.getUniqueId(), displayName);
+                } else {
+                    sender.sendMessage(parseMessage(getMessage("stats.player-not-found").replace("{player}", args[1])));
+                }
             }
         } else {
             statsGUI.openStats(player);
