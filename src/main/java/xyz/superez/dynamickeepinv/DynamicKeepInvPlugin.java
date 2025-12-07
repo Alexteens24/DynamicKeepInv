@@ -58,11 +58,13 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private volatile EconomyManager economyManager;
     private final Object economyLock = new Object();
     private final AtomicLong nextEconomyRetryTimeMs = new AtomicLong(0L);
-    private static final int CONFIG_VERSION = 4;
+    private static final int CONFIG_VERSION = 5;
     
     private LandsHook landsHook;
     private GriefPreventionHook griefPreventionHook;
     private DynamicKeepInvExpansion placeholderExpansion;
+    private StatsManager statsManager;
+    private StatsGUI statsGUI;
 
     @Override
     public void onEnable() {
@@ -75,7 +77,12 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new WorldListener(this), this);
         getServer().getPluginManager().registerEvents(new DeathListener(this), this);
         
-        // Register PlaceholderAPI expansion
+        if (getConfig().getBoolean("stats.enabled", true)) {
+            statsManager = new StatsManager(this);
+            statsGUI = new StatsGUI(this);
+            getLogger().info("Stats system enabled with SQLite database!");
+        }
+        
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
             placeholderExpansion = new DynamicKeepInvExpansion(this);
             placeholderExpansion.register();
@@ -96,6 +103,9 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     public void onDisable() {
         isShuttingDown = true;
         stopChecking(true);
+        if (statsManager != null) {
+            statsManager.close();
+        }
         getLogger().info("DynamicKeepInv has been disabled.");
     }
     
@@ -450,6 +460,10 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length > 0 && args[0].equalsIgnoreCase("stats")) {
+            return handleStatsCommand(sender, args);
+        }
+        
         if (!sender.hasPermission("dynamickeepinv.admin")) {
             sender.sendMessage(parseMessage(getMessage("no-permission")));
             return true;
@@ -462,6 +476,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             sender.sendMessage(parseMessage(getMessage("help.enable")));
             sender.sendMessage(parseMessage(getMessage("help.disable")));
             sender.sendMessage(parseMessage(getMessage("help.toggle")));
+            sender.sendMessage(parseMessage(getMessage("help.stats")));
             return true;
         }
         
@@ -512,6 +527,38 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
                 
             default:
                 sender.sendMessage(parseMessage(getMessage("commands.unknown")));
+        }
+        
+        return true;
+    }
+    
+    private boolean handleStatsCommand(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(parseMessage("&cThis command can only be used by players!"));
+            return true;
+        }
+        
+        Player player = (Player) sender;
+        
+        if (!player.hasPermission("dynamickeepinv.stats")) {
+            sender.sendMessage(parseMessage(getMessage("no-permission")));
+            return true;
+        }
+        
+        if (statsGUI == null || statsManager == null) {
+            sender.sendMessage(parseMessage(getMessage("stats.disabled")));
+            return true;
+        }
+        
+        if (args.length >= 2 && player.hasPermission("dynamickeepinv.stats.others")) {
+            Player target = Bukkit.getPlayer(args[1]);
+            if (target != null) {
+                statsGUI.openStats(player, target.getUniqueId(), target.getName());
+            } else {
+                sender.sendMessage(parseMessage(getMessage("stats.player-not-found").replace("{player}", args[1])));
+            }
+        } else {
+            statsGUI.openStats(player);
         }
         
         return true;
@@ -603,5 +650,13 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     
     public boolean isGriefPreventionEnabled() {
         return griefPreventionHook != null && griefPreventionHook.isAvailable();
+    }
+    
+    public StatsManager getStatsManager() {
+        return statsManager;
+    }
+    
+    public StatsGUI getStatsGUI() {
+        return statsGUI;
     }
 }

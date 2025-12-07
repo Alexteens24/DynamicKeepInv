@@ -27,7 +27,7 @@ public class DynamicKeepInvExpansion extends PlaceholderExpansion {
     
     @Override
     public @NotNull String getVersion() {
-        return "1.0.13";
+        return "1.0.14";
     }
     
     @Override
@@ -142,6 +142,58 @@ public class DynamicKeepInvExpansion extends PlaceholderExpansion {
         // %dynamickeepinv_gp_enabled%
         if (params.equalsIgnoreCase("gp_enabled")) {
             return plugin.getConfig().getBoolean("advanced.protection.griefprevention.enabled", false) ? "true" : "false";
+        }
+        
+        if (params.equalsIgnoreCase("stats_enabled")) {
+            return plugin.getConfig().getBoolean("stats.enabled", true) ? "true" : "false";
+        }
+        
+        if (params.equalsIgnoreCase("stats_deaths_saved")) {
+            StatsManager stats = plugin.getStatsManager();
+            return stats != null ? String.valueOf(stats.getDeathsSaved(player.getUniqueId())) : "0";
+        }
+        
+        if (params.equalsIgnoreCase("stats_deaths_lost")) {
+            StatsManager stats = plugin.getStatsManager();
+            return stats != null ? String.valueOf(stats.getDeathsLost(player.getUniqueId())) : "0";
+        }
+        
+        if (params.equalsIgnoreCase("stats_total_deaths")) {
+            StatsManager stats = plugin.getStatsManager();
+            return stats != null ? String.valueOf(stats.getTotalDeaths(player.getUniqueId())) : "0";
+        }
+        
+        if (params.equalsIgnoreCase("stats_save_rate")) {
+            StatsManager stats = plugin.getStatsManager();
+            if (stats != null) {
+                double rate = stats.getSaveRate(player.getUniqueId());
+                return String.format("%.1f%%", rate);
+            }
+            return "0%";
+        }
+        
+        if (params.equalsIgnoreCase("stats_economy_paid")) {
+            StatsManager stats = plugin.getStatsManager();
+            return stats != null ? String.format("%.2f", stats.getTotalEconomyPaid(player.getUniqueId())) : "0";
+        }
+        
+        if (params.equalsIgnoreCase("stats_global_saved")) {
+            StatsManager stats = plugin.getStatsManager();
+            return stats != null ? String.valueOf(stats.getGlobalDeathsSaved()) : "0";
+        }
+        
+        if (params.equalsIgnoreCase("stats_global_lost")) {
+            StatsManager stats = plugin.getStatsManager();
+            return stats != null ? String.valueOf(stats.getGlobalDeathsLost()) : "0";
+        }
+        
+        if (params.equalsIgnoreCase("stats_global_rate")) {
+            StatsManager stats = plugin.getStatsManager();
+            if (stats != null) {
+                double rate = stats.getGlobalSaveRate();
+                return String.format("%.1f%%", rate);
+            }
+            return "0%";
         }
         
         return null;

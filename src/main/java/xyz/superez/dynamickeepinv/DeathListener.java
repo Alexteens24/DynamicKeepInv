@@ -51,6 +51,7 @@ public class DeathListener implements Listener {
                 if (event.getDrops() != null) {
                     event.getDrops().clear();
                 }
+                trackDeathStats(player, true, true, "bypass");
                 sendDeathMessage(player, true, true, "bypass");
                 return;
             }
@@ -62,6 +63,7 @@ public class DeathListener implements Listener {
         if (protectionResult.handled && !protectionResult.reason.contains("wilderness")) {
             plugin.debug("Death handled by protection plugin (claimed area): keepItems=" + protectionResult.keepItems + ", keepXp=" + protectionResult.keepXp);
             applyKeepInventorySettings(event, protectionResult.keepItems, protectionResult.keepXp);
+            trackDeathStats(player, protectionResult.keepItems, protectionResult.keepXp, protectionResult.reason);
             sendDeathMessage(player, protectionResult.keepItems, protectionResult.keepXp, protectionResult.reason);
             return;
         }
@@ -217,6 +219,8 @@ public class DeathListener implements Listener {
         } else {
             reason = baseReason;
         }
+        
+        trackDeathStats(player, keepItems, keepXp, reason);
         sendDeathMessage(player, keepItems, keepXp, reason);
         
         plugin.debug("Event keepInventory FINAL: " + event.getKeepInventory());
@@ -271,6 +275,38 @@ public class DeathListener implements Listener {
         
         if (plugin.getConfig().getBoolean("advanced.death-message.action-bar", false)) {
             player.sendActionBar(plugin.parseMessage(message));
+        }
+    }
+    
+    private void trackDeathStats(Player player, boolean keepItems, boolean keepXp, String reason) {
+        if (!plugin.getConfig().getBoolean("stats.enabled", true)) {
+            return;
+        }
+        
+        StatsManager stats = plugin.getStatsManager();
+        if (stats == null) {
+            return;
+        }
+        
+        String simpleReason = reason;
+        if (reason.contains("time-day") || reason.contains("day")) {
+            simpleReason = "day";
+        } else if (reason.contains("time-night") || reason.contains("night")) {
+            simpleReason = "night";
+        } else if (reason.contains("pvp")) {
+            simpleReason = "pvp";
+        } else if (reason.contains("pve")) {
+            simpleReason = "pve";
+        } else if (reason.contains("lands")) {
+            simpleReason = "lands";
+        } else if (reason.contains("gp")) {
+            simpleReason = "griefprevention";
+        }
+        
+        if (keepItems || keepXp) {
+            stats.recordDeathSaved(player, simpleReason);
+        } else {
+            stats.recordDeathLost(player, simpleReason);
         }
     }
     

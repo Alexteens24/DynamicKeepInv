@@ -11,11 +11,13 @@ Aliases: `/dki`, `/keepinv`
 |---------|-------------|------------|
 | `/dki` | Show help menu | None |
 | `/dki help` | Show help menu | None |
-| `/dki status` | Show plugin status | `dynamickeepinv.status` |
-| `/dki reload` | Reload config files | `dynamickeepinv.reload` |
-| `/dki enable` | Enable the plugin | `dynamickeepinv.toggle` |
-| `/dki disable` | Disable the plugin | `dynamickeepinv.toggle` |
-| `/dki toggle` | Toggle plugin on/off | `dynamickeepinv.toggle` |
+| `/dki status` | Show plugin status | `dynamickeepinv.admin` |
+| `/dki reload` | Reload config files | `dynamickeepinv.admin` |
+| `/dki enable` | Enable the plugin | `dynamickeepinv.admin` |
+| `/dki disable` | Disable the plugin | `dynamickeepinv.admin` |
+| `/dki toggle` | Toggle plugin on/off | `dynamickeepinv.admin` |
+| `/dki stats` | View your death stats | `dynamickeepinv.stats` |
+| `/dki stats <player>` | View player's stats | `dynamickeepinv.stats.others` |
 
 ---
 
@@ -71,6 +73,42 @@ Control the plugin without editing config:
 ```
 
 > **Note:** This is temporary. Plugin state resets to config value on restart.
+
+---
+
+### `/dki stats [player]`
+
+Opens a GUI showing death statistics:
+
+**Your own stats (`/dki stats`):**
+
+```
+┌─────────────────────────────────────────┐
+│           DynamicKeepInv Stats          │
+├─────────────────────────────────────────┤
+│  [Head]  YourName                       │
+│                                         │
+│  💀 Total Deaths: 25                    │
+│  💚 Deaths Saved: 18                    │
+│  ❌ Deaths Lost: 7                      │
+│  📊 Save Rate: 72%                      │
+│  [████████░░] 72%                       │
+│                                         │
+│  💰 Economy: $1,500 paid (5 payments)   │
+│  ⏰ Last Death: 06/12/2024 15:30        │
+│     Reason: Day | Saved: Yes            │
+│                                         │
+│  📖 Breakdown:                          │
+│     Day: 12 | Night: 8 | PvP: 5         │
+│                                         │
+│  ⭐ Server Stats:                       │
+│     Saved: 1,234 | Lost: 567 | Rate: 68%│
+└─────────────────────────────────────────┘
+```
+
+**View other player (`/dki stats Steve`):**
+- Requires `dynamickeepinv.stats.others` permission
+- Shows same GUI but for target player
 
 ---
 

@@ -4,11 +4,10 @@
 
 | Permission | Description | Default |
 |------------|-------------|----------|
-| `dynamickeepinv.admin` | All permissions below | OP |
-| `dynamickeepinv.status` | Use `/dki status` | OP |
-| `dynamickeepinv.reload` | Use `/dki reload` | OP |
-| `dynamickeepinv.toggle` | Use `/dki enable/disable/toggle` | OP |
+| `dynamickeepinv.admin` | All admin command permissions | OP |
 | `dynamickeepinv.bypass` | Always keep inventory | false |
+| `dynamickeepinv.stats` | View own death statistics | true |
+| `dynamickeepinv.stats.others` | View other players' statistics | OP |
 
 ---
 
@@ -16,19 +15,7 @@
 
 ### `dynamickeepinv.admin`
 
-Parent permission that includes all command permissions. Give this to server administrators.
-
-### `dynamickeepinv.status`
-
-Allows viewing plugin status with `/dki status`. Safe to give to moderators.
-
-### `dynamickeepinv.reload`
-
-Allows reloading config files. Only give to trusted staff.
-
-### `dynamickeepinv.toggle`
-
-Allows enabling/disabling the plugin. Only give to trusted staff.
+Parent permission that includes all admin command permissions (status, reload, toggle). Give this to server administrators.
 
 ### `dynamickeepinv.bypass`
 
@@ -40,6 +27,14 @@ Requires `advanced.bypass-permission: true` in config (enabled by default).
 - Staff members
 - VIP/Donator ranks
 - Event participants
+
+### `dynamickeepinv.stats`
+
+Allows players to view their own death statistics with `/dki stats`. Enabled by default for all players.
+
+### `dynamickeepinv.stats.others`
+
+Allows viewing other players' death statistics with `/dki stats <player>`. Only give to moderators or staff who need to check player stats.
 
 ---
 
@@ -54,8 +49,8 @@ Requires `advanced.bypass-permission: true` in config (enabled by default).
 # VIP bypass
 /lp group vip permission set dynamickeepinv.bypass true
 
-# Mod can view status
-/lp group mod permission set dynamickeepinv.status true
+# Allow viewing other players' stats
+/lp group mod permission set dynamickeepinv.stats.others true
 ```
 
 ### PermissionsEx (PEX)

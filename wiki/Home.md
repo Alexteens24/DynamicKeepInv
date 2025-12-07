@@ -21,6 +21,7 @@ Vanilla Minecraft only has a simple on/off for keepInventory. This plugin gives 
 | **Protection plugins** | Lands & GriefPrevention integration |
 | **Per-world** | Configure each world independently |
 | **Economy** | Charge players to keep inventory |
+| **Player Stats** | Track deaths with GUI and PlaceholderAPI |
 | **Folia support** | Works on Paper, Spigot, and Folia |
 
 ## Quick Start
@@ -44,6 +45,7 @@ Out of the box:
 | [Installation](Installation) | Requirements and setup |
 | [Basic Configuration](Basic-Configuration) | Time, world, and broadcast settings |
 | [Advanced Configuration](Advanced-Configuration) | Death cause, protection plugins, economy |
+| [Stats](Stats) | Player death statistics and GUI |
 | [Placeholders](Placeholders) | PlaceholderAPI integration |
 | [Commands](Commands) | All available commands |
 | [Permissions](Permissions) | Permission nodes |

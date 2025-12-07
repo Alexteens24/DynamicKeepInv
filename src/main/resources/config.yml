@@ -1,6 +1,6 @@
 # DynamicKeepInv Configuration
 # Wiki: https://github.com/Alexteens24/DynamicKeepInv/wiki
-config-version: 4
+config-version: 5
 
 enabled: true
 keep-inventory-day: true
@@ -100,3 +100,6 @@ advanced:
   night:
     keep-items: false
     keep-xp: false
+
+stats:
+  enabled: true

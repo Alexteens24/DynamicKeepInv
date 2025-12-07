@@ -18,6 +18,7 @@ messages:
       enable: "&e/dki enable &f- Enable plugin"
       disable: "&e/dki disable &f- Disable plugin"
       toggle: "&e/dki toggle &f- Toggle plugin on/off"
+      stats: "&e/dki stats [player] &f- View death statistics"
     
     status:
       header: "&6=== DynamicKeepInv Status ==="
@@ -74,6 +75,10 @@ messages:
       time-night: "&7(Nighttime - no protection)"
       pvp: "&7(PvP death)"
       pve: "&7(PvE death)"
+    
+    stats:
+      disabled: "&cStats system is disabled!"
+      player-not-found: "&cPlayer {player} not found!"
   
   # Vietnamese Messages
   vi:
@@ -87,6 +92,7 @@ messages:
       enable: "&e/dki enable &f- Bật plugin"
       disable: "&e/dki disable &f- Tắt plugin"
       toggle: "&e/dki toggle &f- Chuyển đổi bật/tắt"
+      stats: "&e/dki stats [player] &f- Xem thống kê chết"
     
     status:
       header: "&6=== Trạng Thái DynamicKeepInv ==="
@@ -143,3 +149,7 @@ messages:
       time-night: "&7(Ban đêm - không bảo vệ)"
       pvp: "&7(Chết do PvP)"
       pve: "&7(Chết do PvE)"
+    
+    stats:
+      disabled: "&cHệ thống thống kê đã bị tắt!"
+      player-not-found: "&cKhông tìm thấy người chơi {player}!"
