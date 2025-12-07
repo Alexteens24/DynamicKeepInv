@@ -189,7 +189,7 @@ public class StatsGUI implements Listener {
     }
     
     private String formatReason(String reason) {
-        if (reason == null || reason.equals("none")) return "None";
+        if (reason == null || reason.equals("none") || reason.isEmpty()) return "None";
         return reason.substring(0, 1).toUpperCase() + reason.substring(1).replace("-", " ");
     }
     

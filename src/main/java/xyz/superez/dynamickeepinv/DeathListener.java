@@ -189,6 +189,13 @@ public class DeathListener implements Listener {
                             String msg = plugin.getMessage("economy.paid")
                                 .replace("{amount}", eco.format(cost));
                             player.sendMessage(plugin.parseMessage(msg));
+                            
+                            // Track economy payment in stats
+                            StatsManager stats = plugin.getStatsManager();
+                            if (stats != null) {
+                                stats.recordEconomyPayment(player, cost);
+                            }
+                            
                             if ("charge-to-bypass".equalsIgnoreCase(mode)) {
                                 plugin.debug("Bypass mode: Payment successful, keeping items.");
                                 keepItems = true;
@@ -316,6 +323,10 @@ public class DeathListener implements Listener {
         
         if (plugin.isLandsEnabled() && plugin.getConfig().getBoolean("advanced.protection.lands.enabled", false)) {
             LandsHook lands = plugin.getLandsHook();
+            if (lands == null) {
+                plugin.debug("Lands hook is null despite being enabled.");
+                return new ProtectionResult(false, false, false, null);
+            }
             boolean inLand = lands.isInLand(location);
             boolean overrideLands = plugin.getConfig().getBoolean("advanced.protection.lands.override-lands", false);
             plugin.debug("Player in Lands area: " + inLand + ", Override Lands settings: " + overrideLands);
@@ -351,6 +362,10 @@ public class DeathListener implements Listener {
         
         if (plugin.isGriefPreventionEnabled() && plugin.getConfig().getBoolean("advanced.protection.griefprevention.enabled", false)) {
             GriefPreventionHook gp = plugin.getGriefPreventionHook();
+            if (gp == null) {
+                plugin.debug("GriefPrevention hook is null despite being enabled.");
+                return new ProtectionResult(false, false, false, null);
+            }
             if (gp.isInClaim(location)) {
                 plugin.debug("Player died in a GriefPrevention claim owned by: " + gp.getClaimOwnerName(location));
                 

@@ -183,9 +183,10 @@ public class StatsManager {
         String sql = "SELECT last_death_time FROM player_stats WHERE uuid = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, uuid.toString());
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getLong("last_death_time");
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong("last_death_time");
+                }
             }
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "Database error!", e);
@@ -197,9 +198,10 @@ public class StatsManager {
         String sql = "SELECT last_death_reason FROM player_stats WHERE uuid = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, uuid.toString());
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getString("last_death_reason");
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("last_death_reason");
+                }
             }
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "Database error!", e);
@@ -215,9 +217,10 @@ public class StatsManager {
         String sql = "SELECT economy_total_paid FROM player_stats WHERE uuid = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, uuid.toString());
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getDouble("economy_total_paid");
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("economy_total_paid");
+                }
             }
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "Database error!", e);
@@ -234,9 +237,10 @@ public class StatsManager {
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, uuid.toString());
             pstmt.setString(2, reason);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt("saved_count");
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("saved_count");
+                }
             }
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "Database error!", e);
@@ -249,9 +253,10 @@ public class StatsManager {
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, uuid.toString());
             pstmt.setString(2, reason);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt("lost_count");
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("lost_count");
+                }
             }
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "Database error!", e);
@@ -260,17 +265,33 @@ public class StatsManager {
     }
     
     private int getIntStat(UUID uuid, String column) {
+        // Whitelist allowed column names to prevent SQL injection
+        if (!isValidColumn(column)) {
+            plugin.getLogger().log(Level.WARNING, "Invalid column name requested: " + column);
+            return 0;
+        }
+        
         String sql = "SELECT " + column + " FROM player_stats WHERE uuid = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, uuid.toString());
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt(column);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(column);
+                }
             }
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "Database error!", e);
         }
         return 0;
+    }
+    
+    private boolean isValidColumn(String column) {
+        // Whitelist of valid column names
+        return column.equals("deaths_saved") || 
+               column.equals("deaths_lost") || 
+               column.equals("total_deaths") ||
+               column.equals("last_death_saved") ||
+               column.equals("economy_payment_count");
     }
     
     public double getSaveRate(UUID uuid) {
