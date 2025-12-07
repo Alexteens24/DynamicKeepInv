@@ -1,18 +1,29 @@
 package xyz.superez.dynamickeepinv;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.sql.*;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 public class StatsManager {
     private final DynamicKeepInvPlugin plugin;
     private Connection connection;
+    private final ExecutorService asyncExecutor;
+    private volatile boolean isShuttingDown = false;
     
     public StatsManager(DynamicKeepInvPlugin plugin) {
         this.plugin = plugin;
+        this.asyncExecutor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "DynamicKeepInv-Stats");
+            t.setDaemon(true);
+            return t;
+        });
         initDatabase();
     }
     
@@ -54,6 +65,16 @@ public class StatsManager {
     }
     
     public void close() {
+        isShuttingDown = true;
+        asyncExecutor.shutdown();
+        try {
+            if (!asyncExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                asyncExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            asyncExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
         try {
             if (connection != null && !connection.isClosed()) {
                 connection.close();
@@ -84,57 +105,65 @@ public class StatsManager {
     }
     
     public void recordDeathSaved(Player player, String reason) {
-        if (!isConnectionValid()) return;
-        UUID uuid = player.getUniqueId();
-        ensurePlayerExists(uuid, player.getName());
+        if (isShuttingDown || !isConnectionValid()) return;
+        final UUID uuid = player.getUniqueId();
+        final String playerName = player.getName();
         
-        String sql = "UPDATE player_stats SET " +
-                     "deaths_saved = deaths_saved + 1, " +
-                     "total_deaths = total_deaths + 1, " +
-                     "last_death_time = ?, " +
-                     "last_death_reason = ?, " +
-                     "last_death_saved = 1, " +
-                     "player_name = ? " +
-                     "WHERE uuid = ?";
-        
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setLong(1, System.currentTimeMillis());
-            pstmt.setString(2, reason);
-            pstmt.setString(3, player.getName());
-            pstmt.setString(4, uuid.toString());
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
-        }
-        
-        updateReasonStats(uuid, reason, true);
+        asyncExecutor.execute(() -> {
+            ensurePlayerExists(uuid, playerName);
+            
+            String sql = "UPDATE player_stats SET " +
+                         "deaths_saved = deaths_saved + 1, " +
+                         "total_deaths = total_deaths + 1, " +
+                         "last_death_time = ?, " +
+                         "last_death_reason = ?, " +
+                         "last_death_saved = 1, " +
+                         "player_name = ? " +
+                         "WHERE uuid = ?";
+            
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                pstmt.setLong(1, System.currentTimeMillis());
+                pstmt.setString(2, reason);
+                pstmt.setString(3, playerName);
+                pstmt.setString(4, uuid.toString());
+                pstmt.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+            }
+            
+            updateReasonStats(uuid, reason, true);
+        });
     }
     
     public void recordDeathLost(Player player, String reason) {
-        if (!isConnectionValid()) return;
-        UUID uuid = player.getUniqueId();
-        ensurePlayerExists(uuid, player.getName());
+        if (isShuttingDown || !isConnectionValid()) return;
+        final UUID uuid = player.getUniqueId();
+        final String playerName = player.getName();
         
-        String sql = "UPDATE player_stats SET " +
-                     "deaths_lost = deaths_lost + 1, " +
-                     "total_deaths = total_deaths + 1, " +
-                     "last_death_time = ?, " +
-                     "last_death_reason = ?, " +
-                     "last_death_saved = 0, " +
-                     "player_name = ? " +
-                     "WHERE uuid = ?";
-        
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setLong(1, System.currentTimeMillis());
-            pstmt.setString(2, reason);
-            pstmt.setString(3, player.getName());
-            pstmt.setString(4, uuid.toString());
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
-        }
-        
-        updateReasonStats(uuid, reason, false);
+        asyncExecutor.execute(() -> {
+            ensurePlayerExists(uuid, playerName);
+            
+            String sql = "UPDATE player_stats SET " +
+                         "deaths_lost = deaths_lost + 1, " +
+                         "total_deaths = total_deaths + 1, " +
+                         "last_death_time = ?, " +
+                         "last_death_reason = ?, " +
+                         "last_death_saved = 0, " +
+                         "player_name = ? " +
+                         "WHERE uuid = ?";
+            
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                pstmt.setLong(1, System.currentTimeMillis());
+                pstmt.setString(2, reason);
+                pstmt.setString(3, playerName);
+                pstmt.setString(4, uuid.toString());
+                pstmt.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+            }
+            
+            updateReasonStats(uuid, reason, false);
+        });
     }
     
     private void updateReasonStats(UUID uuid, String reason, boolean saved) {
@@ -162,22 +191,26 @@ public class StatsManager {
     }
     
     public void recordEconomyPayment(Player player, double amount) {
-        if (!isConnectionValid()) return;
-        UUID uuid = player.getUniqueId();
-        ensurePlayerExists(uuid, player.getName());
+        if (isShuttingDown || !isConnectionValid()) return;
+        final UUID uuid = player.getUniqueId();
+        final String playerName = player.getName();
         
-        String sql = "UPDATE player_stats SET " +
-                     "economy_total_paid = economy_total_paid + ?, " +
-                     "economy_payment_count = economy_payment_count + 1 " +
-                     "WHERE uuid = ?";
-        
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setDouble(1, amount);
-            pstmt.setString(2, uuid.toString());
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
-        }
+        asyncExecutor.execute(() -> {
+            ensurePlayerExists(uuid, playerName);
+            
+            String sql = "UPDATE player_stats SET " +
+                         "economy_total_paid = economy_total_paid + ?, " +
+                         "economy_payment_count = economy_payment_count + 1 " +
+                         "WHERE uuid = ?";
+            
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                pstmt.setDouble(1, amount);
+                pstmt.setString(2, uuid.toString());
+                pstmt.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+            }
+        });
     }
     
     public int getDeathsSaved(UUID uuid) {
