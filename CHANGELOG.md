@@ -1,4 +1,15 @@
 # Changelog
+## [1.0.15] - 2025-12-07
+### Bug Fixes
+- Fixed economy payments not being tracked in stats database
+- Fixed potential SQLite connection crashes on server lag
+- Fixed `/dki stats <player>` not working for offline players
+
+### Improvements
+- Added async database writes for better Paper/Folia performance
+- Database operations no longer block main server thread
+- Graceful shutdown with async task completion
+
 ## [1.0.14] - 2025-12-07
 ### New Features
 - Added Player Stats GUI (`/dki stats [player]`)

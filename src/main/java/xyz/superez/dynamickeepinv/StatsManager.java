@@ -1,6 +1,5 @@
 package xyz.superez.dynamickeepinv;
 
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.io.File;
