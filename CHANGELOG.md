@@ -1,4 +1,30 @@
 # Changelog
+## [1.0.14] - 2025-12-07
+### New Features
+- Added Player Stats GUI (`/dki stats [player]`)
+- SQLite database for persistent death statistics
+- Track deaths saved, deaths lost, economy paid, death reasons
+- 45-slot inventory GUI with player head, progress bar, server stats
+- Added 8 new PlaceholderAPI placeholders for stats
+
+### PlaceholderAPI Stats Placeholders
+- `%dynamickeepinv_stats_deaths_saved%` - Total deaths saved
+- `%dynamickeepinv_stats_deaths_lost%` - Total deaths lost
+- `%dynamickeepinv_stats_total_deaths%` - Total deaths
+- `%dynamickeepinv_stats_save_rate%` - Save rate percentage
+- `%dynamickeepinv_stats_economy_paid%` - Total economy paid
+- `%dynamickeepinv_stats_global_saved%` - Server-wide deaths saved
+- `%dynamickeepinv_stats_global_lost%` - Server-wide deaths lost
+- `%dynamickeepinv_stats_global_rate%` - Server-wide save rate
+
+### Config Changes
+- Config version updated to 5
+- Added `stats.enabled` option
+
+### Permissions
+- `dynamickeepinv.stats` - View own stats
+- `dynamickeepinv.stats.others` - View other players' stats
+
 ## [1.0.13] - 2025-12-04
 ### New Features
 - Added PlaceholderAPI support with 14 placeholders
