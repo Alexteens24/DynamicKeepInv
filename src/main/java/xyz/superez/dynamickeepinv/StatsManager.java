@@ -6,11 +6,23 @@ import java.io.File;
 import java.sql.*;
 import java.util.UUID;
 import java.util.logging.Level;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Arrays;
 
 public class StatsManager {
     private final DynamicKeepInvPlugin plugin;
     private Connection connection;
     private final Object connectionLock = new Object();
+    
+    // Whitelist of valid column names for SQL queries
+    private static final Set<String> VALID_COLUMNS = new HashSet<>(Arrays.asList(
+        "deaths_saved",
+        "deaths_lost", 
+        "total_deaths",
+        "last_death_saved",
+        "economy_payment_count"
+    ));
     
     public StatsManager(DynamicKeepInvPlugin plugin) {
         this.plugin = plugin;
@@ -320,12 +332,8 @@ public class StatsManager {
     }
     
     private boolean isValidColumn(String column) {
-        // Whitelist of valid column names
-        return column.equals("deaths_saved") || 
-               column.equals("deaths_lost") || 
-               column.equals("total_deaths") ||
-               column.equals("last_death_saved") ||
-               column.equals("economy_payment_count");
+        // Use HashSet for O(1) lookup performance
+        return VALID_COLUMNS.contains(column);
     }
     
     public double getSaveRate(UUID uuid) {
@@ -365,7 +373,16 @@ public class StatsManager {
     
     public int getGlobalTotalDeaths() {
         synchronized (connectionLock) {
-            return getGlobalDeathsSavedInternal() + getGlobalDeathsLostInternal();
+            String sql = "SELECT COALESCE(SUM(total_deaths), 0) FROM player_stats";
+            try (Statement stmt = connection.createStatement();
+                 ResultSet rs = stmt.executeQuery(sql)) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+            }
+            return 0;
         }
     }
     
