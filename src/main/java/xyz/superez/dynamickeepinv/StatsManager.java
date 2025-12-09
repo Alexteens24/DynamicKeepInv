@@ -15,6 +15,7 @@ public class StatsManager {
     private Connection connection;
     private final ExecutorService asyncExecutor;
     private volatile boolean isShuttingDown = false;
+    private final Object dbLock = new Object();
     
     public StatsManager(DynamicKeepInvPlugin plugin) {
         this.plugin = plugin;
@@ -30,33 +31,35 @@ public class StatsManager {
         try {
             File dbFile = new File(plugin.getDataFolder(), "stats.db");
             String url = "jdbc:sqlite:" + dbFile.getAbsolutePath();
-            connection = DriverManager.getConnection(url);
-            
-            try (Statement stmt = connection.createStatement()) {
-                stmt.execute(
-                    "CREATE TABLE IF NOT EXISTS player_stats (" +
-                    "uuid TEXT PRIMARY KEY," +
-                    "player_name TEXT," +
-                    "deaths_saved INTEGER DEFAULT 0," +
-                    "deaths_lost INTEGER DEFAULT 0," +
-                    "total_deaths INTEGER DEFAULT 0," +
-                    "last_death_time INTEGER DEFAULT 0," +
-                    "last_death_reason TEXT DEFAULT 'none'," +
-                    "last_death_saved INTEGER DEFAULT 0," +
-                    "economy_total_paid REAL DEFAULT 0," +
-                    "economy_payment_count INTEGER DEFAULT 0)"
-                );
-                
-                stmt.execute(
-                    "CREATE TABLE IF NOT EXISTS death_reasons (" +
-                    "uuid TEXT," +
-                    "reason TEXT," +
-                    "saved_count INTEGER DEFAULT 0," +
-                    "lost_count INTEGER DEFAULT 0," +
-                    "PRIMARY KEY (uuid, reason))"
-                );
+            synchronized (dbLock) {
+                connection = DriverManager.getConnection(url);
+
+                try (Statement stmt = connection.createStatement()) {
+                    stmt.execute(
+                        "CREATE TABLE IF NOT EXISTS player_stats (" +
+                        "uuid TEXT PRIMARY KEY," +
+                        "player_name TEXT," +
+                        "deaths_saved INTEGER DEFAULT 0," +
+                        "deaths_lost INTEGER DEFAULT 0," +
+                        "total_deaths INTEGER DEFAULT 0," +
+                        "last_death_time INTEGER DEFAULT 0," +
+                        "last_death_reason TEXT DEFAULT 'none'," +
+                        "last_death_saved INTEGER DEFAULT 0," +
+                        "economy_total_paid REAL DEFAULT 0," +
+                        "economy_payment_count INTEGER DEFAULT 0)"
+                    );
+
+                    stmt.execute(
+                        "CREATE TABLE IF NOT EXISTS death_reasons (" +
+                        "uuid TEXT," +
+                        "reason TEXT," +
+                        "saved_count INTEGER DEFAULT 0," +
+                        "lost_count INTEGER DEFAULT 0," +
+                        "PRIMARY KEY (uuid, reason))"
+                    );
+                }
             }
-            
+
             plugin.getLogger().info("SQLite database initialized!");
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "Could not initialize SQLite database!", e);
@@ -75,8 +78,10 @@ public class StatsManager {
             Thread.currentThread().interrupt();
         }
         try {
-            if (connection != null && !connection.isClosed()) {
-                connection.close();
+            synchronized (dbLock) {
+                if (connection != null && !connection.isClosed()) {
+                    connection.close();
+                }
             }
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "Could not close database connection!", e);
@@ -86,20 +91,24 @@ public class StatsManager {
     private void ensurePlayerExists(UUID uuid, String playerName) {
         if (!isConnectionValid()) return;
         String sql = "INSERT OR IGNORE INTO player_stats (uuid, player_name) VALUES (?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, uuid.toString());
-            pstmt.setString(2, playerName);
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+        synchronized (dbLock) {
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                pstmt.setString(1, uuid.toString());
+                pstmt.setString(2, playerName);
+                pstmt.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+            }
         }
     }
     
     private boolean isConnectionValid() {
-        try {
-            return connection != null && !connection.isClosed();
-        } catch (SQLException e) {
-            return false;
+        synchronized (dbLock) {
+            try {
+                return connection != null && !connection.isClosed();
+            } catch (SQLException e) {
+                return false;
+            }
         }
     }
     
@@ -120,14 +129,16 @@ public class StatsManager {
                          "player_name = ? " +
                          "WHERE uuid = ?";
             
-            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-                pstmt.setLong(1, System.currentTimeMillis());
-                pstmt.setString(2, reason);
-                pstmt.setString(3, playerName);
-                pstmt.setString(4, uuid.toString());
-                pstmt.executeUpdate();
-            } catch (SQLException e) {
-                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+            synchronized (dbLock) {
+                try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                    pstmt.setLong(1, System.currentTimeMillis());
+                    pstmt.setString(2, reason);
+                    pstmt.setString(3, playerName);
+                    pstmt.setString(4, uuid.toString());
+                    pstmt.executeUpdate();
+                } catch (SQLException e) {
+                    plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+                }
             }
             
             updateReasonStats(uuid, reason, true);
@@ -151,14 +162,16 @@ public class StatsManager {
                          "player_name = ? " +
                          "WHERE uuid = ?";
             
-            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-                pstmt.setLong(1, System.currentTimeMillis());
-                pstmt.setString(2, reason);
-                pstmt.setString(3, playerName);
-                pstmt.setString(4, uuid.toString());
-                pstmt.executeUpdate();
-            } catch (SQLException e) {
-                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+            synchronized (dbLock) {
+                try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                    pstmt.setLong(1, System.currentTimeMillis());
+                    pstmt.setString(2, reason);
+                    pstmt.setString(3, playerName);
+                    pstmt.setString(4, uuid.toString());
+                    pstmt.executeUpdate();
+                } catch (SQLException e) {
+                    plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+                }
             }
             
             updateReasonStats(uuid, reason, false);
@@ -168,24 +181,28 @@ public class StatsManager {
     private void updateReasonStats(UUID uuid, String reason, boolean saved) {
         if (!isConnectionValid()) return;
         String insertSql = "INSERT OR IGNORE INTO death_reasons (uuid, reason) VALUES (?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(insertSql)) {
-            pstmt.setString(1, uuid.toString());
-            pstmt.setString(2, reason);
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+        synchronized (dbLock) {
+            try (PreparedStatement pstmt = connection.prepareStatement(insertSql)) {
+                pstmt.setString(1, uuid.toString());
+                pstmt.setString(2, reason);
+                pstmt.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+            }
         }
         
         String updateSql = saved 
             ? "UPDATE death_reasons SET saved_count = saved_count + 1 WHERE uuid = ? AND reason = ?"
             : "UPDATE death_reasons SET lost_count = lost_count + 1 WHERE uuid = ? AND reason = ?";
         
-        try (PreparedStatement pstmt = connection.prepareStatement(updateSql)) {
-            pstmt.setString(1, uuid.toString());
-            pstmt.setString(2, reason);
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+        synchronized (dbLock) {
+            try (PreparedStatement pstmt = connection.prepareStatement(updateSql)) {
+                pstmt.setString(1, uuid.toString());
+                pstmt.setString(2, reason);
+                pstmt.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+            }
         }
     }
     
@@ -202,12 +219,14 @@ public class StatsManager {
                          "economy_payment_count = economy_payment_count + 1 " +
                          "WHERE uuid = ?";
             
-            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-                pstmt.setDouble(1, amount);
-                pstmt.setString(2, uuid.toString());
-                pstmt.executeUpdate();
-            } catch (SQLException e) {
-                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+            synchronized (dbLock) {
+                try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                    pstmt.setDouble(1, amount);
+                    pstmt.setString(2, uuid.toString());
+                    pstmt.executeUpdate();
+                } catch (SQLException e) {
+                    plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+                }
             }
         });
     }
@@ -227,14 +246,16 @@ public class StatsManager {
     public long getLastDeathTime(UUID uuid) {
         if (!isConnectionValid()) return 0;
         String sql = "SELECT last_death_time FROM player_stats WHERE uuid = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, uuid.toString());
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getLong("last_death_time");
+        synchronized (dbLock) {
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                pstmt.setString(1, uuid.toString());
+                ResultSet rs = pstmt.executeQuery();
+                if (rs.next()) {
+                    return rs.getLong("last_death_time");
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
             }
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
         }
         return 0;
     }
@@ -242,14 +263,16 @@ public class StatsManager {
     public String getLastDeathReason(UUID uuid) {
         if (!isConnectionValid()) return "none";
         String sql = "SELECT last_death_reason FROM player_stats WHERE uuid = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, uuid.toString());
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getString("last_death_reason");
+        synchronized (dbLock) {
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                pstmt.setString(1, uuid.toString());
+                ResultSet rs = pstmt.executeQuery();
+                if (rs.next()) {
+                    return rs.getString("last_death_reason");
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
             }
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
         }
         return "none";
     }
@@ -261,14 +284,16 @@ public class StatsManager {
     public double getTotalEconomyPaid(UUID uuid) {
         if (!isConnectionValid()) return 0;
         String sql = "SELECT economy_total_paid FROM player_stats WHERE uuid = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, uuid.toString());
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getDouble("economy_total_paid");
+        synchronized (dbLock) {
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                pstmt.setString(1, uuid.toString());
+                ResultSet rs = pstmt.executeQuery();
+                if (rs.next()) {
+                    return rs.getDouble("economy_total_paid");
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
             }
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
         }
         return 0;
     }
@@ -280,15 +305,17 @@ public class StatsManager {
     public int getReasonSavedCount(UUID uuid, String reason) {
         if (!isConnectionValid()) return 0;
         String sql = "SELECT saved_count FROM death_reasons WHERE uuid = ? AND reason = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, uuid.toString());
-            pstmt.setString(2, reason);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt("saved_count");
+        synchronized (dbLock) {
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                pstmt.setString(1, uuid.toString());
+                pstmt.setString(2, reason);
+                ResultSet rs = pstmt.executeQuery();
+                if (rs.next()) {
+                    return rs.getInt("saved_count");
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
             }
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
         }
         return 0;
     }
@@ -296,15 +323,17 @@ public class StatsManager {
     public int getReasonLostCount(UUID uuid, String reason) {
         if (!isConnectionValid()) return 0;
         String sql = "SELECT lost_count FROM death_reasons WHERE uuid = ? AND reason = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, uuid.toString());
-            pstmt.setString(2, reason);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt("lost_count");
+        synchronized (dbLock) {
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                pstmt.setString(1, uuid.toString());
+                pstmt.setString(2, reason);
+                ResultSet rs = pstmt.executeQuery();
+                if (rs.next()) {
+                    return rs.getInt("lost_count");
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
             }
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
         }
         return 0;
     }
@@ -312,14 +341,16 @@ public class StatsManager {
     private int getIntStat(UUID uuid, String column) {
         if (!isConnectionValid()) return 0;
         String sql = "SELECT " + column + " FROM player_stats WHERE uuid = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, uuid.toString());
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt(column);
+        synchronized (dbLock) {
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                pstmt.setString(1, uuid.toString());
+                ResultSet rs = pstmt.executeQuery();
+                if (rs.next()) {
+                    return rs.getInt(column);
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
             }
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
         }
         return 0;
     }
@@ -332,30 +363,34 @@ public class StatsManager {
     
     public void resetPlayerStats(UUID uuid) {
         if (!isConnectionValid()) return;
-        try {
-            try (PreparedStatement pstmt = connection.prepareStatement("DELETE FROM player_stats WHERE uuid = ?")) {
-                pstmt.setString(1, uuid.toString());
-                pstmt.executeUpdate();
+        synchronized (dbLock) {
+            try {
+                try (PreparedStatement pstmt = connection.prepareStatement("DELETE FROM player_stats WHERE uuid = ?")) {
+                    pstmt.setString(1, uuid.toString());
+                    pstmt.executeUpdate();
+                }
+                try (PreparedStatement pstmt = connection.prepareStatement("DELETE FROM death_reasons WHERE uuid = ?")) {
+                    pstmt.setString(1, uuid.toString());
+                    pstmt.executeUpdate();
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
             }
-            try (PreparedStatement pstmt = connection.prepareStatement("DELETE FROM death_reasons WHERE uuid = ?")) {
-                pstmt.setString(1, uuid.toString());
-                pstmt.executeUpdate();
-            }
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
         }
     }
     
     public int getGlobalDeathsSaved() {
         if (!isConnectionValid()) return 0;
         String sql = "SELECT COALESCE(SUM(deaths_saved), 0) FROM player_stats";
-        try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-            if (rs.next()) {
-                return rs.getInt(1);
+        synchronized (dbLock) {
+            try (Statement stmt = connection.createStatement();
+                 ResultSet rs = stmt.executeQuery(sql)) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
             }
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
         }
         return 0;
     }
@@ -363,13 +398,15 @@ public class StatsManager {
     public int getGlobalDeathsLost() {
         if (!isConnectionValid()) return 0;
         String sql = "SELECT COALESCE(SUM(deaths_lost), 0) FROM player_stats";
-        try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-            if (rs.next()) {
-                return rs.getInt(1);
+        synchronized (dbLock) {
+            try (Statement stmt = connection.createStatement();
+                 ResultSet rs = stmt.executeQuery(sql)) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
             }
-        } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Database error!", e);
         }
         return 0;
     }

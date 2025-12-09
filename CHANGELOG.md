@@ -1,4 +1,13 @@
 # Changelog
+## [1.0.16] - 2025-12-09
+### Bug Fixes
+- Fixed stats GUI title detection so inventory clicks/drags are always cancelled
+- Fixed per-world keep-inventory resolution to use actual day/night state (not trigger window)
+- Lands override now cleanly defers to Lands when `override-lands=false`, avoiding double handling
+- Serialized all SQLite access to prevent concurrent connection use and potential locks
+- Removed unnecessary deprecation suppression in stats command lookup
+
+
 ## [1.0.15] - 2025-12-07
 ### Bug Fixes
 - Fixed economy payments not being tracked in stats database

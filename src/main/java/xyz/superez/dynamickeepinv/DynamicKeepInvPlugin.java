@@ -318,7 +318,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         long time = world.getTime();
         boolean isDay = isTimeInRange(time, dayStart, nightStart);
         boolean shouldTriggerDay = isTimeInRange(time, dayTrigger, nightTrigger);
-        boolean shouldKeepInv = getWorldKeepInventory(world, shouldTriggerDay, keepInvDay, keepInvNight);
+        boolean shouldKeepInv = getWorldKeepInventory(world, isDay, keepInvDay, keepInvNight);
 
         Boolean currentKeepInv = world.getGameRuleValue(GameRule.KEEP_INVENTORY);
         if (currentKeepInv == null || currentKeepInv != shouldKeepInv) {
@@ -555,7 +555,6 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             if (target != null) {
                 statsGUI.openStats(player, target.getUniqueId(), target.getName());
             } else {
-                @SuppressWarnings("deprecation")
                 org.bukkit.OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(args[1]);
                 if (offlineTarget.hasPlayedBefore() || offlineTarget.isOnline()) {
                     String displayName = offlineTarget.getName() != null ? offlineTarget.getName() : args[1];

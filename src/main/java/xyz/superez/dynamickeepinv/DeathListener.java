@@ -58,6 +58,11 @@ public class DeathListener implements Listener {
         }
 
         ProtectionResult protectionResult = checkProtectionPlugins(player, deathLocation);
+
+        if (protectionResult.handled && "lands-defer".equals(protectionResult.reason)) {
+            plugin.debug("Lands override disabled; deferring to Lands without altering drops.");
+            return;
+        }
         
         // Protection plugins in claimed areas have highest priority - return immediately
         if (protectionResult.handled && !protectionResult.reason.contains("wilderness")) {
@@ -327,7 +332,7 @@ public class DeathListener implements Listener {
             if (inLand) {
                 if (!overrideLands) {
                     plugin.debug("In land but override-lands=false, letting Lands handle it.");
-                    return new ProtectionResult(false, false, false, null);
+                    return new ProtectionResult(true, false, false, "lands-defer");
                 }
                 
                 plugin.debug("Player died in a Lands area: " + lands.getLandName(location));

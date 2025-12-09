@@ -24,7 +24,11 @@ import java.util.UUID;
 
 public class StatsGUI implements Listener {
     private final DynamicKeepInvPlugin plugin;
-    private final String guiTitle = "§6§lDynamicKeepInv Stats";
+    private static final String GUI_TITLE_TEXT = "DynamicKeepInv Stats";
+    private static final net.kyori.adventure.text.Component GUI_TITLE_COMPONENT =
+            net.kyori.adventure.text.Component.text(GUI_TITLE_TEXT)
+                    .color(NamedTextColor.GOLD)
+                    .decorate(TextDecoration.BOLD);
     private final DecimalFormat df = new DecimalFormat("#.##");
     private final SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
     
@@ -38,7 +42,7 @@ public class StatsGUI implements Listener {
     }
     
     public void openStats(Player viewer, UUID targetUUID, String targetName) {
-        Inventory gui = Bukkit.createInventory(null, 45, Component.text(guiTitle));
+        Inventory gui = Bukkit.createInventory(null, 45, GUI_TITLE_COMPONENT);
         StatsManager stats = plugin.getStatsManager();
         
         fillBorder(gui);
@@ -201,7 +205,7 @@ public class StatsGUI implements Listener {
         if (title == null) return;
         
         String plainTitle = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(title);
-        if (!plainTitle.equals("DynamicKeepInv Stats")) return;
+        if (!plainTitle.equals(GUI_TITLE_TEXT)) return;
         
         event.setCancelled(true);
         
@@ -216,7 +220,7 @@ public class StatsGUI implements Listener {
         if (title == null) return;
         
         String plainTitle = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(title);
-        if (plainTitle.equals("DynamicKeepInv Stats")) {
+        if (plainTitle.equals(GUI_TITLE_TEXT)) {
             event.setCancelled(true);
         }
     }
