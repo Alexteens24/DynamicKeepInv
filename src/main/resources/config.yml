@@ -78,10 +78,17 @@ advanced:
     action-bar: false
   
   # Economy (requires Vault)
+  # Modes: "charge-to-keep" (auto-charge), "charge-to-bypass", "gui" (player confirms)
   economy:
     enabled: false
     cost: 100.0
     mode: "charge-to-keep"
+    # GUI mode settings (only used when mode: "gui")
+    gui:
+      # Timeout in seconds for player to decide (default: 30)
+      timeout: 30
+      # How long to store pending death if player disconnects (default: 300 = 5 minutes)
+      expire-time: 300
   
   # Death cause rules (PvP vs PvE)
   death-cause:

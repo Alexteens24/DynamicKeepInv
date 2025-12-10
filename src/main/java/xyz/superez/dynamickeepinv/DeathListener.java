@@ -7,6 +7,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import xyz.superez.dynamickeepinv.hooks.LandsHook;
 import xyz.superez.dynamickeepinv.hooks.GriefPreventionHook;
 
@@ -147,6 +149,56 @@ public class DeathListener implements Listener {
             double cost = plugin.getConfig().getDouble("advanced.economy.cost", 0.0);
             String mode = plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep");
             plugin.debug("Economy enabled. Cost=" + cost + ", Mode=" + mode);
+            
+            // GUI mode - save inventory and show confirmation GUI on respawn
+            if ("gui".equalsIgnoreCase(mode) && cost > 0) {
+                EconomyManager eco = plugin.getEconomyManager();
+                if (eco != null && eco.isEnabled()) {
+                    plugin.debug("GUI mode: Saving inventory for confirmation GUI");
+                    
+                    // Save inventory to pending death
+                    PendingDeathManager pendingManager = plugin.getPendingDeathManager();
+                    if (pendingManager != null) {
+                        PendingDeath pendingDeath = new PendingDeath(
+                            player.getUniqueId(),
+                            player.getName(),
+                            player.getInventory().getContents(),
+                            player.getInventory().getArmorContents(),
+                            player.getInventory().getItemInOffHand(),
+                            player.getLevel(),
+                            player.getExp(),
+                            cost,
+                            world.getName(),
+                            baseReason
+                        );
+                        
+                        // Only save if there are items worth saving
+                        if (pendingDeath.hasItems() || player.getLevel() > 0) {
+                            pendingManager.addPendingDeath(pendingDeath);
+                            
+                            // Clear inventory and XP - items are saved
+                            event.setKeepInventory(false);
+                            event.setKeepLevel(false);
+                            event.getDrops().clear(); // Don't drop - we saved them
+                            event.setDroppedExp(0); // Don't drop XP either
+                            
+                            plugin.debug("Saved pending death with " + pendingDeath.countItems() + " items, cost=" + cost);
+                            
+                            // Don't send death message here - will send in GUI
+                            return;
+                        } else {
+                            plugin.debug("GUI mode: No items or XP to save, skipping GUI");
+                        }
+                    } else {
+                        plugin.debug("PendingDeathManager is null, falling back to normal mode");
+                    }
+                } else {
+                    plugin.debug("Economy not available for GUI mode, forcing drops");
+                    // Economy unavailable while GUI mode requested -> force drop to avoid free keep
+                    keepItems = false;
+                    keepXp = false;
+                }
+            }
             
             boolean shouldProcessEconomy = false;
             if ("charge-to-bypass".equalsIgnoreCase(mode)) {
@@ -456,6 +508,82 @@ public class DeathListener implements Listener {
             this.keepItems = keepItems;
             this.keepXp = keepXp;
             this.reason = reason;
+        }
+    }
+    
+    // ===== GUI Mode Event Handlers =====
+    
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerRespawn(PlayerRespawnEvent event) {
+        // Check if GUI mode is enabled
+        if (!plugin.getConfig().getBoolean("advanced.economy.enabled", false)) return;
+        if (!"gui".equalsIgnoreCase(plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep"))) return;
+        
+        Player player = event.getPlayer();
+        PendingDeathManager pendingManager = plugin.getPendingDeathManager();
+        if (pendingManager == null) return;
+        
+        PendingDeath pending = pendingManager.getPendingDeath(player.getUniqueId());
+        if (pending == null || pending.isProcessed()) return;
+        
+        plugin.debug("Player " + player.getName() + " respawned with pending death, opening GUI");
+        
+        // Schedule GUI open 1 tick later (for Folia compatibility and to ensure player is fully spawned)
+        if (plugin.isFolia()) {
+            org.bukkit.Bukkit.getGlobalRegionScheduler().runDelayed(plugin, task -> {
+                if (player.isOnline()) {
+                    openDeathConfirmGUI(player, pending);
+                }
+            }, 2L);
+        } else {
+            org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) {
+                    openDeathConfirmGUI(player, pending);
+                }
+            }, 2L);
+        }
+    }
+    
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        // Check if GUI mode is enabled
+        if (!plugin.getConfig().getBoolean("advanced.economy.enabled", false)) return;
+        if (!"gui".equalsIgnoreCase(plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep"))) return;
+        
+        Player player = event.getPlayer();
+        PendingDeathManager pendingManager = plugin.getPendingDeathManager();
+        if (pendingManager == null) return;
+        
+        // Check for pending death from before disconnect
+        PendingDeath pending = pendingManager.handlePlayerJoin(player.getUniqueId());
+        if (pending == null) return;
+        
+        plugin.debug("Player " + player.getName() + " joined with pending death from before disconnect");
+        
+        // Schedule GUI open after a short delay
+        if (plugin.isFolia()) {
+            org.bukkit.Bukkit.getGlobalRegionScheduler().runDelayed(plugin, task -> {
+                if (player.isOnline()) {
+                    String msg = plugin.getMessage("economy.gui.rejoin-notice");
+                    player.sendMessage(plugin.parseMessage(msg));
+                    openDeathConfirmGUI(player, pending);
+                }
+            }, 40L); // 2 seconds
+        } else {
+            org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) {
+                    String msg = plugin.getMessage("economy.gui.rejoin-notice");
+                    player.sendMessage(plugin.parseMessage(msg));
+                    openDeathConfirmGUI(player, pending);
+                }
+            }, 40L);
+        }
+    }
+    
+    private void openDeathConfirmGUI(Player player, PendingDeath pending) {
+        DeathConfirmGUI gui = plugin.getDeathConfirmGUI();
+        if (gui != null) {
+            gui.openGUI(player, pending);
         }
     }
 }

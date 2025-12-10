@@ -1,0 +1,596 @@
+package xyz.superez.dynamickeepinv;
+
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.io.BukkitObjectInputStream;
+import org.bukkit.util.io.BukkitObjectOutputStream;
+
+import java.io.*;
+import java.sql.*;
+import java.util.Base64;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+
+/**
+ * Manages pending deaths that require player confirmation via GUI.
+ * Handles memory storage and database persistence for crash recovery.
+ */
+public class PendingDeathManager {
+    private final DynamicKeepInvPlugin plugin;
+    private final Map<UUID, PendingDeath> pendingDeaths = new ConcurrentHashMap<>();
+    private Connection connection;
+    private final ExecutorService asyncExecutor;
+    private volatile boolean isShuttingDown = false;
+    private final Object dbLock = new Object();
+    private Object cleanupTaskHandle; // ScheduledTask (Folia) or BukkitTask
+    
+    // Config values
+    private long timeoutMs = 30000; // 30 seconds default
+    private long expireMs = 300000; // 5 minutes max storage
+    
+    public PendingDeathManager(DynamicKeepInvPlugin plugin) {
+        this.plugin = plugin;
+        this.asyncExecutor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "DynamicKeepInv-PendingDeath");
+            t.setDaemon(true);
+            return t;
+        });
+        loadConfig();
+        initDatabase();
+        loadPendingDeathsFromDB();
+        startCleanupTask();
+    }
+    
+    private void loadConfig() {
+        timeoutMs = plugin.getConfig().getLong("advanced.economy.gui.timeout", 30) * 1000L;
+        expireMs = plugin.getConfig().getLong("advanced.economy.gui.expire-time", 300) * 1000L;
+    }
+    
+    private void initDatabase() {
+        try {
+            File dbFile = new File(plugin.getDataFolder(), "pending_deaths.db");
+            String url = "jdbc:sqlite:" + dbFile.getAbsolutePath();
+            synchronized (dbLock) {
+                connection = DriverManager.getConnection(url);
+                
+                try (Statement stmt = connection.createStatement()) {
+                    stmt.execute(
+                        "CREATE TABLE IF NOT EXISTS pending_deaths (" +
+                        "player_uuid TEXT PRIMARY KEY," +
+                        "player_name TEXT," +
+                        "inventory_data TEXT," +
+                        "armor_data TEXT," +
+                        "offhand_data TEXT," +
+                        "level INTEGER," +
+                        "exp REAL," +
+                        "cost REAL," +
+                        "world_name TEXT," +
+                        "death_reason TEXT," +
+                        "timestamp INTEGER)"
+                    );
+                }
+            }
+            plugin.getLogger().info("Pending deaths database initialized!");
+        } catch (SQLException e) {
+            plugin.getLogger().log(Level.SEVERE, "Could not initialize pending deaths database!", e);
+        }
+    }
+    
+    private boolean isConnectionValid() {
+        synchronized (dbLock) {
+            try {
+                return connection != null && !connection.isClosed();
+            } catch (SQLException e) {
+                return false;
+            }
+        }
+    }
+    
+    /**
+     * Store a pending death for a player
+     */
+    public void addPendingDeath(PendingDeath pendingDeath) {
+        UUID playerId = pendingDeath.getPlayerId();
+        
+        // If player already has pending death, drop old items first
+        PendingDeath old = pendingDeaths.remove(playerId);
+        if (old != null && !old.isProcessed()) {
+            plugin.debug("Player " + pendingDeath.getPlayerName() + " had existing pending death, dropping old items");
+            dropItemsForPendingDeath(old);
+        }
+        
+        pendingDeaths.put(playerId, pendingDeath);
+        savePendingDeathToDB(pendingDeath);
+        plugin.debug("Added pending death for " + pendingDeath.getPlayerName() + " with cost " + pendingDeath.getCost());
+    }
+    
+    /**
+     * Get pending death for a player
+     */
+    public PendingDeath getPendingDeath(UUID playerId) {
+        return pendingDeaths.get(playerId);
+    }
+    
+    /**
+     * Check if player has pending death
+     */
+    public boolean hasPendingDeath(UUID playerId) {
+        PendingDeath pending = pendingDeaths.get(playerId);
+        return pending != null && !pending.isProcessed();
+    }
+    
+    /**
+     * Process player's choice to pay
+     * @return true if payment successful and inventory restored
+     */
+    public boolean processPayment(Player player) {
+        PendingDeath pending = pendingDeaths.get(player.getUniqueId());
+        if (pending == null || pending.isProcessed()) {
+            return false;
+        }
+        
+        EconomyManager eco = plugin.getEconomyManager();
+        if (eco == null || !eco.isEnabled()) {
+            plugin.debug("Economy not available for payment processing");
+            return false;
+        }
+        
+        double cost = pending.getCost();
+        
+        // Re-check balance
+        if (!eco.hasEnough(player, cost)) {
+            String msg = plugin.getMessage("economy.gui.insufficient-now")
+                    .replace("{amount}", eco.format(cost));
+            player.sendMessage(plugin.parseMessage(msg));
+            return false;
+        }
+        
+        // Process payment
+        if (!eco.withdraw(player, cost)) {
+            String msg = plugin.getMessage("economy.gui.payment-failed");
+            player.sendMessage(plugin.parseMessage(msg));
+            return false;
+        }
+        
+        // Restore inventory
+        restoreInventory(player, pending);
+        
+        // Record stats
+        StatsManager stats = plugin.getStatsManager();
+        if (stats != null) {
+            stats.recordEconomyPayment(player, cost);
+            stats.recordDeathSaved(player, pending.getDeathReason());
+        }
+        
+        // Mark as processed and clean up
+        pending.setProcessed(true);
+        pendingDeaths.remove(player.getUniqueId());
+        deletePendingDeathFromDB(player.getUniqueId());
+        
+        String msg = plugin.getMessage("economy.gui.paid")
+                .replace("{amount}", eco.format(cost));
+        player.sendMessage(plugin.parseMessage(msg));
+        
+        plugin.debug("Player " + player.getName() + " paid " + cost + " to keep inventory");
+        return true;
+    }
+    
+    /**
+     * Process player's choice to drop items
+     */
+    public void processDrop(Player player) {
+        PendingDeath pending = pendingDeaths.get(player.getUniqueId());
+        if (pending == null || pending.isProcessed()) {
+            return;
+        }
+        
+        dropItemsForPendingDeath(pending);
+        
+        // Record stats
+        StatsManager stats = plugin.getStatsManager();
+        if (stats != null) {
+            stats.recordDeathLost(player, pending.getDeathReason());
+        }
+        
+        // Mark as processed and clean up
+        pending.setProcessed(true);
+        pendingDeaths.remove(player.getUniqueId());
+        deletePendingDeathFromDB(player.getUniqueId());
+        
+        String msg = plugin.getMessage("economy.gui.dropped");
+        player.sendMessage(plugin.parseMessage(msg));
+        
+        plugin.debug("Player " + player.getName() + " chose to drop items");
+    }
+    
+    /**
+     * Handle timeout - auto drop items
+     */
+    public void handleTimeout(UUID playerId) {
+        PendingDeath pending = pendingDeaths.get(playerId);
+        if (pending == null || pending.isProcessed()) {
+            return;
+        }
+        
+        Player player = Bukkit.getPlayer(playerId);
+        if (player != null && player.isOnline()) {
+            String msg = plugin.getMessage("economy.gui.timeout");
+            player.sendMessage(plugin.parseMessage(msg));
+        }
+        
+        dropItemsForPendingDeath(pending);
+        
+        // Record stats
+        StatsManager stats = plugin.getStatsManager();
+        if (stats != null && player != null) {
+            stats.recordDeathLost(player, pending.getDeathReason());
+        }
+        
+        pending.setProcessed(true);
+        pendingDeaths.remove(playerId);
+        deletePendingDeathFromDB(playerId);
+        
+        plugin.debug("Pending death for " + pending.getPlayerName() + " timed out, items dropped");
+    }
+    
+    /**
+     * Restore inventory to player
+     */
+    private void restoreInventory(Player player, PendingDeath pending) {
+        player.getInventory().setContents(pending.getSavedInventory());
+        player.getInventory().setArmorContents(pending.getSavedArmor());
+        if (pending.getOffhandItem() != null) {
+            player.getInventory().setItemInOffHand(pending.getOffhandItem());
+        }
+        player.setLevel(pending.getSavedLevel());
+        player.setExp(pending.getSavedExp());
+        player.updateInventory();
+    }
+    
+    /**
+     * Drop items at player's location or death location
+     */
+    private void dropItemsForPendingDeath(PendingDeath pending) {
+        Player player = Bukkit.getPlayer(pending.getPlayerId());
+        Location dropLocation;
+        
+        if (player != null && player.isOnline()) {
+            dropLocation = player.getLocation();
+        } else {
+            // Player offline, try to get world spawn
+            World world = Bukkit.getWorld(pending.getWorldName());
+            if (world != null) {
+                dropLocation = world.getSpawnLocation();
+            } else {
+                plugin.getLogger().warning("Cannot drop items for " + pending.getPlayerName() + ": world " + pending.getWorldName() + " not found");
+                return;
+            }
+        }
+        
+        // Drop all items
+        for (ItemStack item : pending.getSavedInventory()) {
+            if (item != null && !item.getType().isAir()) {
+                dropLocation.getWorld().dropItemNaturally(dropLocation, item);
+            }
+        }
+        for (ItemStack item : pending.getSavedArmor()) {
+            if (item != null && !item.getType().isAir()) {
+                dropLocation.getWorld().dropItemNaturally(dropLocation, item);
+            }
+        }
+        if (pending.getOffhandItem() != null && !pending.getOffhandItem().getType().isAir()) {
+            dropLocation.getWorld().dropItemNaturally(dropLocation, pending.getOffhandItem());
+        }
+        
+        // Drop XP orbs
+        if (pending.getSavedLevel() > 0) {
+            int expToDrop = Math.min(pending.getSavedLevel() * 7, 100);
+            dropLocation.getWorld().spawn(dropLocation, org.bukkit.entity.ExperienceOrb.class, 
+                orb -> orb.setExperience(expToDrop));
+        }
+    }
+    
+    /**
+     * Handle player disconnect - keep pending death in DB for reconnect
+     */
+    public void handlePlayerQuit(UUID playerId) {
+        PendingDeath pending = pendingDeaths.get(playerId);
+        if (pending != null && !pending.isProcessed()) {
+            pending.setGuiOpen(false);
+            // Keep in memory and DB for reconnect
+            plugin.debug("Player " + pending.getPlayerName() + " disconnected with pending death");
+        }
+    }
+    
+    /**
+     * Handle player reconnect - check for pending death
+     */
+    public PendingDeath handlePlayerJoin(UUID playerId) {
+        PendingDeath pending = pendingDeaths.get(playerId);
+        if (pending != null && !pending.isProcessed()) {
+            // Check if expired
+            if (pending.isExpired(expireMs)) {
+                plugin.debug("Pending death for player " + pending.getPlayerName() + " expired during disconnect");
+                handleTimeout(playerId);
+                return null;
+            }
+            return pending;
+        }
+        return null;
+    }
+    
+    // ===== Database Operations =====
+    
+    private void savePendingDeathToDB(PendingDeath pending) {
+        if (isShuttingDown || !isConnectionValid()) return;
+        
+        asyncExecutor.execute(() -> {
+            if (isShuttingDown) return;
+            
+            String sql = "INSERT OR REPLACE INTO pending_deaths " +
+                        "(player_uuid, player_name, inventory_data, armor_data, offhand_data, " +
+                        "level, exp, cost, world_name, death_reason, timestamp) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            synchronized (dbLock) {
+                try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                    pstmt.setString(1, pending.getPlayerId().toString());
+                    pstmt.setString(2, pending.getPlayerName());
+                    pstmt.setString(3, serializeItems(pending.getSavedInventory()));
+                    pstmt.setString(4, serializeItems(pending.getSavedArmor()));
+                    pstmt.setString(5, pending.getOffhandItem() != null ? 
+                            serializeItems(new ItemStack[]{pending.getOffhandItem()}) : "");
+                    pstmt.setInt(6, pending.getSavedLevel());
+                    pstmt.setFloat(7, pending.getSavedExp());
+                    pstmt.setDouble(8, pending.getCost());
+                    pstmt.setString(9, pending.getWorldName());
+                    pstmt.setString(10, pending.getDeathReason());
+                    pstmt.setLong(11, pending.getTimestamp());
+                    pstmt.executeUpdate();
+                } catch (SQLException e) {
+                    plugin.getLogger().log(Level.SEVERE, "Failed to save pending death!", e);
+                }
+            }
+        });
+    }
+    
+    private void deletePendingDeathFromDB(UUID playerId) {
+        if (isShuttingDown || !isConnectionValid()) return;
+        
+        asyncExecutor.execute(() -> {
+            if (isShuttingDown) return;
+            
+            String sql = "DELETE FROM pending_deaths WHERE player_uuid = ?";
+            synchronized (dbLock) {
+                try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                    pstmt.setString(1, playerId.toString());
+                    pstmt.executeUpdate();
+                } catch (SQLException e) {
+                    plugin.getLogger().log(Level.SEVERE, "Failed to delete pending death!", e);
+                }
+            }
+        });
+    }
+    
+    private void loadPendingDeathsFromDB() {
+        if (!isConnectionValid()) return;
+        
+        String sql = "SELECT * FROM pending_deaths";
+        synchronized (dbLock) {
+            try (Statement stmt = connection.createStatement();
+                 ResultSet rs = stmt.executeQuery(sql)) {
+                
+                int loaded = 0;
+                int expired = 0;
+                
+                while (rs.next()) {
+                    long timestamp = rs.getLong("timestamp");
+                    
+                    // Check if expired
+                    if (System.currentTimeMillis() - timestamp > expireMs) {
+                        expired++;
+                        continue;
+                    }
+                    
+                    UUID playerId = UUID.fromString(rs.getString("player_uuid"));
+                    String playerName = rs.getString("player_name");
+                    ItemStack[] inventory = deserializeItems(rs.getString("inventory_data"));
+                    ItemStack[] armor = deserializeItems(rs.getString("armor_data"));
+                    String offhandData = rs.getString("offhand_data");
+                    ItemStack offhand = null;
+                    if (offhandData != null && !offhandData.isEmpty()) {
+                        ItemStack[] offhandArr = deserializeItems(offhandData);
+                        if (offhandArr.length > 0) {
+                            offhand = offhandArr[0];
+                        }
+                    }
+                    int level = rs.getInt("level");
+                    float exp = rs.getFloat("exp");
+                    double cost = rs.getDouble("cost");
+                    String worldName = rs.getString("world_name");
+                    String deathReason = rs.getString("death_reason");
+                    
+                    PendingDeath pending = new PendingDeath(
+                        playerId, playerName, inventory, armor, offhand,
+                        level, exp, cost, worldName, deathReason, timestamp
+                    );
+                    
+                    pendingDeaths.put(playerId, pending);
+                    loaded++;
+                }
+                
+                if (loaded > 0) {
+                    plugin.getLogger().info("Loaded " + loaded + " pending deaths from database");
+                }
+                if (expired > 0) {
+                    plugin.getLogger().info("Cleaned up " + expired + " expired pending deaths");
+                    cleanExpiredFromDB();
+                }
+                
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Failed to load pending deaths!", e);
+            }
+        }
+    }
+    
+    private void cleanExpiredFromDB() {
+        if (!isConnectionValid()) return;
+        
+        asyncExecutor.execute(() -> {
+            if (isShuttingDown) return;
+            
+            long cutoff = System.currentTimeMillis() - expireMs;
+            String sql = "DELETE FROM pending_deaths WHERE timestamp < ?";
+            
+            synchronized (dbLock) {
+                try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                    pstmt.setLong(1, cutoff);
+                    pstmt.executeUpdate();
+                } catch (SQLException e) {
+                    plugin.getLogger().log(Level.SEVERE, "Failed to clean expired pending deaths!", e);
+                }
+            }
+        });
+    }
+    
+    // ===== Item Serialization =====
+    
+    private String serializeItems(ItemStack[] items) {
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            try (BukkitObjectOutputStream boos = new BukkitObjectOutputStream(baos)) {
+                boos.writeInt(items.length);
+                for (ItemStack item : items) {
+                    boos.writeObject(item);
+                }
+            }
+            return Base64.getEncoder().encodeToString(baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().log(Level.SEVERE, "Failed to serialize items!", e);
+            return "";
+        }
+    }
+    
+    private ItemStack[] deserializeItems(String data) {
+        if (data == null || data.isEmpty()) {
+            return new ItemStack[0];
+        }
+        
+        try {
+            byte[] bytes = Base64.getDecoder().decode(data);
+            ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+            try (BukkitObjectInputStream bois = new BukkitObjectInputStream(bais)) {
+                int length = bois.readInt();
+                ItemStack[] items = new ItemStack[length];
+                for (int i = 0; i < length; i++) {
+                    items[i] = (ItemStack) bois.readObject();
+                }
+                return items;
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            plugin.getLogger().log(Level.SEVERE, "Failed to deserialize items!", e);
+            return new ItemStack[0];
+        }
+    }
+    
+    // ===== Cleanup Task =====
+    
+    private void startCleanupTask() {
+        // Run cleanup every 30 seconds
+        if (plugin.isFolia()) {
+            cleanupTaskHandle = Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, task -> {
+                if (isShuttingDown) return;
+                cleanupExpiredPendingDeaths();
+            }, 600L, 600L); // 30 seconds
+        } else {
+            org.bukkit.scheduler.BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (isShuttingDown) return;
+                cleanupExpiredPendingDeaths();
+            }, 600L, 600L);
+            cleanupTaskHandle = task;
+        }
+    }
+    
+    private void cleanupExpiredPendingDeaths() {
+        // Collect expired UUIDs first to avoid ConcurrentModificationException
+        java.util.List<UUID> expiredIds = new java.util.ArrayList<>();
+        for (Map.Entry<UUID, PendingDeath> entry : pendingDeaths.entrySet()) {
+            PendingDeath pending = entry.getValue();
+            if (!pending.isProcessed() && pending.isExpired(expireMs)) {
+                expiredIds.add(entry.getKey());
+            }
+        }
+        // Now handle timeouts
+        for (UUID playerId : expiredIds) {
+            handleTimeout(playerId);
+        }
+    }
+    
+    // ===== Getters =====
+    
+    public long getTimeoutMs() {
+        return timeoutMs;
+    }
+    
+    public long getExpireMs() {
+        return expireMs;
+    }
+    
+    public int getPendingCount() {
+        return pendingDeaths.size();
+    }
+    
+    // ===== Shutdown =====
+    
+    public void close() {
+        isShuttingDown = true;
+
+        // Cancel cleanup task if scheduled
+        Object handle = cleanupTaskHandle;
+        if (handle != null) {
+            if (handle instanceof io.papermc.paper.threadedregions.scheduler.ScheduledTask foliaTask) {
+                foliaTask.cancel();
+            } else if (handle instanceof org.bukkit.scheduler.BukkitTask bukkitTask) {
+                bukkitTask.cancel();
+            }
+            cleanupTaskHandle = null;
+        }
+        
+        // Process all pending deaths as drops
+        for (PendingDeath pending : pendingDeaths.values()) {
+            if (!pending.isProcessed()) {
+                dropItemsForPendingDeath(pending);
+                pending.setProcessed(true);
+            }
+        }
+        pendingDeaths.clear();
+        
+        asyncExecutor.shutdown();
+        try {
+            if (!asyncExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                asyncExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            asyncExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+        
+        synchronized (dbLock) {
+            try {
+                if (connection != null && !connection.isClosed()) {
+                    connection.close();
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "Could not close pending deaths database!", e);
+            }
+        }
+    }
+}

@@ -49,6 +49,11 @@ public class EconomyManager {
         return economy.withdrawPlayer(player, amount).transactionSuccess();
     }
     
+    public double getBalance(Player player) {
+        if (!enabled) return 0;
+        return economy.getBalance(player);
+    }
+    
     public String format(double amount) {
         if (!enabled) return String.valueOf(amount);
         return economy.format(amount);

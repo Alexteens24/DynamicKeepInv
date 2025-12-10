@@ -67,6 +67,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private DynamicKeepInvExpansion placeholderExpansion;
     private StatsManager statsManager;
     private StatsGUI statsGUI;
+    private PendingDeathManager pendingDeathManager;
+    private DeathConfirmGUI deathConfirmGUI;
 
     @Override
     public void onEnable() {
@@ -83,6 +85,14 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             statsManager = new StatsManager(this);
             statsGUI = new StatsGUI(this);
             getLogger().info("Stats system enabled with SQLite database!");
+        }
+        
+        // Initialize GUI economy mode components
+        if (getConfig().getBoolean("advanced.economy.enabled", false) 
+            && "gui".equalsIgnoreCase(getConfig().getString("advanced.economy.mode", "charge-to-keep"))) {
+            pendingDeathManager = new PendingDeathManager(this);
+            deathConfirmGUI = new DeathConfirmGUI(this);
+            getLogger().info("Death confirmation GUI mode enabled!");
         }
         
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
@@ -105,6 +115,9 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     public void onDisable() {
         isShuttingDown = true;
         stopChecking(true);
+        if (pendingDeathManager != null) {
+            pendingDeathManager.close();
+        }
         if (statsManager != null) {
             statsManager.close();
         }
@@ -473,6 +486,10 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             return handleStatsCommand(sender, args);
         }
         
+        if (args.length > 0 && args[0].equalsIgnoreCase("confirm")) {
+            return handleConfirmCommand(sender);
+        }
+        
         if (!sender.hasPermission("dynamickeepinv.admin")) {
             sender.sendMessage(parseMessage(getMessage("no-permission")));
             return true;
@@ -498,6 +515,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
                 reloadConfig();
                 loadMessages();
                 reloadIntegrations();
+                reloadPendingDeathManager();
                 if (getConfig().getBoolean("enabled", true)) {
                     startChecking();
                 } else {
@@ -577,6 +595,48 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
         
         return true;
+    }
+    
+    private boolean handleConfirmCommand(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(parseMessage("&cThis command can only be used by players!"));
+            return true;
+        }
+        
+        if (pendingDeathManager == null || deathConfirmGUI == null) {
+            sender.sendMessage(parseMessage("&cDeath confirmation GUI is not enabled!"));
+            return true;
+        }
+        
+        PendingDeath pending = pendingDeathManager.getPendingDeath(player.getUniqueId());
+        if (pending == null || pending.isProcessed()) {
+            sender.sendMessage(parseMessage("&eYou don't have a pending death to confirm."));
+            return true;
+        }
+        
+        deathConfirmGUI.openGUI(player, pending);
+        return true;
+    }
+    
+    private void reloadPendingDeathManager() {
+        // Close old manager if exists
+        if (pendingDeathManager != null) {
+            pendingDeathManager.close();
+            pendingDeathManager = null;
+        }
+        // Unregister old GUI listener if exists
+        if (deathConfirmGUI != null) {
+            org.bukkit.event.HandlerList.unregisterAll(deathConfirmGUI);
+            deathConfirmGUI = null;
+        }
+        
+        // Initialize if GUI mode enabled
+        if (getConfig().getBoolean("advanced.economy.enabled", false) 
+            && "gui".equalsIgnoreCase(getConfig().getString("advanced.economy.mode", "charge-to-keep"))) {
+            pendingDeathManager = new PendingDeathManager(this);
+            deathConfirmGUI = new DeathConfirmGUI(this);
+            getLogger().info("Death confirmation GUI mode enabled!");
+        }
     }
     
     private void showStatus(CommandSender sender) {
@@ -673,5 +733,17 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     
     public StatsGUI getStatsGUI() {
         return statsGUI;
+    }
+    
+    public PendingDeathManager getPendingDeathManager() {
+        return pendingDeathManager;
+    }
+    
+    public DeathConfirmGUI getDeathConfirmGUI() {
+        return deathConfirmGUI;
+    }
+    
+    public boolean isFolia() {
+        return isFolia;
     }
 }

@@ -47,6 +47,14 @@ messages:
       paid: "&aYou paid &6{amount} &ato keep your inventory."
       not-enough-money: "&cYou did not have enough money ({amount}) to keep your inventory!"
       payment-failed: "&cPayment could not be processed ({amount}). Your inventory will be dropped."
+      gui:
+        paid: "&aYou paid &6{amount} &ato keep your inventory!"
+        dropped: "&cYou chose to drop your items."
+        timeout: "&cTime ran out! Your items have been dropped."
+        insufficient-now: "&cYou no longer have enough money ({amount})!"
+        payment-failed: "&cPayment failed! Please try again or choose to drop."
+        closed-warning: "&eYou still have a pending death! Use &6/dki confirm &eto reopen the GUI."
+        rejoin-notice: "&eYou have a pending death from before you disconnected!"
     
     protection:
       lands:
@@ -121,6 +129,14 @@ messages:
       paid: "&aBạn đã trả &6{amount} &ađể giữ lại kho đồ."
       not-enough-money: "&cBạn không đủ tiền ({amount}) để giữ lại kho đồ!"
       payment-failed: "&cThanh toán ({amount}) thất bại. Kho đồ của bạn sẽ bị rơi."
+      gui:
+        paid: "&aBạn đã trả &6{amount} &ađể giữ lại kho đồ!"
+        dropped: "&cBạn đã chọn bỏ đồ."
+        timeout: "&cHết thời gian! Đồ của bạn đã bị rơi."
+        insufficient-now: "&cBạn không còn đủ tiền ({amount})!"
+        payment-failed: "&cThanh toán thất bại! Vui lòng thử lại hoặc chọn bỏ đồ."
+        closed-warning: "&eBạn vẫn còn pending death! Dùng &6/dki confirm &eđể mở lại GUI."
+        rejoin-notice: "&eBạn có pending death từ trước khi disconnect!"
     
     protection:
       lands:

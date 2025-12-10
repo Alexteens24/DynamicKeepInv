@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.0.18] - 2025-12-10
+### New Features
+- **Death Confirmation GUI** - New economy mode `gui` that shows a GUI when player dies
+  - Players can choose to pay to keep items or drop them
+  - Configurable timeout (default: 30 seconds)
+  - Persistent storage survives server restarts
+  - Handles disconnect/reconnect gracefully
+  - Protected against inventory duplication exploits
+  - Command `/dki confirm` to reopen the GUI
+- **Pending Death Database** - Separate SQLite database for pending deaths persistence
+
+### Config Changes
+- New economy mode: `mode: "gui"` (alongside existing `charge-to-keep` and `charge-to-bypass`)
+- New GUI settings under `advanced.economy.gui`:
+  - `timeout: 30` - Seconds before auto-drop
+  - `expire-time: 300` - Seconds to store pending death if player disconnects
+
+### Bug Fixes
+- **Fixed timestamp not restored from DB** - Pending deaths loaded from database now use original timestamp instead of current time
+- **Fixed ConcurrentModificationException** - Cleanup task now collects expired IDs before iterating
+- **Fixed duplicate event listeners on reload** - Old DeathConfirmGUI listeners are now unregistered before creating new instance
+
+### Technical Changes
+- New classes: `PendingDeath`, `PendingDeathManager`, `DeathConfirmGUI`
+- Added `EconomyManager.getBalance()` method
+- Full Folia compatibility for GUI mode
+
 ## [1.0.17] - 2025-12-10
 ### Bug Fixes
 - **Fixed ResultSet resource leak** - 6 database queries were not properly closing ResultSet objects, causing potential memory leaks
