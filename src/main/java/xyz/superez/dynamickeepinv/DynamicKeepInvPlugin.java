@@ -53,11 +53,13 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private boolean isFolia = false;
     private volatile boolean isShuttingDown = false;
     private static final long BROADCAST_COOLDOWN = 10000;
-    private static final long ECONOMY_RETRY_DELAY_MS = 10000;
+    private static final long ECONOMY_RETRY_DELAY_MS = 30000;
+    private static final int ECONOMY_MAX_RETRIES = 5;
     
     private volatile EconomyManager economyManager;
     private final Object economyLock = new Object();
     private final AtomicLong nextEconomyRetryTimeMs = new AtomicLong(0L);
+    private volatile int economyRetryCount = 0;
     private static final int CONFIG_VERSION = 5;
     
     private LandsHook landsHook;
@@ -142,13 +144,19 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             }
         }
 
-        if (!localRef.isEnabled()) {
+        if (!localRef.isEnabled() && economyRetryCount < ECONOMY_MAX_RETRIES) {
             long now = System.currentTimeMillis();
             if (now >= nextEconomyRetryTimeMs.get()) {
                 synchronized (economyLock) {
-                    if (now >= nextEconomyRetryTimeMs.get()) {
+                    if (now >= nextEconomyRetryTimeMs.get() && economyRetryCount < ECONOMY_MAX_RETRIES) {
                         nextEconomyRetryTimeMs.set(now + ECONOMY_RETRY_DELAY_MS);
-                        localRef.setupEconomy();
+                        economyRetryCount++;
+                        debug("Economy retry attempt " + economyRetryCount + "/" + ECONOMY_MAX_RETRIES);
+                        if (localRef.setupEconomy()) {
+                            economyRetryCount = 0; // Reset on success
+                        } else if (economyRetryCount >= ECONOMY_MAX_RETRIES) {
+                            getLogger().warning("Economy setup failed after " + ECONOMY_MAX_RETRIES + " attempts. Economy features disabled.");
+                        }
                     }
                 }
             }
@@ -200,6 +208,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         synchronized (economyLock) {
             economyManager = null;
             nextEconomyRetryTimeMs.set(0L);
+            economyRetryCount = 0; // Reset retry counter on reload
         }
         if (economyEnabled) {
             getEconomyManager();

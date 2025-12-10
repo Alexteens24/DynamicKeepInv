@@ -1,4 +1,17 @@
 # Changelog
+
+## [1.0.17] - 2025-12-10
+### Bug Fixes
+- **Fixed ResultSet resource leak** - 6 database queries were not properly closing ResultSet objects, causing potential memory leaks
+- **Fixed async task race condition** - Stats async tasks now check shutdown flag inside the task to prevent SQLException after connection close
+- **Fixed economy retry spam** - Limited economy setup retries to 5 attempts (30s interval) instead of infinite retries
+- **Fixed PlaceholderAPI version** - Now uses dynamic version from plugin instead of hardcoded "1.0.15"
+
+### Improvements
+- Economy retry counter resets on `/dki reload`
+- Added debug logging for economy retry attempts
+- Better shutdown safety for async database operations
+
 ## [1.0.16] - 2025-12-09
 ### Bug Fixes
 - Fixed stats GUI title detection so inventory clicks/drags are always cancelled

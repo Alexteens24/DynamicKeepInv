@@ -6,7 +6,7 @@
 
     <groupId>xyz.superez</groupId>
     <artifactId>DynamicKeepInv</artifactId>
-    <version>1.0.15</version>
+    <version>1.0.17</version>
     <packaging>jar</packaging>
 
     <name>DynamicKeepInv</name>

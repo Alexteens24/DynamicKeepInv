@@ -118,6 +118,7 @@ public class StatsManager {
         final String playerName = player.getName();
         
         asyncExecutor.execute(() -> {
+            if (isShuttingDown) return;
             ensurePlayerExists(uuid, playerName);
             
             String sql = "UPDATE player_stats SET " +
@@ -151,6 +152,7 @@ public class StatsManager {
         final String playerName = player.getName();
         
         asyncExecutor.execute(() -> {
+            if (isShuttingDown) return;
             ensurePlayerExists(uuid, playerName);
             
             String sql = "UPDATE player_stats SET " +
@@ -212,6 +214,7 @@ public class StatsManager {
         final String playerName = player.getName();
         
         asyncExecutor.execute(() -> {
+            if (isShuttingDown) return;
             ensurePlayerExists(uuid, playerName);
             
             String sql = "UPDATE player_stats SET " +
@@ -249,9 +252,10 @@ public class StatsManager {
         synchronized (dbLock) {
             try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
                 pstmt.setString(1, uuid.toString());
-                ResultSet rs = pstmt.executeQuery();
-                if (rs.next()) {
-                    return rs.getLong("last_death_time");
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getLong("last_death_time");
+                    }
                 }
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.SEVERE, "Database error!", e);
@@ -266,9 +270,10 @@ public class StatsManager {
         synchronized (dbLock) {
             try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
                 pstmt.setString(1, uuid.toString());
-                ResultSet rs = pstmt.executeQuery();
-                if (rs.next()) {
-                    return rs.getString("last_death_reason");
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getString("last_death_reason");
+                    }
                 }
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.SEVERE, "Database error!", e);
@@ -287,9 +292,10 @@ public class StatsManager {
         synchronized (dbLock) {
             try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
                 pstmt.setString(1, uuid.toString());
-                ResultSet rs = pstmt.executeQuery();
-                if (rs.next()) {
-                    return rs.getDouble("economy_total_paid");
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getDouble("economy_total_paid");
+                    }
                 }
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.SEVERE, "Database error!", e);
@@ -309,9 +315,10 @@ public class StatsManager {
             try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
                 pstmt.setString(1, uuid.toString());
                 pstmt.setString(2, reason);
-                ResultSet rs = pstmt.executeQuery();
-                if (rs.next()) {
-                    return rs.getInt("saved_count");
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt("saved_count");
+                    }
                 }
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.SEVERE, "Database error!", e);
@@ -327,9 +334,10 @@ public class StatsManager {
             try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
                 pstmt.setString(1, uuid.toString());
                 pstmt.setString(2, reason);
-                ResultSet rs = pstmt.executeQuery();
-                if (rs.next()) {
-                    return rs.getInt("lost_count");
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt("lost_count");
+                    }
                 }
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.SEVERE, "Database error!", e);
@@ -344,9 +352,10 @@ public class StatsManager {
         synchronized (dbLock) {
             try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
                 pstmt.setString(1, uuid.toString());
-                ResultSet rs = pstmt.executeQuery();
-                if (rs.next()) {
-                    return rs.getInt(column);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt(column);
+                    }
                 }
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.SEVERE, "Database error!", e);
