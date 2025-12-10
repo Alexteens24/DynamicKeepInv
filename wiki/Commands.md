@@ -18,6 +18,7 @@ Aliases: `/dki`, `/keepinv`
 | `/dki toggle` | Toggle plugin on/off | `dynamickeepinv.admin` |
 | `/dki stats` | View your death stats | `dynamickeepinv.stats` |
 | `/dki stats <player>` | View player's stats | `dynamickeepinv.stats.others` |
+| `/dki confirm` | Reopen death confirmation GUI | None |
 
 ---
 
@@ -109,6 +110,26 @@ Opens a GUI showing death statistics:
 **View other player (`/dki stats Steve`):**
 - Requires `dynamickeepinv.stats.others` permission
 - Shows same GUI but for target player
+
+---
+
+### `/dki confirm`
+
+Reopens the death confirmation GUI if the player has a pending death.
+
+**When to use:**
+- Player accidentally closed the confirmation GUI
+- Player wants to reconsider their choice before timeout
+
+**Requirements:**
+- Economy mode must be set to `gui`
+- Player must have an active pending death
+- Timeout must not have expired yet
+
+**Example:**
+```
+Player dies → GUI opens → Player closes GUI → "/dki confirm" → GUI reopens
+```
 
 ---
 

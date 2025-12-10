@@ -125,6 +125,34 @@ advanced:
 
 ## Integration Questions
 
+### Q: How do I use the Death Confirmation GUI?
+**A:** Set economy mode to `gui`:
+```yaml
+advanced:
+  enabled: true
+  economy:
+    enabled: true
+    cost: 100.0
+    mode: "gui"
+    gui:
+      timeout: 30
+      expire-time: 300
+```
+
+When players die:
+1. GUI opens after respawn with Pay/Drop options
+2. They have 30 seconds to decide
+3. If they don't choose, items are dropped
+4. If they disconnect, the pending death is saved for 5 minutes
+
+### Q: Player closed the GUI accidentally. Can they reopen it?
+**A:** Yes! They can use `/dki confirm` to reopen the confirmation GUI, as long as the timeout hasn't expired.
+
+### Q: What happens if economy plugin is not available when using GUI mode?
+**A:** Items will be dropped automatically. The GUI requires a working economy (Vault + economy plugin) to function.
+
+---
+
 ### Q: I use Lands and want simple time-based rules. Do I need death-cause?
 **A:** No! If you just want:
 - Day = keep inventory
