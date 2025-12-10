@@ -54,6 +54,20 @@ No additional setup needed - placeholders are automatically registered when Plac
 | `%dynamickeepinv_lands_enabled%` | Lands integration enabled | `true` / `false` |
 | `%dynamickeepinv_gp_enabled%` | GriefPrevention enabled | `true` / `false` |
 
+### Stats Placeholders
+
+| Placeholder | Description | Example Output |
+|-------------|-------------|----------------|
+| `%dynamickeepinv_stats_enabled%` | Stats system enabled | `true` / `false` |
+| `%dynamickeepinv_stats_deaths_saved%` | Player's deaths saved | `15` |
+| `%dynamickeepinv_stats_deaths_lost%` | Player's deaths lost | `3` |
+| `%dynamickeepinv_stats_total_deaths%` | Player's total deaths | `18` |
+| `%dynamickeepinv_stats_save_rate%` | Player's save rate | `83.3%` |
+| `%dynamickeepinv_stats_economy_paid%` | Total money paid | `1500.00` |
+| `%dynamickeepinv_stats_global_saved%` | Server total saved | `1234` |
+| `%dynamickeepinv_stats_global_lost%` | Server total lost | `567` |
+| `%dynamickeepinv_stats_global_rate%` | Server save rate | `68.5%` |
+
 ---
 
 ## Usage Examples

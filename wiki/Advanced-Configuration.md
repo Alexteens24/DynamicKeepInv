@@ -188,11 +188,66 @@ advanced:
 |------|--------------|----------------------|
 | `charge-to-keep` | When player would keep items | Keeps items for free (no penalty) |
 | `charge-to-bypass` | When player would lose items | Loses items (can't afford protection) |
+| `gui` | Player chooses via GUI | Items dropped if timeout or player clicks Drop |
 
 **Example - charge-to-bypass:**
 - Player dies at night (would lose items)
 - Has $100? → Pay and keep items
 - No money? → Lose items as normal
+
+---
+
+## Death Confirmation GUI
+
+The `gui` mode opens a confirmation GUI when a player dies, letting them choose whether to pay to keep their items or drop them.
+
+```yaml
+advanced:
+  economy:
+    enabled: true
+    cost: 100.0
+    mode: "gui"
+    gui:
+      timeout: 30        # Seconds to decide (default: 30)
+      expire-time: 300   # Store pending death if disconnected (default: 300 = 5 minutes)
+```
+
+### How It Works
+
+1. Player dies and respawns
+2. A 9-slot GUI appears with 3 options:
+   - **Pay** (Green) - Pay the cost and keep items
+   - **Info** (Yellow) - Shows item count, cost, and time remaining
+   - **Drop** (Red) - Drop items at death location
+3. If player doesn't choose within `timeout` seconds, items are dropped
+4. If player disconnects, their pending death is saved for up to `expire-time` seconds
+
+### GUI Layout
+
+```
+┌─────────────────────────────────────┐
+│  [ ]  [Pay]  [ ]  [Info]  [ ]  [Drop]  [ ]  [ ]  [ ]  │
+│   0     1     2     3      4     5      6    7    8   │
+└─────────────────────────────────────┘
+```
+
+- Slot 2: Pay button (Green wool)
+- Slot 4: Info display (Yellow wool)
+- Slot 6: Drop button (Red wool)
+
+### Player Commands
+
+Players can also use `/dki confirm` to reopen the GUI if they closed it before the timeout.
+
+### Edge Cases
+
+| Scenario | Result |
+|----------|--------|
+| Player closes GUI | Warning message, GUI can be reopened with `/dki confirm` |
+| Player disconnects | Death saved, GUI shown on rejoin if within expire time |
+| Timeout expires | Items dropped at death location automatically |
+| Not enough money | Player sees insufficient funds message, can still click Drop |
+| Economy unavailable | Items dropped automatically (no GUI shown) |
 
 ---
 
