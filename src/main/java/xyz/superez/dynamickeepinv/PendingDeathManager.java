@@ -286,16 +286,20 @@ public class PendingDeathManager {
         // Drop all items
         for (ItemStack item : pending.getSavedInventory()) {
             if (item != null && !item.getType().isAir()) {
+                if (hasVanishingCurse(item)) continue; // Skip vanishing curse
                 dropLocation.getWorld().dropItemNaturally(dropLocation, item);
             }
         }
         for (ItemStack item : pending.getSavedArmor()) {
             if (item != null && !item.getType().isAir()) {
+                if (hasVanishingCurse(item)) continue; // Skip vanishing curse
                 dropLocation.getWorld().dropItemNaturally(dropLocation, item);
             }
         }
         if (pending.getOffhandItem() != null && !pending.getOffhandItem().getType().isAir()) {
-            dropLocation.getWorld().dropItemNaturally(dropLocation, pending.getOffhandItem());
+            if (!hasVanishingCurse(pending.getOffhandItem())) {
+                dropLocation.getWorld().dropItemNaturally(dropLocation, pending.getOffhandItem());
+            }
         }
         
         // Drop XP orbs
@@ -306,6 +310,11 @@ public class PendingDeathManager {
         }
     }
     
+    private boolean hasVanishingCurse(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return false;
+        return item.getItemMeta().hasEnchant(org.bukkit.enchantments.Enchantment.VANISHING_CURSE);
+    }
+
     /**
      * Handle player disconnect - keep pending death in DB for reconnect
      */
