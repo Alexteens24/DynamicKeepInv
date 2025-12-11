@@ -490,8 +490,6 @@ public class PendingDeathManager {
         if (isShuttingDown || !isConnectionValid()) return;
         
         asyncExecutor.execute(() -> {
-            if (isShuttingDown) return;
-            
             String sql = "INSERT OR REPLACE INTO pending_deaths " +
                         "(player_uuid, player_name, inventory_data, armor_data, offhand_data, " +
                         "level, exp, cost, world_name, death_reason, timestamp) " +
@@ -523,8 +521,6 @@ public class PendingDeathManager {
         if (isShuttingDown || !isConnectionValid()) return;
         
         asyncExecutor.execute(() -> {
-            if (isShuttingDown) return;
-            
             String sql = "DELETE FROM pending_deaths WHERE player_uuid = ?";
             synchronized (dbLock) {
                 try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
@@ -721,11 +717,13 @@ public class PendingDeathManager {
             cleanupTaskHandle = null;
         }
         
-        // Process all pending deaths as drops
+        // Close open GUIs, but preserve pending deaths in DB
         for (PendingDeath pending : pendingDeaths.values()) {
-            if (!pending.isProcessed()) {
-                dropItemsForPendingDeath(pending);
-                pending.setProcessed(true);
+            if (!pending.isProcessed() && pending.isGuiOpen()) {
+                Player player = Bukkit.getPlayer(pending.getPlayerId());
+                if (player != null && player.isOnline()) {
+                    player.closeInventory();
+                }
             }
         }
         pendingDeaths.clear();
