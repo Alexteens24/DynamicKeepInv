@@ -37,6 +37,10 @@ public class StatsGUI implements Listener {
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
+    public void unregister() {
+        org.bukkit.event.HandlerList.unregisterAll(this);
+    }
+
     public void openStats(Player player) {
         openStats(player, player.getUniqueId(), player.getName());
     }
