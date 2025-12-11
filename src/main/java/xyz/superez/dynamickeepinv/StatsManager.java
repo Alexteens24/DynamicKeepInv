@@ -477,9 +477,9 @@ public class StatsManager {
 
         public void incrementReason(String reason, boolean saved) {
             if (saved) {
-                reasonSavedCount.merge(reason, 1, Integer::sum);
+                reasonSavedCount.merge(reason, 1, (oldVal, newVal) -> oldVal + newVal);
             } else {
-                reasonLostCount.merge(reason, 1, Integer::sum);
+                reasonLostCount.merge(reason, 1, (oldVal, newVal) -> oldVal + newVal);
             }
         }
     }
