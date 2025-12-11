@@ -49,6 +49,7 @@ public class DeathConfirmGUI implements Listener {
     private static final int SLOT_PAY = 2;
     private static final int SLOT_INFO = 4;
     private static final int SLOT_DROP = 6;
+    private static final int SLOT_AUTO_PAY = 8;
     
     public DeathConfirmGUI(DynamicKeepInvPlugin plugin) {
         this.plugin = plugin;
@@ -117,6 +118,25 @@ public class DeathConfirmGUI implements Listener {
         dropLore.add("");
         dropLore.add("§cClick to drop your items!");
         gui.setItem(SLOT_DROP, createItem(Material.REDSTONE_BLOCK, "§c§lDROP - Lose Items", dropLore));
+        
+        // Auto-pay toggle button
+        PendingDeathManager manager = plugin.getPendingDeathManager();
+        boolean autoPayEnabled = manager.isAutoPayEnabled(player.getUniqueId());
+        Material autoMaterial = autoPayEnabled ? Material.LIME_DYE : Material.GRAY_DYE;
+        String autoTitle = autoPayEnabled ? "§a§lAuto-Pay: ON" : "§7§lAuto-Pay: OFF";
+        List<String> autoLore = new ArrayList<>();
+        autoLore.add("§7When enabled, you will");
+        autoLore.add("§7automatically pay to keep");
+        autoLore.add("§7items on future deaths.");
+        autoLore.add("");
+        if (autoPayEnabled) {
+            autoLore.add("§aCurrently: §lENABLED");
+            autoLore.add("§7Click to disable");
+        } else {
+            autoLore.add("§7Currently: §lDISABLED");
+            autoLore.add("§aClick to enable");
+        }
+        gui.setItem(SLOT_AUTO_PAY, createItem(autoMaterial, autoTitle, autoLore));
         
         // Mark GUI as open
         pendingDeath.setGuiOpen(true);
@@ -275,6 +295,36 @@ public class DeathConfirmGUI implements Listener {
                 cancelTimeout(player.getUniqueId());
                 player.closeInventory();
                 manager.processDrop(player);
+            }
+            case SLOT_AUTO_PAY -> {
+                // Auto-pay toggle button
+                boolean newState = manager.toggleAutoPay(player.getUniqueId());
+                
+                // Send feedback message
+                String msgKey = newState ? "economy.gui.auto-pay-enabled" : "economy.gui.auto-pay-disabled";
+                String msg = plugin.getMessage(msgKey);
+                player.sendMessage(plugin.parseMessage(msg));
+                
+                // Refresh GUI to show new state
+                if (plugin.isFolia()) {
+                    Bukkit.getGlobalRegionScheduler().runDelayed(plugin, t -> {
+                        if (player.isOnline()) {
+                            PendingDeath refreshPending = manager.getPendingDeath(player.getUniqueId());
+                            if (refreshPending != null && !refreshPending.isProcessed()) {
+                                openGUI(player, refreshPending);
+                            }
+                        }
+                    }, 1L);
+                } else {
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        if (player.isOnline()) {
+                            PendingDeath refreshPending = manager.getPendingDeath(player.getUniqueId());
+                            if (refreshPending != null && !refreshPending.isProcessed()) {
+                                openGUI(player, refreshPending);
+                            }
+                        }
+                    }, 1L);
+                }
             }
             // Info slot and others - do nothing
         }

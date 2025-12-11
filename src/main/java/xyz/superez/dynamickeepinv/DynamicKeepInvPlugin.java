@@ -490,6 +490,10 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             return handleConfirmCommand(sender);
         }
         
+        if (args.length > 0 && args[0].equalsIgnoreCase("autopay")) {
+            return handleAutoPayCommand(sender);
+        }
+        
         if (!sender.hasPermission("dynamickeepinv.admin")) {
             sender.sendMessage(parseMessage(getMessage("no-permission")));
             return true;
@@ -503,6 +507,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             sender.sendMessage(parseMessage(getMessage("help.disable")));
             sender.sendMessage(parseMessage(getMessage("help.toggle")));
             sender.sendMessage(parseMessage(getMessage("help.stats")));
+            sender.sendMessage(parseMessage(getMessage("help.autopay")));
             return true;
         }
         
@@ -603,6 +608,13 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             return true;
         }
         
+        // Check if GUI mode is enabled
+        if (!getConfig().getBoolean("advanced.economy.enabled", false) 
+            || !"gui".equalsIgnoreCase(getConfig().getString("advanced.economy.mode", "charge-to-keep"))) {
+            sender.sendMessage(parseMessage("&cDeath confirmation GUI is not enabled! Set economy mode to 'gui' in config."));
+            return true;
+        }
+        
         if (pendingDeathManager == null || deathConfirmGUI == null) {
             sender.sendMessage(parseMessage("&cDeath confirmation GUI is not enabled!"));
             return true;
@@ -615,6 +627,31 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
         
         deathConfirmGUI.openGUI(player, pending);
+        return true;
+    }
+    
+    private boolean handleAutoPayCommand(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(parseMessage("&cThis command can only be used by players!"));
+            return true;
+        }
+        
+        // Check if GUI mode is enabled
+        if (!getConfig().getBoolean("advanced.economy.enabled", false) 
+            || !"gui".equalsIgnoreCase(getConfig().getString("advanced.economy.mode", "charge-to-keep"))) {
+            sender.sendMessage(parseMessage("&cAuto-pay requires GUI economy mode! Set economy mode to 'gui' in config."));
+            return true;
+        }
+        
+        if (pendingDeathManager == null) {
+            sender.sendMessage(parseMessage("&cDeath confirmation GUI is not enabled!"));
+            return true;
+        }
+        
+        boolean newState = pendingDeathManager.toggleAutoPay(player.getUniqueId());
+        String msgKey = newState ? "economy.gui.auto-pay-enabled" : "economy.gui.auto-pay-disabled";
+        String msg = getMessage(msgKey);
+        player.sendMessage(parseMessage(msg));
         return true;
     }
     

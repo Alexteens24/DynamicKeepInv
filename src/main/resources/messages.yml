@@ -19,6 +19,7 @@ messages:
       disable: "&e/dki disable &f- Disable plugin"
       toggle: "&e/dki toggle &f- Toggle plugin on/off"
       stats: "&e/dki stats [player] &f- View death statistics"
+      autopay: "&e/dki autopay &f- Toggle auto-pay on death"
     
     status:
       header: "&6=== DynamicKeepInv Status ==="
@@ -55,6 +56,9 @@ messages:
         payment-failed: "&cPayment failed! Please try again or choose to drop."
         closed-warning: "&eYou still have a pending death! Use &6/dki confirm &eto reopen the GUI."
         rejoin-notice: "&eYou have a pending death from before you disconnected!"
+        auto-paid: "&aAuto-pay: &6{amount} &adeducted to keep your inventory!"
+        auto-pay-enabled: "&aAuto-pay enabled! You will automatically pay to keep items on death."
+        auto-pay-disabled: "&eAuto-pay disabled. You will see the confirmation GUI on death."
     
     protection:
       lands:
@@ -101,6 +105,7 @@ messages:
       disable: "&e/dki disable &f- Tắt plugin"
       toggle: "&e/dki toggle &f- Chuyển đổi bật/tắt"
       stats: "&e/dki stats [player] &f- Xem thống kê chết"
+      autopay: "&e/dki autopay &f- Bật/tắt tự động trả tiền khi chết"
     
     status:
       header: "&6=== Trạng Thái DynamicKeepInv ==="
@@ -137,6 +142,9 @@ messages:
         payment-failed: "&cThanh toán thất bại! Vui lòng thử lại hoặc chọn bỏ đồ."
         closed-warning: "&eBạn vẫn còn pending death! Dùng &6/dki confirm &eđể mở lại GUI."
         rejoin-notice: "&eBạn có pending death từ trước khi disconnect!"
+        auto-paid: "&aTự động trả: &6{amount} &ađã được trừ để giữ lại kho đồ!"
+        auto-pay-enabled: "&aTự động trả đã bật! Bạn sẽ tự động trả tiền để giữ đồ khi chết."
+        auto-pay-disabled: "&eTự động trả đã tắt. Bạn sẽ thấy GUI xác nhận khi chết."
     
     protection:
       lands:

@@ -581,6 +581,24 @@ public class DeathListener implements Listener {
     }
     
     private void openDeathConfirmGUI(Player player, PendingDeath pending) {
+        PendingDeathManager pendingManager = plugin.getPendingDeathManager();
+        if (pendingManager == null) return;
+        
+        // Check if auto-pay is enabled for this player
+        if (pendingManager.isAutoPayEnabled(player.getUniqueId())) {
+            plugin.debug("Player " + player.getName() + " has auto-pay enabled, attempting auto-pay");
+            
+            // Try to process auto-pay
+            if (pendingManager.processAutoPay(player, pending)) {
+                plugin.debug("Auto-pay successful for " + player.getName());
+                return; // Success - no need to show GUI
+            }
+            
+            // Auto-pay failed (not enough money) - fall through to show GUI
+            plugin.debug("Auto-pay failed for " + player.getName() + ", showing GUI instead");
+        }
+        
+        // Show GUI
         DeathConfirmGUI gui = plugin.getDeathConfirmGUI();
         if (gui != null) {
             gui.openGUI(player, pending);

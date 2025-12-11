@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.19] - 2025-12-10
+### New Features
+- **Auto-Pay Option** - Players can enable auto-pay to automatically keep items on death
+  - Toggle with `/dki autopay` command or via GUI button
+  - When enabled, automatically pays and keeps items without showing GUI
+  - Falls back to GUI if player doesn't have enough money
+  - Setting saved per-player in database
+
+### Technical Changes
+- Added `player_settings` table for storing auto-pay preferences
+- Added auto-pay toggle button in Death Confirmation GUI (slot 8)
+
 ## [1.0.18] - 2025-12-10
 ### New Features
 - **Death Confirmation GUI** - New economy mode `gui` that shows a GUI when player dies

@@ -26,6 +26,7 @@ import java.util.logging.Level;
 public class PendingDeathManager {
     private final DynamicKeepInvPlugin plugin;
     private final Map<UUID, PendingDeath> pendingDeaths = new ConcurrentHashMap<>();
+    private final Map<UUID, Boolean> autoPayCache = new ConcurrentHashMap<>(); // Cache for auto-pay settings
     private Connection connection;
     private final ExecutorService asyncExecutor;
     private volatile boolean isShuttingDown = false;
@@ -75,6 +76,13 @@ public class PendingDeathManager {
                         "world_name TEXT," +
                         "death_reason TEXT," +
                         "timestamp INTEGER)"
+                    );
+                    
+                    // Player settings table for auto-pay
+                    stmt.execute(
+                        "CREATE TABLE IF NOT EXISTS player_settings (" +
+                        "player_uuid TEXT PRIMARY KEY," +
+                        "auto_pay INTEGER DEFAULT 0)"
                     );
                 }
             }
@@ -325,6 +333,132 @@ public class PendingDeathManager {
             return pending;
         }
         return null;
+    }
+    
+    // ===== Auto-Pay Settings =====
+    
+    /**
+     * Check if player has auto-pay enabled
+     */
+    public boolean isAutoPayEnabled(UUID playerId) {
+        // Check cache first
+        Boolean cached = autoPayCache.get(playerId);
+        if (cached != null) {
+            return cached;
+        }
+        
+        // Load from database
+        boolean autoPay = loadAutoPayFromDB(playerId);
+        autoPayCache.put(playerId, autoPay);
+        return autoPay;
+    }
+    
+    /**
+     * Set auto-pay preference for a player
+     */
+    public void setAutoPay(UUID playerId, boolean enabled) {
+        autoPayCache.put(playerId, enabled);
+        saveAutoPayToDB(playerId, enabled);
+        plugin.debug("Set auto-pay for " + playerId + " to " + enabled);
+    }
+    
+    /**
+     * Toggle auto-pay for a player
+     * @return new state
+     */
+    public boolean toggleAutoPay(UUID playerId) {
+        boolean current = isAutoPayEnabled(playerId);
+        boolean newState = !current;
+        setAutoPay(playerId, newState);
+        return newState;
+    }
+    
+    private boolean loadAutoPayFromDB(UUID playerId) {
+        if (!isConnectionValid()) return false;
+        
+        String sql = "SELECT auto_pay FROM player_settings WHERE player_uuid = ?";
+        synchronized (dbLock) {
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                pstmt.setString(1, playerId.toString());
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt("auto_pay") == 1;
+                    }
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.WARNING, "Failed to load auto-pay setting!", e);
+            }
+        }
+        return false;
+    }
+    
+    private void saveAutoPayToDB(UUID playerId, boolean enabled) {
+        if (isShuttingDown || !isConnectionValid()) return;
+        
+        asyncExecutor.execute(() -> {
+            if (isShuttingDown) return;
+            
+            String sql = "INSERT OR REPLACE INTO player_settings (player_uuid, auto_pay) VALUES (?, ?)";
+            synchronized (dbLock) {
+                try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                    pstmt.setString(1, playerId.toString());
+                    pstmt.setInt(2, enabled ? 1 : 0);
+                    pstmt.executeUpdate();
+                } catch (SQLException e) {
+                    plugin.getLogger().log(Level.SEVERE, "Failed to save auto-pay setting!", e);
+                }
+            }
+        });
+    }
+    
+    /**
+     * Process auto-pay for a player (called when they die with auto-pay enabled)
+     * @return true if auto-pay succeeded, false if should show GUI
+     */
+    public boolean processAutoPay(Player player, PendingDeath pending) {
+        EconomyManager eco = plugin.getEconomyManager();
+        if (eco == null || !eco.isEnabled()) {
+            plugin.debug("Auto-pay failed: Economy not available");
+            return false;
+        }
+        
+        double cost = pending.getCost();
+        
+        // Check balance
+        if (!eco.hasEnough(player, cost)) {
+            plugin.debug("Auto-pay failed: Player " + player.getName() + " doesn't have enough money");
+            // Not enough money - will show GUI instead
+            return false;
+        }
+        
+        // Process payment
+        if (!eco.withdraw(player, cost)) {
+            plugin.debug("Auto-pay failed: Withdrawal failed for " + player.getName());
+            return false;
+        }
+        
+        // Restore inventory
+        restoreInventory(player, pending);
+        
+        // Record stats
+        StatsManager stats = plugin.getStatsManager();
+        if (stats != null) {
+            stats.recordEconomyPayment(player, cost);
+            stats.recordDeathSaved(player, pending.getDeathReason());
+        }
+        
+        // Mark as processed and clean up
+        pending.setProcessed(true);
+        pendingDeaths.remove(player.getUniqueId());
+        deletePendingDeathFromDB(player.getUniqueId());
+        
+        // Send message
+        String msg = plugin.getMessage("economy.gui.auto-paid")
+                .replace("{amount}", eco.format(cost));
+        player.sendMessage(plugin.parseMessage(msg));
+        
+        plugin.debug("Auto-pay successful for " + player.getName() + ", charged " + cost);
+        return true;
     }
     
     // ===== Database Operations =====
