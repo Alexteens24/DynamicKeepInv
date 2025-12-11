@@ -162,6 +162,9 @@ public class DeathListener implements Listener {
                             player.getExp(),
                             cost,
                             world.getName(),
+                            deathLocation.getX(),
+                            deathLocation.getY(),
+                            deathLocation.getZ(),
                             baseReason
                         );
 
