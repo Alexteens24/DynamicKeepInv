@@ -8,6 +8,9 @@
   - Falls back to GUI if player doesn't have enough money
   - Setting saved per-player in database
 
+### Bug Fixes
+- **Fixed `/dki confirm` and `/dki autopay` error messages** - Now properly checks if GUI mode is enabled before allowing commands
+
 ### Technical Changes
 - Added `player_settings` table for storing auto-pay preferences
 - Added auto-pay toggle button in Death Confirmation GUI (slot 8)
