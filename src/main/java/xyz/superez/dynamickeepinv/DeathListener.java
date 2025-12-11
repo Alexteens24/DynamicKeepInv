@@ -176,11 +176,36 @@ public class DeathListener implements Listener {
                         if (pendingDeath.hasItems() || player.getLevel() > 0) {
                             pendingManager.addPendingDeath(pendingDeath);
                             
-                            // Clear inventory and XP - items are saved
-                            event.setKeepInventory(false);
-                            event.setKeepLevel(false);
-                            event.getDrops().clear(); // Don't drop - we saved them
-                            event.setDroppedExp(0); // Don't drop XP either
+                            // IMPORTANT: Set keepInventory=true to prevent Minecraft from dropping items
+                            // We've already saved the inventory, and will handle it in GUI
+                            event.setKeepInventory(true);
+                            event.setKeepLevel(true);
+                            event.getDrops().clear();
+                            event.setDroppedExp(0);
+                            
+                            // Schedule clearing player's inventory AFTER death is processed
+                            // This prevents items from dropping naturally
+                            if (plugin.isFolia()) {
+                                org.bukkit.Bukkit.getGlobalRegionScheduler().runDelayed(plugin, task -> {
+                                    if (player.isOnline()) {
+                                        player.getInventory().clear();
+                                        player.getInventory().setArmorContents(new org.bukkit.inventory.ItemStack[4]);
+                                        player.getInventory().setItemInOffHand(null);
+                                        player.setLevel(0);
+                                        player.setExp(0);
+                                    }
+                                }, 1L);
+                            } else {
+                                org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                                    if (player.isOnline()) {
+                                        player.getInventory().clear();
+                                        player.getInventory().setArmorContents(new org.bukkit.inventory.ItemStack[4]);
+                                        player.getInventory().setItemInOffHand(null);
+                                        player.setLevel(0);
+                                        player.setExp(0);
+                                    }
+                                }, 1L);
+                            }
                             
                             plugin.debug("Saved pending death with " + pendingDeath.countItems() + " items, cost=" + cost);
                             
