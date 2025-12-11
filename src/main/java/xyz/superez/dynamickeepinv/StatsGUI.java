@@ -48,19 +48,10 @@ public class StatsGUI implements Listener {
             return;
         }
 
-        // If offline, load async first
+        // If offline, load async first using CompletableFuture
         viewer.sendMessage(plugin.parseMessage("&eLoading stats for " + targetName + "..."));
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            // Force load into cache (or just fetch)
-            plugin.getStatsManager().loadStats(targetUUID);
-
-            // Give it a moment to load (since loadStats is async but fast)
-            // Ideally we'd have a callback, but for now this prevents main thread lag
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException ignored) {}
-
+        plugin.getStatsManager().loadStats(targetUUID).thenRun(() -> {
             // Now open GUI on main thread
             Bukkit.getScheduler().runTask(plugin, () -> openGUI(viewer, targetUUID, targetName));
         });

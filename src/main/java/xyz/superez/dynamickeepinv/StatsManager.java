@@ -98,12 +98,12 @@ public class StatsManager {
         }
     }
 
-    public void loadStats(UUID uuid) {
-        if (isShuttingDown) return;
-        asyncExecutor.execute(() -> {
+    public java.util.concurrent.CompletableFuture<Void> loadStats(UUID uuid) {
+        if (isShuttingDown) return java.util.concurrent.CompletableFuture.completedFuture(null);
+        return java.util.concurrent.CompletableFuture.runAsync(() -> {
             PlayerStatsData data = fetchStats(uuid);
             statsCache.put(uuid, data);
-        });
+        }, asyncExecutor);
     }
 
     public void unloadStats(UUID uuid) {
