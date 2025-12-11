@@ -84,6 +84,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         if (getConfig().getBoolean("stats.enabled", true)) {
             statsManager = new StatsManager(this);
             statsGUI = new StatsGUI(this);
+            // Register stats listener for caching
+            getServer().getPluginManager().registerEvents(new xyz.superez.dynamickeepinv.StatsListener(this), this);
             getLogger().info("Stats system enabled with SQLite database!");
         }
         
