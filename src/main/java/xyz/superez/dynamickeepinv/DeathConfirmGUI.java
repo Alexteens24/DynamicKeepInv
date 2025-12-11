@@ -185,8 +185,15 @@ public class DeathConfirmGUI implements Listener {
         long timeoutTicks = manager.getTimeoutMs() / 50; // Convert ms to ticks
         
         if (plugin.isFolia()) {
+            // Use global scheduler for timing, but dispatch to player scheduler for action
             ScheduledTask task = Bukkit.getGlobalRegionScheduler().runDelayed(plugin, t -> {
-                handleTimeout(playerId);
+                Player player = Bukkit.getPlayer(playerId);
+                if (player != null && player.isOnline()) {
+                    player.getScheduler().run(plugin, innerTask -> handleTimeout(playerId), null);
+                } else {
+                    // Player offline, handle directly (will check offline player in handleTimeout)
+                    handleTimeout(playerId);
+                }
             }, timeoutTicks);
             timeoutTasks.put(playerId, task);
         } else {

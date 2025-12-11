@@ -283,6 +283,20 @@ public class PendingDeathManager {
             }
         }
         
+        if (plugin.isFolia()) {
+            // In Folia, we must drop items on the region thread
+            Runnable dropTask = () -> performDrop(dropLocation, pending);
+            if (player != null && player.isOnline()) {
+                player.getScheduler().run(plugin, task -> dropTask.run(), null);
+            } else {
+                Bukkit.getRegionScheduler().execute(plugin, dropLocation, dropTask);
+            }
+        } else {
+            performDrop(dropLocation, pending);
+        }
+    }
+
+    private void performDrop(Location dropLocation, PendingDeath pending) {
         // Drop all items
         for (ItemStack item : pending.getSavedInventory()) {
             if (item != null && !item.getType().isAir()) {
