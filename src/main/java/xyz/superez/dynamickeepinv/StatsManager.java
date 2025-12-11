@@ -19,6 +19,7 @@ public class StatsManager {
 
     // Cache for online players
     private final java.util.Map<UUID, PlayerStatsData> statsCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Set<UUID> knownPlayers = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     public StatsManager(DynamicKeepInvPlugin plugin) {
         this.plugin = plugin;
@@ -128,6 +129,7 @@ public class StatsManager {
                             data.lastDeathSaved = rs.getInt("last_death_saved") == 1;
                             data.economyTotalPaid = rs.getDouble("economy_total_paid");
                             data.economyPaymentCount = rs.getInt("economy_payment_count");
+                            knownPlayers.add(uuid);
                         }
                     }
                 }
@@ -152,12 +154,15 @@ public class StatsManager {
 
     private void ensurePlayerExists(UUID uuid, String playerName) {
         if (!isConnectionValid()) return;
+        if (knownPlayers.contains(uuid)) return;
+
         String sql = "INSERT OR IGNORE INTO player_stats (uuid, player_name) VALUES (?, ?)";
         synchronized (dbLock) {
             try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
                 pstmt.setString(1, uuid.toString());
                 pstmt.setString(2, playerName);
                 pstmt.executeUpdate();
+                knownPlayers.add(uuid);
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.SEVERE, "Database error!", e);
             }
@@ -178,6 +183,7 @@ public class StatsManager {
         if (isShuttingDown || !isConnectionValid()) return;
         final UUID uuid = player.getUniqueId();
         final String playerName = player.getName();
+        final long time = System.currentTimeMillis();
 
         asyncExecutor.execute(() -> {
             if (isShuttingDown) return;
@@ -194,7 +200,7 @@ public class StatsManager {
 
             synchronized (dbLock) {
                 try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-                    pstmt.setLong(1, System.currentTimeMillis());
+                    pstmt.setLong(1, time);
                     pstmt.setString(2, reason);
                     pstmt.setString(3, playerName);
                     pstmt.setString(4, uuid.toString());
@@ -206,9 +212,11 @@ public class StatsManager {
 
             updateReasonStats(uuid, reason, true);
 
-            // Update cache if present
-            if (statsCache.containsKey(uuid)) {
-                loadStats(uuid);
+            // Update cache in memory
+            PlayerStatsData cached = statsCache.get(uuid);
+            if (cached != null) {
+                cached.incrementSaved(time, reason);
+                cached.incrementReason(reason, true);
             }
         });
     }
@@ -217,6 +225,7 @@ public class StatsManager {
         if (isShuttingDown || !isConnectionValid()) return;
         final UUID uuid = player.getUniqueId();
         final String playerName = player.getName();
+        final long time = System.currentTimeMillis();
 
         asyncExecutor.execute(() -> {
             if (isShuttingDown) return;
@@ -233,7 +242,7 @@ public class StatsManager {
 
             synchronized (dbLock) {
                 try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-                    pstmt.setLong(1, System.currentTimeMillis());
+                    pstmt.setLong(1, time);
                     pstmt.setString(2, reason);
                     pstmt.setString(3, playerName);
                     pstmt.setString(4, uuid.toString());
@@ -245,9 +254,11 @@ public class StatsManager {
 
             updateReasonStats(uuid, reason, false);
 
-            // Update cache if present
-            if (statsCache.containsKey(uuid)) {
-                loadStats(uuid);
+            // Update cache in memory
+            PlayerStatsData cached = statsCache.get(uuid);
+            if (cached != null) {
+                cached.incrementLost(time, reason);
+                cached.incrementReason(reason, false);
             }
         });
     }
@@ -304,9 +315,10 @@ public class StatsManager {
                 }
             }
 
-            // Update cache if present
-            if (statsCache.containsKey(uuid)) {
-                loadStats(uuid);
+            // Update cache in memory
+            PlayerStatsData cached = statsCache.get(uuid);
+            if (cached != null) {
+                cached.addEconomy(amount);
             }
         });
     }
@@ -379,6 +391,7 @@ public class StatsManager {
                     pstmt.setString(1, uuid.toString());
                     pstmt.executeUpdate();
                 }
+                knownPlayers.remove(uuid);
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.SEVERE, "Database error!", e);
             }
@@ -430,15 +443,44 @@ public class StatsManager {
 
     // Data class to hold player stats
     public static class PlayerStatsData {
-        public int deathsSaved = 0;
-        public int deathsLost = 0;
-        public int totalDeaths = 0;
-        public long lastDeathTime = 0;
-        public String lastDeathReason = "none";
-        public boolean lastDeathSaved = false;
-        public double economyTotalPaid = 0;
-        public int economyPaymentCount = 0;
+        public volatile int deathsSaved = 0;
+        public volatile int deathsLost = 0;
+        public volatile int totalDeaths = 0;
+        public volatile long lastDeathTime = 0;
+        public volatile String lastDeathReason = "none";
+        public volatile boolean lastDeathSaved = false;
+        public volatile double economyTotalPaid = 0;
+        public volatile int economyPaymentCount = 0;
         public final java.util.Map<String, Integer> reasonSavedCount = new java.util.concurrent.ConcurrentHashMap<>();
         public final java.util.Map<String, Integer> reasonLostCount = new java.util.concurrent.ConcurrentHashMap<>();
+
+        public synchronized void incrementSaved(long time, String reason) {
+            deathsSaved++;
+            totalDeaths++;
+            lastDeathTime = time;
+            lastDeathReason = reason;
+            lastDeathSaved = true;
+        }
+
+        public synchronized void incrementLost(long time, String reason) {
+            deathsLost++;
+            totalDeaths++;
+            lastDeathTime = time;
+            lastDeathReason = reason;
+            lastDeathSaved = false;
+        }
+
+        public synchronized void addEconomy(double amount) {
+            economyTotalPaid += amount;
+            economyPaymentCount++;
+        }
+
+        public void incrementReason(String reason, boolean saved) {
+            if (saved) {
+                reasonSavedCount.merge(reason, 1, Integer::sum);
+            } else {
+                reasonLostCount.merge(reason, 1, Integer::sum);
+            }
+        }
     }
 }
