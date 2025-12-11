@@ -18,6 +18,9 @@ public class PendingDeath {
     private final float savedExp;
     private final double cost;
     private final String worldName;
+    private final double x;
+    private final double y;
+    private final double z;
     private final long timestamp;
     private final String deathReason;
     private volatile boolean guiOpen;
@@ -26,9 +29,9 @@ public class PendingDeath {
     public PendingDeath(UUID playerId, String playerName, ItemStack[] savedInventory, 
                         ItemStack[] savedArmor, ItemStack offhandItem,
                         int savedLevel, float savedExp, double cost, 
-                        String worldName, String deathReason) {
+                        String worldName, double x, double y, double z, String deathReason) {
         this(playerId, playerName, savedInventory, savedArmor, offhandItem,
-             savedLevel, savedExp, cost, worldName, deathReason, System.currentTimeMillis());
+             savedLevel, savedExp, cost, worldName, x, y, z, deathReason, System.currentTimeMillis());
     }
     
     /**
@@ -37,7 +40,7 @@ public class PendingDeath {
     public PendingDeath(UUID playerId, String playerName, ItemStack[] savedInventory, 
                         ItemStack[] savedArmor, ItemStack offhandItem,
                         int savedLevel, float savedExp, double cost, 
-                        String worldName, String deathReason, long timestamp) {
+                        String worldName, double x, double y, double z, String deathReason, long timestamp) {
         this.playerId = playerId;
         this.playerName = playerName;
         // Deep clone all items to prevent modification
@@ -48,6 +51,9 @@ public class PendingDeath {
         this.savedExp = savedExp;
         this.cost = cost;
         this.worldName = worldName;
+        this.x = x;
+        this.y = y;
+        this.z = z;
         this.timestamp = timestamp;
         this.deathReason = deathReason;
         this.guiOpen = false;
@@ -104,6 +110,18 @@ public class PendingDeath {
         return worldName;
     }
     
+    public double getX() {
+        return x;
+    }
+
+    public double getY() {
+        return y;
+    }
+
+    public double getZ() {
+        return z;
+    }
+
     public long getTimestamp() {
         return timestamp;
     }

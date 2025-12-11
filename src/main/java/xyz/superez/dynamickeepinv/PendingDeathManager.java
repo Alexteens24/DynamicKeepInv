@@ -74,9 +74,35 @@ public class PendingDeathManager {
                         "exp REAL," +
                         "cost REAL," +
                         "world_name TEXT," +
+                        "x REAL," +
+                        "y REAL," +
+                        "z REAL," +
                         "death_reason TEXT," +
                         "timestamp INTEGER)"
                     );
+
+                    // Check if we need to add coordinate columns to existing table
+                    try {
+                        ResultSet rs = stmt.executeQuery("SELECT * FROM pending_deaths LIMIT 1");
+                        ResultSetMetaData rsmd = rs.getMetaData();
+                        boolean hasX = false;
+                        for (int i = 1; i <= rsmd.getColumnCount(); i++) {
+                            if ("x".equalsIgnoreCase(rsmd.getColumnName(i))) {
+                                hasX = true;
+                                break;
+                            }
+                        }
+                        rs.close();
+
+                        if (!hasX) {
+                            plugin.getLogger().info("Updating pending_deaths table with coordinate columns...");
+                            stmt.execute("ALTER TABLE pending_deaths ADD COLUMN x REAL DEFAULT 0");
+                            stmt.execute("ALTER TABLE pending_deaths ADD COLUMN y REAL DEFAULT 0");
+                            stmt.execute("ALTER TABLE pending_deaths ADD COLUMN z REAL DEFAULT 0");
+                        }
+                    } catch (SQLException ignored) {
+                        // Table might be empty or just created
+                    }
                     
                     // Player settings table for auto-pay
                     stmt.execute(
@@ -264,25 +290,31 @@ public class PendingDeathManager {
     }
     
     /**
-     * Drop items at player's location or death location
+     * Drop items at death location
      */
     private void dropItemsForPendingDeath(PendingDeath pending) {
-        Player player = Bukkit.getPlayer(pending.getPlayerId());
+        World world = Bukkit.getWorld(pending.getWorldName());
+        if (world == null) {
+            plugin.getLogger().warning("Cannot drop items for " + pending.getPlayerName() + ": world " + pending.getWorldName() + " not found");
+            return;
+        }
+
         Location dropLocation;
-        
-        if (player != null && player.isOnline()) {
-            dropLocation = player.getLocation();
+        // Use stored coordinates if available (not 0,0,0)
+        if (pending.getX() != 0 || pending.getY() != 0 || pending.getZ() != 0) {
+            dropLocation = new Location(world, pending.getX(), pending.getY(), pending.getZ());
         } else {
-            // Player offline, try to get world spawn
-            World world = Bukkit.getWorld(pending.getWorldName());
-            if (world != null) {
-                dropLocation = world.getSpawnLocation();
+            // Fallback for old data: try player location or spawn
+            Player player = Bukkit.getPlayer(pending.getPlayerId());
+            if (player != null && player.isOnline()) {
+                dropLocation = player.getLocation();
             } else {
-                plugin.getLogger().warning("Cannot drop items for " + pending.getPlayerName() + ": world " + pending.getWorldName() + " not found");
-                return;
+                dropLocation = world.getSpawnLocation();
             }
         }
         
+        Player player = Bukkit.getPlayer(pending.getPlayerId());
+
         if (plugin.isFolia()) {
             // In Folia, we must drop items on the region thread
             Runnable dropTask = () -> performDrop(dropLocation, pending);
@@ -492,8 +524,8 @@ public class PendingDeathManager {
         asyncExecutor.execute(() -> {
             String sql = "INSERT OR REPLACE INTO pending_deaths " +
                         "(player_uuid, player_name, inventory_data, armor_data, offhand_data, " +
-                        "level, exp, cost, world_name, death_reason, timestamp) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                        "level, exp, cost, world_name, x, y, z, death_reason, timestamp) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
             synchronized (dbLock) {
                 try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
@@ -507,8 +539,11 @@ public class PendingDeathManager {
                     pstmt.setFloat(7, pending.getSavedExp());
                     pstmt.setDouble(8, pending.getCost());
                     pstmt.setString(9, pending.getWorldName());
-                    pstmt.setString(10, pending.getDeathReason());
-                    pstmt.setLong(11, pending.getTimestamp());
+                    pstmt.setDouble(10, pending.getX());
+                    pstmt.setDouble(11, pending.getY());
+                    pstmt.setDouble(12, pending.getZ());
+                    pstmt.setString(13, pending.getDeathReason());
+                    pstmt.setLong(14, pending.getTimestamp());
                     pstmt.executeUpdate();
                 } catch (SQLException e) {
                     plugin.getLogger().log(Level.SEVERE, "Failed to save pending death!", e);
@@ -569,11 +604,22 @@ public class PendingDeathManager {
                     float exp = rs.getFloat("exp");
                     double cost = rs.getDouble("cost");
                     String worldName = rs.getString("world_name");
+
+                    // Load coordinates (handling old DBs where columns might be missing/defaulted)
+                    double x = 0, y = 0, z = 0;
+                    try {
+                        x = rs.getDouble("x");
+                        y = rs.getDouble("y");
+                        z = rs.getDouble("z");
+                    } catch (SQLException ignored) {
+                        // Columns might not exist in result set if we just added them but didn't refresh connection
+                    }
+
                     String deathReason = rs.getString("death_reason");
                     
                     PendingDeath pending = new PendingDeath(
                         playerId, playerName, inventory, armor, offhand,
-                        level, exp, cost, worldName, deathReason, timestamp
+                        level, exp, cost, worldName, x, y, z, deathReason, timestamp
                     );
                     
                     pendingDeaths.put(playerId, pending);
