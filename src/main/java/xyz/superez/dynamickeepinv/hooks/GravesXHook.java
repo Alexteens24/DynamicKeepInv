@@ -1,6 +1,6 @@
 package xyz.superez.dynamickeepinv.hooks;
 
-import dev.cwhead.GravesX.GravesXAPI;
+import dev.cwhead.GravesX.api.GravesXAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
@@ -55,7 +55,7 @@ public class GravesXHook {
         }
 
         try {
-            gravesXAPI.createGrave(
+            gravesXAPI.getGravesCreationAPI().createGrave(
                 player,
                 EntityType.PLAYER,
                 location,
