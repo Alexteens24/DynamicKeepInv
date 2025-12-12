@@ -132,7 +132,7 @@ Same logic as Lands - `in-own-claim` is claims you own or are trusted in.
 
 ## GravesX Integration
 
-For servers using [GravesX](https://www.spigotmc.org/resources/gravesx.110595/), this plugin can automatically create graves when items are lost.
+For servers using [GravesX](https://www.spigotmc.org/resources/gravesx.118271/), this plugin can automatically create graves when items are lost.
 
 ```yaml
 advanced:
