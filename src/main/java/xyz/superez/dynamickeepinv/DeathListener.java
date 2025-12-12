@@ -144,7 +144,7 @@ public class DeathListener implements Listener {
             plugin.debug("Economy enabled. Cost=" + cost + ", Mode=" + mode);
 
             // GUI mode - save inventory and show confirmation GUI on respawn
-            if ("gui".equalsIgnoreCase(mode) && cost > 0) {
+            if ("gui".equalsIgnoreCase(mode) && cost > 0 && !baseKeepItems) {
                 EconomyManager eco = plugin.getEconomyManager();
                 if (eco != null && eco.isEnabled()) {
                     plugin.debug("GUI mode: Saving inventory for confirmation GUI");
@@ -499,17 +499,6 @@ public class DeathListener implements Listener {
                         event.getDrops().add(item.clone());
                         addedItems++;
                     }
-                }
-                for (org.bukkit.inventory.ItemStack item : player.getInventory().getArmorContents()) {
-                    if (item != null && !item.getType().isAir()) {
-                        event.getDrops().add(item.clone());
-                        addedItems++;
-                    }
-                }
-                org.bukkit.inventory.ItemStack offhand = player.getInventory().getItemInOffHand();
-                if (offhand != null && !offhand.getType().isAir()) {
-                    event.getDrops().add(offhand.clone());
-                    addedItems++;
                 }
                 plugin.debug("Added " + addedItems + " items to drops");
                 player.getInventory().clear();
