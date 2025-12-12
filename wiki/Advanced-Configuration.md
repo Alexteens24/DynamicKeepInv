@@ -58,15 +58,15 @@ advanced:
     lands:
       enabled: true
       override-lands: false
-      
+
       in-own-land:
         keep-items: true
         keep-xp: true
-      
+
       in-other-land:
         keep-items: true
         keep-xp: true
-      
+
       wilderness:
         enabled: true
         use-death-cause: false
@@ -110,15 +110,15 @@ advanced:
   protection:
     griefprevention:
       enabled: true
-      
+
       in-own-claim:
         keep-items: true
         keep-xp: true
-      
+
       in-other-claim:
         keep-items: false
         keep-xp: false
-      
+
       wilderness:
         enabled: true
         use-death-cause: false
@@ -130,6 +130,31 @@ Same logic as Lands - `in-own-claim` is claims you own or are trusted in.
 
 ---
 
+## GravesX Integration
+
+For servers using [GravesX](https://www.spigotmc.org/resources/gravesx.110595/), this plugin can automatically create graves when items are lost.
+
+```yaml
+advanced:
+  gravesx:
+    enabled: true
+```
+
+### How It Works
+
+- If a player **keeps** their inventory (due to any rule above), no grave is created.
+- If a player **loses** their inventory (due to night, PvP, etc.), a grave is created containing their items and XP.
+- **Note:** If `keep-xp` is true but `keep-items` is false, the grave will contain items but 0 XP (since you kept the XP).
+
+### Interaction with GUI Mode
+
+If you use the [Death Confirmation GUI](#death-confirmation-gui) and GravesX:
+1. Player dies -> GUI opens.
+2. Player clicks **Pay** -> Keeps items (no grave).
+3. Player clicks **Drop** (or timeout) -> Items are sent to a grave instead of dropping on the ground.
+
+---
+
 ## Death Cause Rules
 
 Different rules based on how the player died:
@@ -138,11 +163,11 @@ Different rules based on how the player died:
 advanced:
   death-cause:
     enabled: true
-    
+
     pvp:                    # Killed by another player
       keep-items: true
       keep-xp: true
-    
+
     pve:                    # Everything else (mobs, fall, lava, etc.)
       keep-items: false
       keep-xp: true
@@ -249,6 +274,13 @@ Players can also use `/dki confirm` to reopen the GUI if they closed it before t
 | Not enough money | Player sees insufficient funds message, can still click Drop |
 | Economy unavailable | Items dropped automatically (no GUI shown) |
 
+### Technical Details & Edge Cases
+
+- **Curse of Vanishing:** Items with this enchantment are explicitly destroyed and will **never** be dropped, restored, or put into a grave.
+- **Exact Location:** The plugin stores the exact X, Y, Z coordinates of death. Drops will appear exactly where the player died.
+- **Duplicate Prevention:** The plugin manually handles drops in GUI mode. It temporarily clears drops to prevent vanilla mechanics from duplicating items.
+- **Folia Support:** On Folia servers, the plugin uses region schedulers to ensure drops and grave creation happen safely on the correct thread.
+
 ---
 
 ## Death Messages
@@ -278,7 +310,7 @@ advanced:
   day:
     keep-items: true
     keep-xp: true
-  
+
   night:
     keep-items: false
     keep-xp: true     # Keep XP but lose items at night
