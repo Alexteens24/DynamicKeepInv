@@ -18,6 +18,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Manages pending deaths that require player confirmation via GUI.
@@ -317,18 +319,47 @@ public class PendingDeathManager {
 
         if (plugin.isFolia()) {
             // In Folia, we must drop items on the region thread
-            Runnable dropTask = () -> performDrop(dropLocation, pending);
+            Runnable dropTask = () -> performDrop(dropLocation, pending, player);
             if (player != null && player.isOnline()) {
                 player.getScheduler().run(plugin, task -> dropTask.run(), null);
             } else {
                 Bukkit.getRegionScheduler().execute(plugin, dropLocation, dropTask);
             }
         } else {
-            performDrop(dropLocation, pending);
+            performDrop(dropLocation, pending, player);
         }
     }
 
-    private void performDrop(Location dropLocation, PendingDeath pending) {
+    private void performDrop(Location dropLocation, PendingDeath pending, Player player) {
+        // Check for GravesX integration
+        if (player != null && plugin.isGravesXEnabled()) {
+            List<ItemStack> drops = new ArrayList<>();
+
+            for (ItemStack item : pending.getSavedInventory()) {
+                if (item != null && !item.getType().isAir() && !hasVanishingCurse(item)) {
+                    drops.add(item);
+                }
+            }
+            for (ItemStack item : pending.getSavedArmor()) {
+                if (item != null && !item.getType().isAir() && !hasVanishingCurse(item)) {
+                    drops.add(item);
+                }
+            }
+            if (pending.getOffhandItem() != null && !pending.getOffhandItem().getType().isAir() && !hasVanishingCurse(pending.getOffhandItem())) {
+                drops.add(pending.getOffhandItem());
+            }
+
+            // Calculate XP
+            int xp = calculateTotalExperience(pending.getSavedLevel(), pending.getSavedExp());
+
+            if (!drops.isEmpty() || xp > 0) {
+                if (plugin.getGravesXHook().createGrave(player, dropLocation, drops, xp)) {
+                    plugin.debug("Grave created for pending death of " + pending.getPlayerName());
+                    return; // Grave created, skip natural drops
+                }
+            }
+        }
+
         // Drop all items
         for (ItemStack item : pending.getSavedInventory()) {
             if (item != null && !item.getType().isAir()) {
@@ -354,6 +385,34 @@ public class PendingDeathManager {
             dropLocation.getWorld().spawn(dropLocation, org.bukkit.entity.ExperienceOrb.class, 
                 orb -> orb.setExperience(expToDrop));
         }
+    }
+
+    private int calculateTotalExperience(int level, float expPercentage) {
+        int exp = 0;
+
+        // Calculate XP for current level progress
+        int expAtLevel;
+        if (level >= 31) {
+            expAtLevel = 9 * level - 158;
+        } else if (level >= 16) {
+            expAtLevel = 5 * level - 38;
+        } else {
+            expAtLevel = 2 * level + 7;
+        }
+        exp += Math.round(expAtLevel * expPercentage);
+
+        // Calculate XP for past levels
+        for (int i = 0; i < level; i++) {
+            if (i >= 31) {
+                exp += 9 * i - 158;
+            } else if (i >= 16) {
+                exp += 5 * i - 38;
+            } else {
+                exp += 2 * i + 7;
+            }
+        }
+
+        return exp;
     }
     
     private boolean hasVanishingCurse(ItemStack item) {
