@@ -102,6 +102,12 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
         if (getConfig().getBoolean("enabled", true)) {
             startChecking();
+            List<String> enabledWorlds = getConfig().getStringList("enabled-worlds");
+            if (!enabledWorlds.isEmpty()) {
+                getLogger().info("Enabled worlds: " + String.join(", ", enabledWorlds));
+            } else {
+                getLogger().info("Enabled for all worlds (empty enabled-worlds list).");
+            }
             getLogger().info("DynamicKeepInv enabled! Keep inventory will change based on time.");
         } else {
             getLogger().info("DynamicKeepInv is disabled in config.");
@@ -178,7 +184,14 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         if (enabledWorlds == null || enabledWorlds.isEmpty()) {
             return true;
         }
-        return enabledWorlds.contains(world.getName());
+
+        String worldName = world.getName();
+        for (String enabled : enabledWorlds) {
+            if (enabled.equalsIgnoreCase(worldName)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void detectFolia() {
@@ -294,7 +307,6 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     private void checkAndUpdateKeepInventory() {
-        List<String> enabledWorlds = getConfig().getStringList("enabled-worlds");
         boolean keepInvDay = getConfig().getBoolean("keep-inventory-day", true);
         boolean keepInvNight = getConfig().getBoolean("keep-inventory-night", false);
         long dayStart = getConfig().getLong("day-start", 0);
@@ -306,7 +318,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         if (nightTrigger < 0) nightTrigger = nightStart;
 
         for (World world : Bukkit.getWorlds()) {
-            if (shouldSkipWorld(world, enabledWorlds)) {
+            if (!isWorldEnabled(world)) {
                 continue;
             }
 
@@ -320,10 +332,6 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
                 processWorld(world, keepInvDay, keepInvNight, dayStart, nightStart, dayTrigger, nightTrigger);
             }
         }
-    }
-
-    private boolean shouldSkipWorld(World world, List<String> enabledWorlds) {
-        return !enabledWorlds.isEmpty() && !enabledWorlds.contains(world.getName());
     }
 
     private void processWorld(World world, boolean keepInvDay, boolean keepInvNight,
