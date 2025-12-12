@@ -144,7 +144,7 @@ public class DeathListener implements Listener {
             plugin.debug("Economy enabled. Cost=" + cost + ", Mode=" + mode);
 
             // GUI mode - save inventory and show confirmation GUI on respawn
-            if ("gui".equalsIgnoreCase(mode) && cost > 0) {
+            if ("gui".equalsIgnoreCase(mode) && cost > 0 && !baseKeepItems) {
                 EconomyManager eco = plugin.getEconomyManager();
                 if (eco != null && eco.isEnabled()) {
                     plugin.debug("GUI mode: Saving inventory for confirmation GUI");
