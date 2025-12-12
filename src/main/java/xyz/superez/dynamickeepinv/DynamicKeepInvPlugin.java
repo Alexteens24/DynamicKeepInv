@@ -22,6 +22,7 @@ import org.bukkit.entity.Player;
 
 import xyz.superez.dynamickeepinv.hooks.LandsHook;
 import xyz.superez.dynamickeepinv.hooks.GriefPreventionHook;
+import xyz.superez.dynamickeepinv.hooks.GravesXHook;
 
 import java.io.File;
 import java.time.Duration;
@@ -64,6 +65,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
     private LandsHook landsHook;
     private GriefPreventionHook griefPreventionHook;
+    private GravesXHook gravesXHook;
     private DynamicKeepInvExpansion placeholderExpansion;
     private StatsManager statsManager;
     private StatsGUI statsGUI;
@@ -245,6 +247,20 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             griefPreventionHook = new GriefPreventionHook(this);
         } else {
             griefPreventionHook = null;
+        }
+
+        if (getConfig().getBoolean("advanced.gravesx.enabled", false)) {
+            if (Bukkit.getPluginManager().getPlugin("GravesX") != null) {
+                gravesXHook = new GravesXHook(this);
+                if (!gravesXHook.setup()) {
+                    gravesXHook = null; // Failed to setup
+                }
+            } else {
+                getLogger().warning("GravesX integration enabled in config, but GravesX plugin not found!");
+                gravesXHook = null;
+            }
+        } else {
+            gravesXHook = null;
         }
     }
 
@@ -793,6 +809,14 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
     public boolean isGriefPreventionEnabled() {
         return griefPreventionHook != null && griefPreventionHook.isAvailable();
+    }
+
+    public GravesXHook getGravesXHook() {
+        return gravesXHook;
+    }
+
+    public boolean isGravesXEnabled() {
+        return gravesXHook != null && gravesXHook.isEnabled();
     }
 
     public StatsManager getStatsManager() {

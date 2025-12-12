@@ -269,6 +269,42 @@ public class DeathListener implements Listener {
         plugin.debug("Event keepInventory after processing: " + event.getKeepInventory());
         applyKeepInventorySettings(event, keepItems, keepXp);
 
+        // Check if we should create a grave (GravesX support)
+        // Only if items are NOT kept (meaning they are dropped) and hook is enabled
+        if (!keepItems && plugin.isGravesXEnabled()) {
+            // We need to check if there are any items to put in the grave
+            // applyKeepInventorySettings logic:
+            // if keepItems is false:
+            //   event.setKeepInventory(false);
+            //   If drops were empty (e.g. gamerule keepInventory=true), it force populated event.getDrops()
+
+            // So event.getDrops() should contain the items now.
+            if (event.getDrops() != null && !event.getDrops().isEmpty()) {
+                plugin.debug("GravesX enabled and items dropped. Creating grave...");
+                // Create a list copy because passing event.getDrops() might be risky if we clear it later
+                java.util.List<org.bukkit.inventory.ItemStack> dropsToSave = new java.util.ArrayList<>(event.getDrops());
+
+                // Determine XP to store in grave
+                // If keepXp is true, we should NOT put XP in the grave (player keeps it)
+                // If keepXp is false, we put the XP in the grave
+                int xpToStore = keepXp ? 0 : player.getTotalExperience();
+
+                if (plugin.getGravesXHook().createGrave(player, deathLocation, dropsToSave, xpToStore)) {
+                    // If we created a grave, we should clear the drops so they don't fall on the ground
+                    event.getDrops().clear();
+
+                    // If we stored XP in the grave, we must clear dropped XP to prevent duplication
+                    if (!keepXp) {
+                        event.setDroppedExp(0);
+                    }
+
+                    plugin.debug("Grave created with " + dropsToSave.size() + " items and " + xpToStore + " XP.");
+                } else {
+                     plugin.debug("Failed to create grave, items will drop normally.");
+                }
+            }
+        }
+
         String reason;
         boolean economyBypass = plugin.getConfig().getBoolean("advanced.economy.enabled", false)
                 && "charge-to-bypass".equalsIgnoreCase(plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep"))
