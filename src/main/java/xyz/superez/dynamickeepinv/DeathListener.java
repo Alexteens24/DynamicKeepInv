@@ -500,17 +500,6 @@ public class DeathListener implements Listener {
                         addedItems++;
                     }
                 }
-                for (org.bukkit.inventory.ItemStack item : player.getInventory().getArmorContents()) {
-                    if (item != null && !item.getType().isAir()) {
-                        event.getDrops().add(item.clone());
-                        addedItems++;
-                    }
-                }
-                org.bukkit.inventory.ItemStack offhand = player.getInventory().getItemInOffHand();
-                if (offhand != null && !offhand.getType().isAir()) {
-                    event.getDrops().add(offhand.clone());
-                    addedItems++;
-                }
                 plugin.debug("Added " + addedItems + " items to drops");
                 player.getInventory().clear();
             } else {

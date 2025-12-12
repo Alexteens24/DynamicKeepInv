@@ -340,14 +340,6 @@ public class PendingDeathManager {
                     drops.add(item);
                 }
             }
-            for (ItemStack item : pending.getSavedArmor()) {
-                if (item != null && !item.getType().isAir() && !hasVanishingCurse(item)) {
-                    drops.add(item);
-                }
-            }
-            if (pending.getOffhandItem() != null && !pending.getOffhandItem().getType().isAir() && !hasVanishingCurse(pending.getOffhandItem())) {
-                drops.add(pending.getOffhandItem());
-            }
 
             // Calculate XP
             int xp = calculateTotalExperience(pending.getSavedLevel(), pending.getSavedExp());
@@ -365,17 +357,6 @@ public class PendingDeathManager {
             if (item != null && !item.getType().isAir()) {
                 if (hasVanishingCurse(item)) continue; // Skip vanishing curse
                 dropLocation.getWorld().dropItemNaturally(dropLocation, item);
-            }
-        }
-        for (ItemStack item : pending.getSavedArmor()) {
-            if (item != null && !item.getType().isAir()) {
-                if (hasVanishingCurse(item)) continue; // Skip vanishing curse
-                dropLocation.getWorld().dropItemNaturally(dropLocation, item);
-            }
-        }
-        if (pending.getOffhandItem() != null && !pending.getOffhandItem().getType().isAir()) {
-            if (!hasVanishingCurse(pending.getOffhandItem())) {
-                dropLocation.getWorld().dropItemNaturally(dropLocation, pending.getOffhandItem());
             }
         }
         
