@@ -37,6 +37,7 @@ public class DeathListener implements Listener {
         plugin.debug("Current gamerule KEEP_INVENTORY: " + world.getGameRuleValue(org.bukkit.GameRule.KEEP_INVENTORY));
         plugin.debug("Event keepInventory before processing: " + event.getKeepInventory());
 
+        // 1. Bypass Permission Check (Highest Priority)
         if (plugin.getConfig().getBoolean("advanced.bypass-permission", true)) {
             if (player.hasPermission("dynamickeepinv.bypass")) {
                 plugin.debug("Player " + player.getName() + " has bypass permission. Keeping inventory.");
@@ -52,92 +53,97 @@ public class DeathListener implements Listener {
             }
         }
 
+        // Initialize decision variables
+        boolean keepItems = false;
+        boolean keepXp = false;
+        String reason = null;
+        boolean resolved = false;
+
+        // 2. Protection Plugins Check
         ProtectionResult protectionResult = checkProtectionPlugins(player, deathLocation);
 
-        if (protectionResult.handled && "lands-defer".equals(protectionResult.reason)) {
-            plugin.debug("Lands override disabled; deferring to Lands without altering drops.");
-            return;
-        }
-
-        // Protection plugins in claimed areas have highest priority - return immediately
-        if (protectionResult.handled && !protectionResult.reason.contains("wilderness")) {
-            plugin.debug("Death handled by protection plugin (claimed area): keepItems=" + protectionResult.keepItems + ", keepXp=" + protectionResult.keepXp);
-            applyKeepInventorySettings(event, protectionResult.keepItems, protectionResult.keepXp);
-            trackDeathStats(player, protectionResult.keepItems, protectionResult.keepXp, protectionResult.reason);
-            sendDeathMessage(player, protectionResult.keepItems, protectionResult.keepXp, protectionResult.reason);
-            return;
-        }
-
-        // Check if wilderness should use death-cause instead
-        boolean wildernessUseDeathCause = false;
-        if (protectionResult.handled && protectionResult.reason.contains("wilderness")) {
-            // Check which protection plugin's wilderness setting
-            if (protectionResult.reason.contains("lands")) {
-                wildernessUseDeathCause = plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.use-death-cause", false);
-            } else if (protectionResult.reason.contains("griefprevention")) {
-                wildernessUseDeathCause = plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.use-death-cause", false);
+        if (protectionResult.handled) {
+            if ("lands-defer".equals(protectionResult.reason)) {
+                plugin.debug("Lands override disabled; deferring to Lands without altering drops.");
+                return;
             }
-            plugin.debug("Wilderness use-death-cause: " + wildernessUseDeathCause);
+
+            // Check for wilderness special handling
+            boolean isWilderness = protectionResult.reason != null && protectionResult.reason.contains("wilderness");
+
+            if (!isWilderness) {
+                // Claimed area - strict priority over death cause
+                keepItems = protectionResult.keepItems;
+                keepXp = protectionResult.keepXp;
+                reason = protectionResult.reason;
+                resolved = true;
+                plugin.debug("Death handled by protection plugin (claimed area): keepItems=" + keepItems + ", keepXp=" + keepXp);
+            } else {
+                // Wilderness handling
+                boolean wildernessUseDeathCause = false;
+                if (protectionResult.reason.contains("lands")) {
+                    wildernessUseDeathCause = plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.use-death-cause", false);
+                } else if (protectionResult.reason.contains("griefprevention")) {
+                    wildernessUseDeathCause = plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.use-death-cause", false);
+                }
+
+                if (!wildernessUseDeathCause) {
+                    keepItems = protectionResult.keepItems;
+                    keepXp = protectionResult.keepXp;
+                    reason = protectionResult.reason;
+                    resolved = true;
+                    plugin.debug("Wilderness base settings (no death cause override): keepItems=" + keepItems + ", keepXp=" + keepXp);
+                }
+                // If wildernessUseDeathCause is true, we leave resolved = false to fall through to Death Cause check
+            }
         }
 
-        // For wilderness with use-death-cause=true, skip wilderness settings and go straight to death-cause
-        boolean keepItems, keepXp;
-        String baseReason;
-
-        if (protectionResult.handled && !wildernessUseDeathCause) {
-            // Wilderness with fixed settings - use as base values
-            keepItems = protectionResult.keepItems;
-            keepXp = protectionResult.keepXp;
-            baseReason = protectionResult.reason;
-            plugin.debug("Wilderness base settings: keepItems=" + keepItems + ", keepXp=" + keepXp);
-        } else if (protectionResult.handled && wildernessUseDeathCause) {
-            // Wilderness but defer to death-cause - use time-based as fallback
-            long time = world.getTime();
-            long dayStart = plugin.getConfig().getLong("day-start", 0);
-            long nightStart = plugin.getConfig().getLong("night-start", 13000);
-            boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
-
-            String settingPath = isDay ? "advanced.day" : "advanced.night";
-            boolean defaultKeepItems = getWorldKeepInventory(world, isDay);
-            keepItems = plugin.getConfig().getBoolean(settingPath + ".keep-items", defaultKeepItems);
-            keepXp = plugin.getConfig().getBoolean(settingPath + ".keep-xp", defaultKeepItems);
-            baseReason = isDay ? "time-day" : "time-night";
-            plugin.debug("Wilderness with use-death-cause=true, using time-based: Time=" + time + ", isDay=" + isDay + ", keepItems=" + keepItems + ", keepXp=" + keepXp);
-        } else {
-            // No protection plugin handling - use time-based settings
-            long time = world.getTime();
-            long dayStart = plugin.getConfig().getLong("day-start", 0);
-            long nightStart = plugin.getConfig().getLong("night-start", 13000);
-            boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
-
-            String settingPath = isDay ? "advanced.day" : "advanced.night";
-            boolean defaultKeepItems = getWorldKeepInventory(world, isDay);
-            keepItems = plugin.getConfig().getBoolean(settingPath + ".keep-items", defaultKeepItems);
-            keepXp = plugin.getConfig().getBoolean(settingPath + ".keep-xp", defaultKeepItems);
-            baseReason = isDay ? "time-day" : "time-night";
-            plugin.debug("Time-based settings: Time=" + time + ", isDay=" + isDay + ", keepItems=" + keepItems + ", keepXp=" + keepXp);
-        }
-
-        // Death cause can override wilderness (with use-death-cause) and time-based settings
-        if (plugin.getConfig().getBoolean("advanced.death-cause.enabled", false)) {
+        // 3. Death Cause Check (if not resolved by Claimed Area)
+        if (!resolved && plugin.getConfig().getBoolean("advanced.death-cause.enabled", false)) {
             boolean isPvp = player.getKiller() != null;
             String causePath = isPvp ? "advanced.death-cause.pvp" : "advanced.death-cause.pve";
-            plugin.debug("Death cause enabled. isPvp=" + isPvp + " (cause: " + (isPvp ? "PvP" : "PvE") + ")");
 
-            boolean oldKeepItems = keepItems;
-            boolean oldKeepXp = keepXp;
-            keepItems = plugin.getConfig().getBoolean(causePath + ".keep-items", keepItems);
-            keepXp = plugin.getConfig().getBoolean(causePath + ".keep-xp", keepXp);
+            // Get default values from config if available, otherwise default to false
+            // Note: We use the *configured* values, not the current state, as base
+            keepItems = plugin.getConfig().getBoolean(causePath + ".keep-items", false);
+            keepXp = plugin.getConfig().getBoolean(causePath + ".keep-xp", false);
+            reason = isPvp ? "pvp" : "pve";
+            resolved = true;
+            plugin.debug("Death cause enabled. isPvp=" + isPvp + ", keepItems=" + keepItems + ", keepXp=" + keepXp);
+        }
 
-            if (oldKeepItems != keepItems || oldKeepXp != keepXp) {
-                plugin.debug("Death cause OVERRIDE: keepItems " + oldKeepItems + " -> " + keepItems + ", keepXp " + oldKeepXp + " -> " + keepXp);
-                baseReason = isPvp ? "pvp" : "pve";
-            }
+        // 4. Wilderness / Time-based Fallback (if not yet resolved)
+        if (!resolved) {
+            long time = world.getTime();
+            long dayStart = plugin.getConfig().getLong("day-start", 0);
+            long nightStart = plugin.getConfig().getLong("night-start", 13000);
+            boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
+            String baseReason = isDay ? "time-day" : "time-night";
+
+            // If it was a wilderness case that deferred to death cause (but death cause was disabled/skipped)
+            // we should technically fall back to wilderness settings IF we had them?
+            // Actually, logical flow: Wilderness(use-death-cause=true) -> DeathCause(disabled) -> Time-based.
+            // But if Wilderness had specific settings, should we use them?
+            // The config implies "use-death-cause" REPLACES wilderness settings.
+            // So falling back to Time-based seems correct for "Wilderness -> DeathCause -> Time".
+
+            // However, let's just use time-based as the ultimate fallback.
+            String settingPath = isDay ? "advanced.day" : "advanced.night";
+            boolean defaultKeepItems = getWorldKeepInventory(world, isDay);
+            keepItems = plugin.getConfig().getBoolean(settingPath + ".keep-items", defaultKeepItems);
+            keepXp = plugin.getConfig().getBoolean(settingPath + ".keep-xp", defaultKeepItems);
+            reason = baseReason;
+
+            // If it was actually wilderness that brought us here via "use-death-cause", maybe note that?
+            // But "time-day"/"time-night" is accurate enough as the source of the settings.
+            plugin.debug("Time-based settings: Time=" + time + ", isDay=" + isDay + ", keepItems=" + keepItems + ", keepXp=" + keepXp);
         }
 
         final boolean baseKeepItems = keepItems;
         final boolean baseKeepXp = keepXp;
+        final String baseReason = reason;
 
+        // 5. Economy Check
         if (plugin.getConfig().getBoolean("advanced.economy.enabled", false)) {
             double cost = plugin.getConfig().getDouble("advanced.economy.cost", 0.0);
             String mode = plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep");
@@ -202,9 +208,11 @@ public class DeathListener implements Listener {
 
             boolean shouldProcessEconomy = false;
             if ("charge-to-bypass".equalsIgnoreCase(mode)) {
+                // In bypass mode, we charge if the player WOULD lose items (to bypass the loss)
                 shouldProcessEconomy = !keepItems || !keepXp;
                 plugin.debug("Bypass mode check: keepItems=" + keepItems + ", keepXp=" + keepXp + ", shouldProcess=" + shouldProcessEconomy);
             } else {
+                // In charge-to-keep mode, we charge if the player WOULD keep items (as a fee for keeping)
                 shouldProcessEconomy = keepItems || keepXp;
             }
 
@@ -219,10 +227,16 @@ public class DeathListener implements Listener {
                                 .replace("{amount}", eco.format(cost));
                         player.sendMessage(plugin.parseMessage(msg));
                         if ("charge-to-bypass".equalsIgnoreCase(mode)) {
-                            plugin.debug("Bypass mode: Player cannot afford, using original keep settings.");
+                            plugin.debug("Bypass mode: Player cannot afford, using original keep settings (DROP).");
+                            // Failed to pay for bypass -> use base setting (which was drop)
+                            // Wait, if base was drop, and we failed to pay, we stay drop.
+                            // If base was keep, we wouldn't be here (shouldProcessEconomy is !keepItems).
+                            // So this is correct.
                             keepItems = baseKeepItems;
                             keepXp = baseKeepXp;
                         } else {
+                            // Charge-to-keep: Failed to pay fee -> lose items
+                            plugin.debug("Charge-to-keep: Player cannot afford fee, dropping items.");
                             keepItems = false;
                             keepXp = false;
                         }
@@ -255,6 +269,7 @@ public class DeathListener implements Listener {
                                 keepItems = true;
                                 keepXp = true;
                             }
+                            // If charge-to-keep, we successfully paid fee, so we keep items (keepItems is already true)
                         }
                     }
                 } else {
@@ -266,8 +281,10 @@ public class DeathListener implements Listener {
         }
 
         plugin.debug("Final decision: keepItems=" + keepItems + ", keepXp=" + keepXp);
-        plugin.debug("Event keepInventory after processing: " + event.getKeepInventory());
+
+        // APPLY THE SETTINGS TO THE EVENT
         applyKeepInventorySettings(event, keepItems, keepXp);
+        plugin.debug("Event keepInventory after processing: " + event.getKeepInventory());
 
         // Check if we should create a grave (GravesX support)
         // Only if items are NOT kept (meaning they are dropped) and hook is enabled
@@ -305,20 +322,20 @@ public class DeathListener implements Listener {
             }
         }
 
-        String reason;
+        String reasonFinal;
         boolean economyBypass = plugin.getConfig().getBoolean("advanced.economy.enabled", false)
                 && "charge-to-bypass".equalsIgnoreCase(plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep"))
                 && (keepItems || keepXp)
                 && (!baseKeepItems || !baseKeepXp);
 
         if (economyBypass) {
-            reason = "economy-bypass";
+            reasonFinal = "economy-bypass";
         } else {
-            reason = baseReason;
+            reasonFinal = baseReason;
         }
 
-        trackDeathStats(player, keepItems, keepXp, reason);
-        sendDeathMessage(player, keepItems, keepXp, reason);
+        trackDeathStats(player, keepItems, keepXp, reasonFinal);
+        sendDeathMessage(player, keepItems, keepXp, reasonFinal);
 
         plugin.debug("Event keepInventory FINAL: " + event.getKeepInventory());
     }
@@ -385,19 +402,26 @@ public class DeathListener implements Listener {
             return;
         }
 
-        String simpleReason = reason;
-        if (reason.contains("time-day") || reason.contains("day")) {
-            simpleReason = "day";
-        } else if (reason.contains("time-night") || reason.contains("night")) {
-            simpleReason = "night";
-        } else if (reason.contains("pvp")) {
-            simpleReason = "pvp";
-        } else if (reason.contains("pve")) {
-            simpleReason = "pve";
-        } else if (reason.contains("lands")) {
-            simpleReason = "lands";
-        } else if (reason.contains("gp")) {
-            simpleReason = "griefprevention";
+        // Normalize reason for stats
+        String simpleReason = "unknown";
+        if (reason != null) {
+            if (reason.contains("time-day") || reason.contains("day")) {
+                simpleReason = "day";
+            } else if (reason.contains("time-night") || reason.contains("night")) {
+                simpleReason = "night";
+            } else if (reason.contains("pvp")) {
+                simpleReason = "pvp";
+            } else if (reason.contains("pve")) {
+                simpleReason = "pve";
+            } else if (reason.contains("lands")) {
+                simpleReason = "lands";
+            } else if (reason.contains("gp")) {
+                simpleReason = "griefprevention";
+            } else if (reason.equals("bypass")) {
+                simpleReason = "bypass";
+            } else if (reason.equals("economy-bypass")) {
+                simpleReason = "economy";
+            }
         }
 
         if (keepItems || keepXp) {
