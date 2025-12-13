@@ -1,0 +1,32 @@
+name: Auto Build Plugin
+
+on:
+  push:
+    branches: [ "main", "beta" ] # Chạy khi push code vào nhánh main hoặc master
+  pull_request:
+    branches: [ "alpha", "beta", "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21 (Hoặc đổi số này theo version Java plugin bạn cần)
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17' # Minecraft 1.20.5+ cần Java 21, 1.18+ cần Java 17
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Build with Maven
+      run: mvn -B package --file pom.xml # Lệnh build chính
+
+    # BƯỚC QUAN TRỌNG NHẤT: Lưu file .jar lại để bạn tải về
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: My-Plugin-Jar
+        path: target/*.jar # Đường dẫn file sau khi Maven build xong
