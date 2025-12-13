@@ -3,7 +3,7 @@ version: '${project.version}'
 main: xyz.superez.dynamickeepinv.DynamicKeepInvPlugin
 api-version: '1.20'
 folia-supported: true
-softdepend: [Vault, Lands, GriefPrevention, PlaceholderAPI, GravesX]
+softdepend: [Vault, Lands, GriefPrevention, PlaceholderAPI]
 author: SuperEZ
 description: Automatically enables keep inventory during day and disables it at night
 website: https://github.com/Alexteens24/DynamicKeepInv
@@ -12,22 +12,13 @@ commands:
   dynamickeepinv:
     description: Main plugin command
     aliases: [dki, keepinv]
-    usage: /<command> [reload|status|toggle|enable|disable|stats]
-    permission: dynamickeepinv.use
+    usage: /<command> [reload|status|toggle|enable|disable]
+    permission: dynamickeepinv.admin
 
 permissions:
   dynamickeepinv.admin:
-    description: Allows access to admin commands
+    description: Allows access to plugin commands
     default: op
   dynamickeepinv.bypass:
     description: Allows bypassing inventory loss at night
     default: false
-  dynamickeepinv.stats:
-    description: Allows viewing own death statistics
-    default: true
-  dynamickeepinv.stats.others:
-    description: Allows viewing other players death statistics
-    default: op
-  dynamickeepinv.use:
-    description: Allows basic command usage
-    default: true

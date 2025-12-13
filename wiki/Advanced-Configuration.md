@@ -58,15 +58,15 @@ advanced:
     lands:
       enabled: true
       override-lands: false
-
+      
       in-own-land:
         keep-items: true
         keep-xp: true
-
+      
       in-other-land:
         keep-items: true
         keep-xp: true
-
+      
       wilderness:
         enabled: true
         use-death-cause: false
@@ -110,15 +110,15 @@ advanced:
   protection:
     griefprevention:
       enabled: true
-
+      
       in-own-claim:
         keep-items: true
         keep-xp: true
-
+      
       in-other-claim:
         keep-items: false
         keep-xp: false
-
+      
       wilderness:
         enabled: true
         use-death-cause: false
@@ -130,31 +130,6 @@ Same logic as Lands - `in-own-claim` is claims you own or are trusted in.
 
 ---
 
-## GravesX Integration
-
-For servers using [GravesX](https://www.spigotmc.org/resources/gravesx.118271/), this plugin can automatically create graves when items are lost.
-
-```yaml
-advanced:
-  gravesx:
-    enabled: true
-```
-
-### How It Works
-
-- If a player **keeps** their inventory (due to any rule above), no grave is created.
-- If a player **loses** their inventory (due to night, PvP, etc.), a grave is created containing their items and XP.
-- **Note:** If `keep-xp` is true but `keep-items` is false, the grave will contain items but 0 XP (since you kept the XP).
-
-### Interaction with GUI Mode
-
-If you use the [Death Confirmation GUI](#death-confirmation-gui) and GravesX:
-1. Player dies -> GUI opens.
-2. Player clicks **Pay** -> Keeps items (no grave).
-3. Player clicks **Drop** (or timeout) -> Items are sent to a grave instead of dropping on the ground.
-
----
-
 ## Death Cause Rules
 
 Different rules based on how the player died:
@@ -163,11 +138,11 @@ Different rules based on how the player died:
 advanced:
   death-cause:
     enabled: true
-
+    
     pvp:                    # Killed by another player
       keep-items: true
       keep-xp: true
-
+    
     pve:                    # Everything else (mobs, fall, lava, etc.)
       keep-items: false
       keep-xp: true
@@ -205,9 +180,6 @@ advanced:
     enabled: true
     cost: 100.0
     mode: "charge-to-keep"
-    gui:
-      timeout: 30        # Seconds to decide (default: 30)
-      expire-time: 300   # Store pending death if disconnected (default: 300 = 5 minutes)
 ```
 
 ### Modes
@@ -242,48 +214,40 @@ advanced:
 
 ### How It Works
 
-1. Player dies and respawns.
-2. A 27-slot GUI appears with 3 options:
-   - **Pay** (Green) - Pay the cost and keep items.
-   - **Info** (Yellow) - Shows item count, cost, and time remaining.
-   - **Drop** (Red) - Drop items at death location.
-3. If player doesn't choose within `timeout` seconds, items are dropped (or put in a grave if GravesX is enabled).
-4. If player disconnects, their pending death is saved for up to `expire-time` seconds.
+1. Player dies and respawns
+2. A 9-slot GUI appears with 3 options:
+   - **Pay** (Green) - Pay the cost and keep items
+   - **Info** (Yellow) - Shows item count, cost, and time remaining
+   - **Drop** (Red) - Drop items at death location
+3. If player doesn't choose within `timeout` seconds, items are dropped
+4. If player disconnects, their pending death is saved for up to `expire-time` seconds
 
 ### GUI Layout
 
 ```
-┌─────────────────────────────────────────┐
-│ [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]     │
-│ [ ] [ ] [P] [ ] [I] [ ] [D] [ ] [ ]     │
-│ [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]     │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│  [ ]  [Pay]  [ ]  [Info]  [ ]  [Drop]  [ ]  [ ]  [ ]  │
+│   0     1     2     3      4     5      6    7    8   │
+└─────────────────────────────────────┘
 ```
 
-- **P**: Pay button (Green wool) - Click to pay and restore items.
-- **I**: Info display (Yellow wool) - Hover to see details.
-- **D**: Drop button (Red wool) - Click to drop items immediately.
+- Slot 2: Pay button (Green wool)
+- Slot 4: Info display (Yellow wool)
+- Slot 6: Drop button (Red wool)
 
 ### Player Commands
 
-- `/dki confirm`: Reopens the GUI if it was closed or if the player wants to access it again (while pending death is still active).
-- `/dki autopay`: Toggles auto-payment on death. If enabled, the player will automatically pay and keep items without seeing the GUI, provided they have enough funds.
+Players can also use `/dki confirm` to reopen the GUI if they closed it before the timeout.
 
-### Technical Details & Edge Cases
-
-- **Curse of Vanishing:** Items with this enchantment are explicitly destroyed and will **never** be dropped, restored, or put into a grave.
-- **Exact Location:** The plugin stores the exact X, Y, Z coordinates of death. Drops will appear exactly where the player died.
-- **Duplicate Prevention:** The plugin manually handles drops in GUI mode. It temporarily clears drops to prevent vanilla mechanics from duplicating items.
-- **Folia Support:** On Folia servers, the plugin uses region schedulers to ensure drops and grave creation happen safely on the correct thread.
-- **Asynchronous Data:** Database operations (saving/loading pending deaths) are performed asynchronously to prevent server lag.
+### Edge Cases
 
 | Scenario | Result |
 |----------|--------|
-| Player closes GUI | Warning message, GUI can be reopened with `/dki confirm`. |
-| Player disconnects | Death saved, GUI shown on rejoin if within `expire-time`. |
-| Timeout expires | Items dropped at death location automatically (or to grave). |
-| Not enough money | Player sees insufficient funds message, can still click Drop. |
-| Economy unavailable | Items dropped automatically (no GUI shown). |
+| Player closes GUI | Warning message, GUI can be reopened with `/dki confirm` |
+| Player disconnects | Death saved, GUI shown on rejoin if within expire time |
+| Timeout expires | Items dropped at death location automatically |
+| Not enough money | Player sees insufficient funds message, can still click Drop |
+| Economy unavailable | Items dropped automatically (no GUI shown) |
 
 ---
 
@@ -314,7 +278,7 @@ advanced:
   day:
     keep-items: true
     keep-xp: true
-
+  
   night:
     keep-items: false
     keep-xp: true     # Keep XP but lose items at night
