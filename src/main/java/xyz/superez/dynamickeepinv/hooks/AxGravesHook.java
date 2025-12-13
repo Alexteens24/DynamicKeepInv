@@ -1,6 +1,5 @@
 package xyz.superez.dynamickeepinv.hooks;
 
-import com.artillexstudios.axgraves.AxGraves;
 import com.artillexstudios.axgraves.grave.Grave;
 import com.artillexstudios.axgraves.grave.SpawnedGraves;
 import org.bukkit.Bukkit;
