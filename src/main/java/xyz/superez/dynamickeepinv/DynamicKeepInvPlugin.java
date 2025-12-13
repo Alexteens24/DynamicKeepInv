@@ -23,6 +23,7 @@ import org.bukkit.entity.Player;
 import xyz.superez.dynamickeepinv.hooks.LandsHook;
 import xyz.superez.dynamickeepinv.hooks.GriefPreventionHook;
 import xyz.superez.dynamickeepinv.hooks.GravesXHook;
+import xyz.superez.dynamickeepinv.hooks.AxGravesHook;
 
 import java.io.File;
 import java.time.Duration;
@@ -66,6 +67,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private LandsHook landsHook;
     private GriefPreventionHook griefPreventionHook;
     private GravesXHook gravesXHook;
+    private AxGravesHook axGravesHook;
     private DynamicKeepInvExpansion placeholderExpansion;
     private StatsManager statsManager;
     private StatsGUI statsGUI;
@@ -261,6 +263,20 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             }
         } else {
             gravesXHook = null;
+        }
+
+        if (getConfig().getBoolean("advanced.axgraves.enabled", false)) {
+            if (Bukkit.getPluginManager().getPlugin("AxGraves") != null) {
+                axGravesHook = new AxGravesHook(this);
+                if (!axGravesHook.setup()) {
+                    axGravesHook = null; // Failed to setup
+                }
+            } else {
+                getLogger().warning("AxGraves integration enabled in config, but AxGraves plugin not found!");
+                axGravesHook = null;
+            }
+        } else {
+            axGravesHook = null;
         }
     }
 
@@ -817,6 +833,14 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
     public boolean isGravesXEnabled() {
         return gravesXHook != null && gravesXHook.isEnabled();
+    }
+
+    public AxGravesHook getAxGravesHook() {
+        return axGravesHook;
+    }
+
+    public boolean isAxGravesEnabled() {
+        return axGravesHook != null && axGravesHook.isEnabled();
     }
 
     public StatsManager getStatsManager() {
