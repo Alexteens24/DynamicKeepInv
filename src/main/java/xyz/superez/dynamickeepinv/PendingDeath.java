@@ -145,6 +145,18 @@ public class PendingDeath {
     public void setProcessed(boolean processed) {
         this.processed = processed;
     }
+
+    /**
+     * Atomically tries to mark the pending death as processed.
+     * @return true if successful (was not already processed), false if already processed.
+     */
+    public synchronized boolean trySetProcessed() {
+        if (processed) {
+            return false;
+        }
+        processed = true;
+        return true;
+    }
     
     /**
      * Check if this pending death has expired

@@ -63,6 +63,9 @@ public class AxGravesHook {
             );
 
             SpawnedGraves.addGrave(grave);
+            // Manually trigger update to spawn entity/hologram if needed, though constructor/addGrave likely handles it
+            // Based on decompiled structure, 'update()' seems to handle entity spawning/updating
+            grave.update();
             return true;
         } catch (Throwable t) {
              plugin.getLogger().warning("Failed to create grave via AxGraves API: " + t.getMessage());
