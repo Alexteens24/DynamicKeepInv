@@ -337,13 +337,11 @@ public class PendingDeathManager {
         Player player = Bukkit.getPlayer(pending.getPlayerId());
 
         if (plugin.isFolia()) {
-            // In Folia, we must drop items on the region thread
+            // In Folia, we must drop items on the region thread associated with the DROP LOCATION.
+            // Even if the player is online, they might be in a different region (e.g. at spawn).
+            // So we always schedule on the drop location's region.
             Runnable dropTask = () -> performDrop(dropLocation, pending, player);
-            if (player != null && player.isOnline()) {
-                player.getScheduler().run(plugin, task -> dropTask.run(), null);
-            } else {
-                Bukkit.getRegionScheduler().execute(plugin, dropLocation, dropTask);
-            }
+            Bukkit.getRegionScheduler().execute(plugin, dropLocation, dropTask);
         } else {
             performDrop(dropLocation, pending, player);
         }
