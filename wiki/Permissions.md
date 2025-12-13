@@ -1,24 +1,83 @@
 # Permissions
 
-Permission nodes for DynamicKeepInv.
+## Overview
 
-## Admin Permissions
+| Permission | Description | Default |
+|------------|-------------|----------|
+| `dynamickeepinv.admin` | All admin command permissions | OP |
+| `dynamickeepinv.bypass` | Always keep inventory | false |
+| `dynamickeepinv.stats` | View own death statistics | true |
+| `dynamickeepinv.stats.others` | View other players' statistics | OP |
 
-| Permission | Default | Description |
-|------------|---------|-------------|
-| `dynamickeepinv.admin` | `op` | Full access to all plugin commands (`reload`, `status`, `enable`, `disable`). |
+---
 
-## User Permissions
+## Permission Details
 
-| Permission | Default | Description |
-|------------|---------|-------------|
-| `dynamickeepinv.use` | `true` | Allows using basic commands like `/dki confirm` and `/dki autopay`. |
-| `dynamickeepinv.bypass` | `false` | Bypasses all inventory loss rules. Player will always keep inventory. |
-| `dynamickeepinv.stats` | `true` | Allows viewing own stats with `/dki stats`. |
-| `dynamickeepinv.stats.others` | `op` | Allows viewing other players' stats with `/dki stats <player>`. |
+### `dynamickeepinv.admin`
 
-## Recommended Setup
+Parent permission that includes all admin command permissions (status, reload, toggle). Give this to server administrators.
 
-- **Default players:** Should have `dynamickeepinv.use` and `dynamickeepinv.stats`.
-- **Admins:** Should have `dynamickeepinv.admin` and `dynamickeepinv.stats.others`.
-- **VIP/Donors:** Can be given `dynamickeepinv.bypass` to never lose items.
+### `dynamickeepinv.bypass`
+
+**Special permission** - Players with this permission **always keep their inventory** when they die, regardless of any other settings.
+
+Requires `advanced.bypass-permission: true` in config (enabled by default).
+
+**Use cases:**
+- Staff members
+- VIP/Donator ranks
+- Event participants
+
+### `dynamickeepinv.stats`
+
+Allows players to view their own death statistics with `/dki stats`. Enabled by default for all players.
+
+### `dynamickeepinv.stats.others`
+
+Allows viewing other players' death statistics with `/dki stats <player>`. Only give to moderators or staff who need to check player stats.
+
+---
+
+## Permission Plugin Examples
+
+### LuckPerms
+
+```bash
+# Admin access
+/lp group admin permission set dynamickeepinv.admin true
+
+# VIP bypass
+/lp group vip permission set dynamickeepinv.bypass true
+
+# Allow viewing other players' stats
+/lp group mod permission set dynamickeepinv.stats.others true
+```
+
+### PermissionsEx (PEX)
+
+```bash
+/pex group admin add dynamickeepinv.admin
+/pex group vip add dynamickeepinv.bypass
+```
+
+### GroupManager
+
+```bash
+/mangaddp admin dynamickeepinv.admin
+/mangaddp vip dynamickeepinv.bypass
+```
+
+---
+
+## Default Behavior
+
+- **OPs**: Have all command permissions by default
+- **Non-OPs**: Can only use `/dki` and `/dki help`
+- **Bypass**: Nobody has bypass by default (must be explicitly granted)
+
+---
+
+## Related
+
+- [Commands](Commands) - Command reference
+- [Advanced Configuration](Advanced-Configuration) - Bypass permission settings

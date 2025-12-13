@@ -1,48 +1,149 @@
 # Commands
 
-All commands for DynamicKeepInv.
+Base command: `/dynamickeepinv`  
+Aliases: `/dki`, `/keepinv`
 
-## Main Command
+---
 
-| Command | Alias | Description | Permission |
-|---------|-------|-------------|------------|
-| `/dki` | `/dynamickeepinv`, `/keepinv` | Base command | `dynamickeepinv.use` |
-
-## Subcommands
-
-### Admin Commands
+## Command Reference
 
 | Command | Description | Permission |
 |---------|-------------|------------|
-| `/dki reload` | Reload configuration and messages | `dynamickeepinv.admin` |
-| `/dki status` | View current status (enabled/disabled, time, world settings) | `dynamickeepinv.admin` |
-| `/dki enable` | Enable the plugin globally | `dynamickeepinv.admin` |
-| `/dki disable` | Disable the plugin globally | `dynamickeepinv.admin` |
-| `/dki toggle` | Toggle the plugin on/off | `dynamickeepinv.admin` |
+| `/dki` | Show help menu | None |
+| `/dki help` | Show help menu | None |
+| `/dki status` | Show plugin status | `dynamickeepinv.admin` |
+| `/dki reload` | Reload config files | `dynamickeepinv.admin` |
+| `/dki enable` | Enable the plugin | `dynamickeepinv.admin` |
+| `/dki disable` | Disable the plugin | `dynamickeepinv.admin` |
+| `/dki toggle` | Toggle plugin on/off | `dynamickeepinv.admin` |
+| `/dki stats` | View your death stats | `dynamickeepinv.stats` |
+| `/dki stats <player>` | View player's stats | `dynamickeepinv.stats.others` |
+| `/dki confirm` | Reopen death confirmation GUI | None |
 
-### User Commands
+---
 
-| Command | Description | Permission |
-|---------|-------------|------------|
-| `/dki stats` | View your own death statistics | `dynamickeepinv.stats` |
-| `/dki stats <player>` | View another player's statistics | `dynamickeepinv.stats.others` |
-| `/dki confirm` | Reopen the Death Confirmation GUI (if you have a pending death) | `dynamickeepinv.use` |
-| `/dki autopay` | Toggle auto-pay mode for economy (pay automatically on death) | `dynamickeepinv.use` |
+## Command Details
 
-## Command Usage Examples
+### `/dki status`
 
-**Reloading the plugin:**
+Shows comprehensive plugin status:
+
 ```
-/dki reload
+=== DynamicKeepInv Status ===
+Plugin: Enabled
+World 'world': Day (tick 6000) - Keep Inventory: ON
+World 'world_nether': Night (tick 18000) - Keep Inventory: OFF
+World 'world_the_end': Keep Inventory: ON
+
+Integrations:
+  Lands: Enabled
+  GriefPrevention: Disabled
+  Economy: Disabled
 ```
 
-**Checking why items are being dropped:**
-```
-/dki status
-```
-*This shows if the plugin is enabled, if it's currently day or night, and the settings for the current world.*
+Information displayed:
+- Plugin enabled/disabled state
+- Each world's current time (tick)
+- Current keep inventory status per world
+- Active plugin integrations
 
-**Viewing stats for a player:**
+### `/dki reload`
+
+Reloads configuration without server restart:
+- `config.yml` - All settings
+- `messages.yml` - All messages
+
+**What gets reloaded:**
+- Time settings
+- World settings
+- Broadcast settings
+- Economy settings
+- Protection plugin settings
+
+**What requires full restart:**
+- Initial Lands/GriefPrevention hook (if plugin wasn't detected on startup)
+
+### `/dki enable` / `/dki disable` / `/dki toggle`
+
+Control the plugin without editing config:
+
 ```
-/dki stats Notch
+/dki disable  → Plugin paused, keepInventory won't change
+/dki enable   → Plugin resumed
+/dki toggle   → Flip current state
 ```
+
+> **Note:** This is temporary. Plugin state resets to config value on restart.
+
+---
+
+### `/dki stats [player]`
+
+Opens a GUI showing death statistics:
+
+**Your own stats (`/dki stats`):**
+
+```
+┌─────────────────────────────────────────┐
+│           DynamicKeepInv Stats          │
+├─────────────────────────────────────────┤
+│  [Head]  YourName                       │
+│                                         │
+│  💀 Total Deaths: 25                    │
+│  💚 Deaths Saved: 18                    │
+│  ❌ Deaths Lost: 7                      │
+│  📊 Save Rate: 72%                      │
+│  [████████░░] 72%                       │
+│                                         │
+│  💰 Economy: $1,500 paid (5 payments)   │
+│  ⏰ Last Death: 06/12/2024 15:30        │
+│     Reason: Day | Saved: Yes            │
+│                                         │
+│  📖 Breakdown:                          │
+│     Day: 12 | Night: 8 | PvP: 5         │
+│                                         │
+│  ⭐ Server Stats:                       │
+│     Saved: 1,234 | Lost: 567 | Rate: 68%│
+└─────────────────────────────────────────┘
+```
+
+**View other player (`/dki stats Steve`):**
+- Requires `dynamickeepinv.stats.others` permission
+- Shows same GUI but for target player
+
+---
+
+### `/dki confirm`
+
+Reopens the death confirmation GUI if the player has a pending death.
+
+**When to use:**
+- Player accidentally closed the confirmation GUI
+- Player wants to reconsider their choice before timeout
+
+**Requirements:**
+- Economy mode must be set to `gui`
+- Player must have an active pending death
+- Timeout must not have expired yet
+
+**Example:**
+```
+Player dies → GUI opens → Player closes GUI → "/dki confirm" → GUI reopens
+```
+
+---
+
+## Console Commands
+
+All commands work from console without the `/` prefix:
+
+```
+dki status
+dki reload
+```
+
+---
+
+## Related
+
+- [Permissions](Permissions) - Permission nodes for commands

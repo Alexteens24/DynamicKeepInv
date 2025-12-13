@@ -1,6 +1,6 @@
 # DynamicKeepInv Configuration
 # Wiki: https://github.com/Alexteens24/DynamicKeepInv/wiki
-config-version: 5
+config-version: 4
 
 enabled: true
 keep-inventory-day: true
@@ -39,7 +39,7 @@ gamerule-change:
 advanced:
   enabled: false
   bypass-permission: true
-
+  
   # Lands plugin integration
   protection:
     lands:
@@ -56,7 +56,7 @@ advanced:
         use-death-cause: false  # true = use death-cause settings, false = use below values
         keep-items: false
         keep-xp: false
-
+    
     # GriefPrevention plugin integration
     griefprevention:
       enabled: false
@@ -71,30 +71,18 @@ advanced:
         use-death-cause: false
         keep-items: false
         keep-xp: false
-
-  # GravesX Integration
-  # If enabled, items that would be dropped will instead be put into a grave.
-  gravesx:
-    enabled: false
-
+  
   death-message:
     enabled: true
     chat: true
     action-bar: false
-
+  
   # Economy (requires Vault)
-  # Modes: "charge-to-keep" (auto-charge), "charge-to-bypass", "gui" (player confirms)
   economy:
     enabled: false
     cost: 100.0
     mode: "charge-to-keep"
-    # GUI mode settings (only used when mode: "gui")
-    gui:
-      # Timeout in seconds for player to decide (default: 30)
-      timeout: 30
-      # How long to store pending death if player disconnects (default: 300 = 5 minutes)
-      expire-time: 300
-
+  
   # Death cause rules (PvP vs PvE)
   death-cause:
     enabled: false
@@ -104,7 +92,7 @@ advanced:
     pve:
       keep-items: true
       keep-xp: true
-
+  
   # Time-based overrides
   day:
     keep-items: true
@@ -112,6 +100,3 @@ advanced:
   night:
     keep-items: false
     keep-xp: false
-
-stats:
-  enabled: true

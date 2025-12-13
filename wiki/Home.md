@@ -21,10 +21,9 @@ Vanilla Minecraft only has a simple on/off for keepInventory. This plugin gives 
 | **Protection plugins** | Lands & GriefPrevention integration |
 | **Per-world** | Configure each world independently |
 | **Economy** | Charge players to keep inventory |
-| **Death Confirmation GUI** | Let players choose to pay or drop items on death |
+| **Death Confirmation GUI** | Let players choose to pay or drop items |
 | **Player Stats** | Track deaths with GUI and PlaceholderAPI |
-| **Folia support** | Fully compatible with Paper, Spigot, and Folia |
-| **GravesX Support** | Creates graves instead of dropping items (optional) |
+| **Folia support** | Works on Paper, Spigot, and Folia |
 
 ## Quick Start
 

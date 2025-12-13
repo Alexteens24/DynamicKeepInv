@@ -41,7 +41,7 @@ public class GriefPreventionHook {
     public boolean isEnabled() {
         return enabled;
     }
-
+    
     public boolean isAvailable() {
         return enabled && gp != null;
     }
