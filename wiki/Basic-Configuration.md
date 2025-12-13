@@ -67,7 +67,7 @@ enabled-worlds:
 
 Worlds not in this list will be ignored by the plugin.
 
-> **Performance Tip:** On Folia servers, excluding a world from this list prevents the plugin's time-checking task from keeping that world awake.
+> **Performance Tip (Folia):** On Folia servers, the plugin uses a periodic task to check time. Excluding a world from this list prevents the plugin from keeping that world "awake" or ticking unnecessarily, improving performance.
 
 **Leave empty to enable for ALL worlds:**
 ```yaml
