@@ -38,7 +38,7 @@ public class LandsHook {
     public boolean isEnabled() {
         return enabled;
     }
-    
+
     public boolean isAvailable() {
         return enabled && landsApi != null;
     }
