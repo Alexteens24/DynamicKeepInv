@@ -618,18 +618,22 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             return true;
         }
 
-        if (args.length >= 2 && player.hasPermission("dynamickeepinv.stats.others")) {
-            Player target = Bukkit.getPlayer(args[1]);
-            if (target != null) {
-                statsGUI.openStats(player, target.getUniqueId(), target.getName());
-            } else {
-                org.bukkit.OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(args[1]);
-                if (offlineTarget.hasPlayedBefore() || offlineTarget.isOnline()) {
-                    String displayName = offlineTarget.getName() != null ? offlineTarget.getName() : args[1];
-                    statsGUI.openStats(player, offlineTarget.getUniqueId(), displayName);
+        if (args.length >= 2) {
+            if (player.hasPermission("dynamickeepinv.stats.others")) {
+                Player target = Bukkit.getPlayer(args[1]);
+                if (target != null) {
+                    statsGUI.openStats(player, target.getUniqueId(), target.getName());
                 } else {
-                    sender.sendMessage(parseMessage(getMessage("stats.player-not-found").replace("{player}", args[1])));
+                    org.bukkit.OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(args[1]);
+                    if (offlineTarget.hasPlayedBefore() || offlineTarget.isOnline()) {
+                        String displayName = offlineTarget.getName() != null ? offlineTarget.getName() : args[1];
+                        statsGUI.openStats(player, offlineTarget.getUniqueId(), displayName);
+                    } else {
+                        sender.sendMessage(parseMessage(getMessage("stats.player-not-found").replace("{player}", args[1])));
+                    }
                 }
+            } else {
+                sender.sendMessage(parseMessage(getMessage("no-permission")));
             }
         } else {
             statsGUI.openStats(player);

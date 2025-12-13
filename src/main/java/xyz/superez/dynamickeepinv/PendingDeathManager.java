@@ -83,6 +83,9 @@ public class PendingDeathManager {
                         "timestamp INTEGER)"
                     );
 
+                    // Add index for timestamp to optimize cleanup queries
+                    stmt.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON pending_deaths(timestamp)");
+
                     // Check if we need to add coordinate columns to existing table
                     try {
                         ResultSet rs = stmt.executeQuery("SELECT * FROM pending_deaths LIMIT 1");

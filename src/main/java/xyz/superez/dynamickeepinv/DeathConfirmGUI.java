@@ -69,7 +69,7 @@ public class DeathConfirmGUI implements Listener {
         // Cancel any existing timeout
         cancelTimeout(player.getUniqueId());
         
-        Inventory gui = Bukkit.createInventory(null, GUI_SIZE, GUI_TITLE_COMPONENT);
+        Inventory gui = Bukkit.createInventory(new DeathGuiHolder(), GUI_SIZE, GUI_TITLE_COMPONENT);
         
         EconomyManager eco = plugin.getEconomyManager();
         double cost = pendingDeath.getCost();
@@ -247,9 +247,7 @@ public class DeathConfirmGUI implements Listener {
         Player player = Bukkit.getPlayer(playerId);
         if (player != null && player.isOnline()) {
             // Check if still in our GUI
-            Component title = player.getOpenInventory().title();
-            String plainTitle = PlainTextComponentSerializer.plainText().serialize(title);
-            if (plainTitle.equals(GUI_TITLE_TEXT)) {
+            if (player.getOpenInventory().getTopInventory().getHolder() instanceof DeathGuiHolder) {
                 player.closeInventory();
             }
         }
@@ -265,11 +263,7 @@ public class DeathConfirmGUI implements Listener {
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         
-        Component title = event.getView().title();
-        if (title == null) return;
-        
-        String plainTitle = PlainTextComponentSerializer.plainText().serialize(title);
-        if (!plainTitle.equals(GUI_TITLE_TEXT)) return;
+        if (!(event.getInventory().getHolder() instanceof DeathGuiHolder)) return;
         
         // Always cancel all clicks in our GUI
         event.setCancelled(true);
@@ -357,11 +351,7 @@ public class DeathConfirmGUI implements Listener {
     
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
-        Component title = event.getView().title();
-        if (title == null) return;
-        
-        String plainTitle = PlainTextComponentSerializer.plainText().serialize(title);
-        if (plainTitle.equals(GUI_TITLE_TEXT)) {
+        if (event.getInventory().getHolder() instanceof DeathGuiHolder) {
             event.setCancelled(true);
         }
     }
@@ -370,11 +360,7 @@ public class DeathConfirmGUI implements Listener {
     public void onInventoryClose(InventoryCloseEvent event) {
         if (!(event.getPlayer() instanceof Player player)) return;
         
-        Component title = event.getView().title();
-        if (title == null) return;
-        
-        String plainTitle = PlainTextComponentSerializer.plainText().serialize(title);
-        if (!plainTitle.equals(GUI_TITLE_TEXT)) return;
+        if (!(event.getInventory().getHolder() instanceof DeathGuiHolder)) return;
         
         UUID playerId = player.getUniqueId();
         
@@ -421,9 +407,7 @@ public class DeathConfirmGUI implements Listener {
      * Check if player currently has our GUI open
      */
     public boolean hasGUIOpen(Player player) {
-        Component title = player.getOpenInventory().title();
-        String plainTitle = PlainTextComponentSerializer.plainText().serialize(title);
-        return plainTitle.equals(GUI_TITLE_TEXT);
+        return player.getOpenInventory().getTopInventory().getHolder() instanceof DeathGuiHolder;
     }
     
     /**
