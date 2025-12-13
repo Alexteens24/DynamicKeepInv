@@ -94,9 +94,9 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- AxGraves API -->
+        <!-- AxGraves API - Jitpack fallback -->
         <dependency>
-            <groupId>com.artillexstudios</groupId>
+            <groupId>com.github.Artillex-Studios</groupId>
             <artifactId>AxGraves</artifactId>
             <version>1.24.0</version>
             <scope>provided</scope>
