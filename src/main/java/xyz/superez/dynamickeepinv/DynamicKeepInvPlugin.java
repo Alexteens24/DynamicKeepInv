@@ -24,6 +24,7 @@ import xyz.superez.dynamickeepinv.hooks.LandsHook;
 import xyz.superez.dynamickeepinv.hooks.GriefPreventionHook;
 import xyz.superez.dynamickeepinv.hooks.GravesXHook;
 import xyz.superez.dynamickeepinv.hooks.AxGravesHook;
+import xyz.superez.dynamickeepinv.rules.*;
 
 import java.io.File;
 import java.time.Duration;
@@ -74,6 +75,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private StatsListener statsListener;
     private PendingDeathManager pendingDeathManager;
     private DeathConfirmGUI deathConfirmGUI;
+    private RuleManager ruleManager;
 
     @Override
     public void onEnable() {
@@ -82,6 +84,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         checkConfigVersion();
         loadMessages();
         reloadIntegrations();
+        setupRuleManager();
 
         getServer().getPluginManager().registerEvents(new WorldListener(this), this);
         getServer().getPluginManager().registerEvents(new DeathListener(this), this);
@@ -813,6 +816,18 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         if (getConfig().getBoolean("debug", false)) {
             getLogger().log(Level.INFO, "[DEBUG] " + message);
         }
+    }
+
+    private void setupRuleManager() {
+        ruleManager = new RuleManager(this);
+        ruleManager.registerRule(new BypassPermissionRule());
+        ruleManager.registerRule(new ProtectionRule());
+        ruleManager.registerRule(new DeathCauseRule());
+        ruleManager.registerRule(new WorldTimeRule());
+    }
+
+    public RuleManager getRuleManager() {
+        return ruleManager;
     }
 
     public LandsHook getLandsHook() {
