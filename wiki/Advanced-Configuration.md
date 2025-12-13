@@ -205,6 +205,9 @@ advanced:
     enabled: true
     cost: 100.0
     mode: "charge-to-keep"
+    gui:
+      timeout: 30        # Seconds to decide (default: 30)
+      expire-time: 300   # Store pending death if disconnected (default: 300 = 5 minutes)
 ```
 
 ### Modes
@@ -239,40 +242,32 @@ advanced:
 
 ### How It Works
 
-1. Player dies and respawns
-2. A 9-slot GUI appears with 3 options:
-   - **Pay** (Green) - Pay the cost and keep items
-   - **Info** (Yellow) - Shows item count, cost, and time remaining
-   - **Drop** (Red) - Drop items at death location
-3. If player doesn't choose within `timeout` seconds, items are dropped
-4. If player disconnects, their pending death is saved for up to `expire-time` seconds
+1. Player dies and respawns.
+2. A 27-slot GUI appears with 3 options:
+   - **Pay** (Green) - Pay the cost and keep items.
+   - **Info** (Yellow) - Shows item count, cost, and time remaining.
+   - **Drop** (Red) - Drop items at death location.
+3. If player doesn't choose within `timeout` seconds, items are dropped (or put in a grave if GravesX is enabled).
+4. If player disconnects, their pending death is saved for up to `expire-time` seconds.
 
 ### GUI Layout
 
 ```
-┌─────────────────────────────────────┐
-│  [ ]  [Pay]  [ ]  [Info]  [ ]  [Drop]  [ ]  [ ]  [ ]  │
-│   0     1     2     3      4     5      6    7    8   │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│ [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]     │
+│ [ ] [ ] [P] [ ] [I] [ ] [D] [ ] [ ]     │
+│ [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]     │
+└─────────────────────────────────────────┘
 ```
 
-- Slot 2: Pay button (Green wool)
-- Slot 4: Info display (Yellow wool)
-- Slot 6: Drop button (Red wool)
+- **P**: Pay button (Green wool) - Click to pay and restore items.
+- **I**: Info display (Yellow wool) - Hover to see details.
+- **D**: Drop button (Red wool) - Click to drop items immediately.
 
 ### Player Commands
 
-Players can also use `/dki confirm` to reopen the GUI if they closed it before the timeout.
-
-### Edge Cases
-
-| Scenario | Result |
-|----------|--------|
-| Player closes GUI | Warning message, GUI can be reopened with `/dki confirm` |
-| Player disconnects | Death saved, GUI shown on rejoin if within expire time |
-| Timeout expires | Items dropped at death location automatically |
-| Not enough money | Player sees insufficient funds message, can still click Drop |
-| Economy unavailable | Items dropped automatically (no GUI shown) |
+- `/dki confirm`: Reopens the GUI if it was closed or if the player wants to access it again (while pending death is still active).
+- `/dki autopay`: Toggles auto-payment on death. If enabled, the player will automatically pay and keep items without seeing the GUI, provided they have enough funds.
 
 ### Technical Details & Edge Cases
 
@@ -280,6 +275,15 @@ Players can also use `/dki confirm` to reopen the GUI if they closed it before t
 - **Exact Location:** The plugin stores the exact X, Y, Z coordinates of death. Drops will appear exactly where the player died.
 - **Duplicate Prevention:** The plugin manually handles drops in GUI mode. It temporarily clears drops to prevent vanilla mechanics from duplicating items.
 - **Folia Support:** On Folia servers, the plugin uses region schedulers to ensure drops and grave creation happen safely on the correct thread.
+- **Asynchronous Data:** Database operations (saving/loading pending deaths) are performed asynchronously to prevent server lag.
+
+| Scenario | Result |
+|----------|--------|
+| Player closes GUI | Warning message, GUI can be reopened with `/dki confirm`. |
+| Player disconnects | Death saved, GUI shown on rejoin if within `expire-time`. |
+| Timeout expires | Items dropped at death location automatically (or to grave). |
+| Not enough money | Player sees insufficient funds message, can still click Drop. |
+| Economy unavailable | Items dropped automatically (no GUI shown). |
 
 ---
 
