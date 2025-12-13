@@ -9,8 +9,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
-import xyz.superez.dynamickeepinv.hooks.LandsHook;
-import xyz.superez.dynamickeepinv.hooks.GriefPreventionHook;
+import xyz.superez.dynamickeepinv.rules.RuleResult;
+import xyz.superez.dynamickeepinv.rules.RuleManager;
 
 public class DeathListener implements Listener {
     private final DynamicKeepInvPlugin plugin;
@@ -37,107 +37,30 @@ public class DeathListener implements Listener {
         plugin.debug("Current gamerule KEEP_INVENTORY: " + world.getGameRuleValue(org.bukkit.GameRule.KEEP_INVENTORY));
         plugin.debug("Event keepInventory before processing: " + event.getKeepInventory());
 
-        // 1. Bypass Permission Check (Highest Priority)
-        if (plugin.getConfig().getBoolean("advanced.bypass-permission", true)) {
-            if (player.hasPermission("dynamickeepinv.bypass")) {
-                plugin.debug("Player " + player.getName() + " has bypass permission. Keeping inventory.");
-                event.setKeepInventory(true);
-                event.setKeepLevel(true);
-                event.setDroppedExp(0);
-                if (event.getDrops() != null) {
-                    event.getDrops().clear();
-                }
-                trackDeathStats(player, true, true, "bypass");
-                sendDeathMessage(player, true, true, "bypass");
-                return;
-            }
+        // Evaluate rules via RuleManager
+        RuleManager ruleManager = plugin.getRuleManager();
+        if (ruleManager == null) {
+            plugin.getLogger().severe("RuleManager is null! Aborting death handling.");
+            return;
         }
 
-        // Initialize decision variables
-        boolean keepItems = false;
-        boolean keepXp = false;
-        String reason = null;
-        boolean resolved = false;
-
-        // 2. Protection Plugins Check
-        ProtectionResult protectionResult = checkProtectionPlugins(player, deathLocation);
-
-        if (protectionResult.handled) {
-            if ("lands-defer".equals(protectionResult.reason)) {
-                plugin.debug("Lands override disabled; deferring to Lands without altering drops.");
-                return;
-            }
-
-            // Check for wilderness special handling
-            boolean isWilderness = protectionResult.reason != null && protectionResult.reason.contains("wilderness");
-
-            if (!isWilderness) {
-                // Claimed area - strict priority over death cause
-                keepItems = protectionResult.keepItems;
-                keepXp = protectionResult.keepXp;
-                reason = protectionResult.reason;
-                resolved = true;
-                plugin.debug("Death handled by protection plugin (claimed area): keepItems=" + keepItems + ", keepXp=" + keepXp);
-            } else {
-                // Wilderness handling
-                boolean wildernessUseDeathCause = false;
-                if (protectionResult.reason.contains("lands")) {
-                    wildernessUseDeathCause = plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.use-death-cause", false);
-                } else if (protectionResult.reason.contains("griefprevention")) {
-                    wildernessUseDeathCause = plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.use-death-cause", false);
-                }
-
-                if (!wildernessUseDeathCause) {
-                    keepItems = protectionResult.keepItems;
-                    keepXp = protectionResult.keepXp;
-                    reason = protectionResult.reason;
-                    resolved = true;
-                    plugin.debug("Wilderness base settings (no death cause override): keepItems=" + keepItems + ", keepXp=" + keepXp);
-                }
-                // If wildernessUseDeathCause is true, we leave resolved = false to fall through to Death Cause check
-            }
+        RuleResult result = ruleManager.evaluate(event);
+        if (result == null) {
+            plugin.debug("No rule matched! Using defaults (DROP).");
+            result = new RuleResult(false, false, "unknown");
         }
 
-        // 3. Death Cause Check (if not resolved by Claimed Area)
-        if (!resolved && plugin.getConfig().getBoolean("advanced.death-cause.enabled", false)) {
-            boolean isPvp = player.getKiller() != null;
-            String causePath = isPvp ? "advanced.death-cause.pvp" : "advanced.death-cause.pve";
-
-            // Get default values from config if available, otherwise default to false
-            // Note: We use the *configured* values, not the current state, as base
-            keepItems = plugin.getConfig().getBoolean(causePath + ".keep-items", false);
-            keepXp = plugin.getConfig().getBoolean(causePath + ".keep-xp", false);
-            reason = isPvp ? "pvp" : "pve";
-            resolved = true;
-            plugin.debug("Death cause enabled. isPvp=" + isPvp + ", keepItems=" + keepItems + ", keepXp=" + keepXp);
+        // Handle deferral (e.g. Lands-defer)
+        if ("lands-defer".equals(result.reason())) {
+            plugin.debug("Rule deferred to Lands without altering drops.");
+            return;
         }
 
-        // 4. Wilderness / Time-based Fallback (if not yet resolved)
-        if (!resolved) {
-            long time = world.getTime();
-            long dayStart = plugin.getConfig().getLong("day-start", 0);
-            long nightStart = plugin.getConfig().getLong("night-start", 13000);
-            boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
-            String baseReason = isDay ? "time-day" : "time-night";
+        boolean keepItems = result.keepItems();
+        boolean keepXp = result.keepXp();
+        String reason = result.reason();
 
-            // If it was a wilderness case that deferred to death cause (but death cause was disabled/skipped)
-            // we should technically fall back to wilderness settings IF we had them?
-            // Actually, logical flow: Wilderness(use-death-cause=true) -> DeathCause(disabled) -> Time-based.
-            // But if Wilderness had specific settings, should we use them?
-            // The config implies "use-death-cause" REPLACES wilderness settings.
-            // So falling back to Time-based seems correct for "Wilderness -> DeathCause -> Time".
-
-            // However, let's just use time-based as the ultimate fallback.
-            String settingPath = isDay ? "advanced.day" : "advanced.night";
-            boolean defaultKeepItems = getWorldKeepInventory(world, isDay);
-            keepItems = plugin.getConfig().getBoolean(settingPath + ".keep-items", defaultKeepItems);
-            keepXp = plugin.getConfig().getBoolean(settingPath + ".keep-xp", defaultKeepItems);
-            reason = baseReason;
-
-            // If it was actually wilderness that brought us here via "use-death-cause", maybe note that?
-            // But "time-day"/"time-night" is accurate enough as the source of the settings.
-            plugin.debug("Time-based settings: Time=" + time + ", isDay=" + isDay + ", keepItems=" + keepItems + ", keepXp=" + keepXp);
-        }
+        plugin.debug("Rule matched: " + reason + ", keepItems=" + keepItems + ", keepXp=" + keepXp);
 
         final boolean baseKeepItems = keepItems;
         final boolean baseKeepXp = keepXp;
@@ -229,9 +152,6 @@ public class DeathListener implements Listener {
                         if ("charge-to-bypass".equalsIgnoreCase(mode)) {
                             plugin.debug("Bypass mode: Player cannot afford, using original keep settings (DROP).");
                             // Failed to pay for bypass -> use base setting (which was drop)
-                            // Wait, if base was drop, and we failed to pay, we stay drop.
-                            // If base was keep, we wouldn't be here (shouldProcessEconomy is !keepItems).
-                            // So this is correct.
                             keepItems = baseKeepItems;
                             keepXp = baseKeepXp;
                         } else {
@@ -289,32 +209,19 @@ public class DeathListener implements Listener {
         // Check if we should create a grave (GravesX support)
         // Only if items are NOT kept (meaning they are dropped) and hook is enabled
         if (!keepItems && plugin.isGravesXEnabled()) {
-            // We need to check if there are any items to put in the grave
-            // applyKeepInventorySettings logic:
-            // if keepItems is false:
-            //   event.setKeepInventory(false);
-            //   If drops were empty (e.g. gamerule keepInventory=true), it force populated event.getDrops()
-
-            // So event.getDrops() should contain the items now.
             if (event.getDrops() != null && !event.getDrops().isEmpty()) {
                 plugin.debug("GravesX enabled and items dropped. Creating grave...");
                 // Create a list copy because passing event.getDrops() might be risky if we clear it later
                 java.util.List<org.bukkit.inventory.ItemStack> dropsToSave = new java.util.ArrayList<>(event.getDrops());
 
                 // Determine XP to store in grave
-                // If keepXp is true, we should NOT put XP in the grave (player keeps it)
-                // If keepXp is false, we put the XP in the grave
                 int xpToStore = keepXp ? 0 : player.getTotalExperience();
 
                 if (plugin.getGravesXHook().createGrave(player, deathLocation, dropsToSave, xpToStore)) {
-                    // If we created a grave, we should clear the drops so they don't fall on the ground
                     event.getDrops().clear();
-
-                    // If we stored XP in the grave, we must clear dropped XP to prevent duplication
                     if (!keepXp) {
                         event.setDroppedExp(0);
                     }
-
                     plugin.debug("Grave created with " + dropsToSave.size() + " items and " + xpToStore + " XP.");
                 } else {
                      plugin.debug("Failed to create grave, items will drop normally.");
@@ -338,23 +245,6 @@ public class DeathListener implements Listener {
         sendDeathMessage(player, keepItems, keepXp, reasonFinal);
 
         plugin.debug("Event keepInventory FINAL: " + event.getKeepInventory());
-    }
-
-    private boolean getWorldKeepInventory(World world, boolean isDay) {
-        String worldName = world.getName();
-        String worldPath = "world-settings." + worldName;
-
-        if (plugin.getConfig().contains(worldPath)) {
-            String timePath = isDay ? ".keep-inventory-day" : ".keep-inventory-night";
-            if (plugin.getConfig().contains(worldPath + timePath)) {
-                return plugin.getConfig().getBoolean(worldPath + timePath);
-            }
-        }
-
-        // Fallback to global settings
-        return isDay
-            ? plugin.getConfig().getBoolean("keep-inventory-day", true)
-            : plugin.getConfig().getBoolean("keep-inventory-night", false);
     }
 
     private void sendDeathMessage(Player player, boolean keepItems, boolean keepXp, String reason) {
@@ -431,73 +321,6 @@ public class DeathListener implements Listener {
         }
     }
 
-    private ProtectionResult checkProtectionPlugins(Player player, Location location) {
-        plugin.debug("Checking protection plugins...");
-        plugin.debug("Lands hook available: " + plugin.isLandsEnabled() + ", Config enabled: " + plugin.getConfig().getBoolean("advanced.protection.lands.enabled", false));
-
-        if (plugin.isLandsEnabled() && plugin.getConfig().getBoolean("advanced.protection.lands.enabled", false)) {
-            LandsHook lands = plugin.getLandsHook();
-            boolean inLand = lands.isInLand(location);
-            boolean overrideLands = plugin.getConfig().getBoolean("advanced.protection.lands.override-lands", false);
-            plugin.debug("Player in Lands area: " + inLand + ", Override Lands settings: " + overrideLands);
-
-            if (inLand) {
-                if (!overrideLands) {
-                    plugin.debug("In land but override-lands=false, letting Lands handle it.");
-                    return new ProtectionResult(true, false, false, "lands-defer");
-                }
-
-                plugin.debug("Player died in a Lands area: " + lands.getLandName(location));
-
-                boolean isOwnLand = lands.isInOwnLand(player);
-                String configPath = isOwnLand ? "advanced.protection.lands.in-own-land" : "advanced.protection.lands.in-other-land";
-
-                if (plugin.getConfig().contains(configPath)) {
-                    boolean keepItems = plugin.getConfig().getBoolean(configPath + ".keep-items", false);
-                    boolean keepXp = plugin.getConfig().getBoolean(configPath + ".keep-xp", false);
-                    plugin.debug("Lands settings for " + (isOwnLand ? "own" : "other") + " land: keepItems=" + keepItems + ", keepXp=" + keepXp);
-                    String reason = isOwnLand ? "lands-own" : "lands-other";
-                    return new ProtectionResult(true, keepItems, keepXp, reason);
-                }
-            } else {
-                plugin.debug("Player died in WILDERNESS (outside any land)");
-                if (plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.enabled", false)) {
-                    boolean keepItems = plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.keep-items", false);
-                    boolean keepXp = plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.keep-xp", false);
-                    plugin.debug("Lands wilderness settings: keepItems=" + keepItems + ", keepXp=" + keepXp);
-                    return new ProtectionResult(true, keepItems, keepXp, "lands-wilderness");
-                }
-            }
-        }
-
-        if (plugin.isGriefPreventionEnabled() && plugin.getConfig().getBoolean("advanced.protection.griefprevention.enabled", false)) {
-            GriefPreventionHook gp = plugin.getGriefPreventionHook();
-            if (gp.isInClaim(location)) {
-                plugin.debug("Player died in a GriefPrevention claim owned by: " + gp.getClaimOwnerName(location));
-
-                boolean isOwnClaim = gp.isInOwnClaim(player);
-                String configPath = isOwnClaim ? "advanced.protection.griefprevention.in-own-claim" : "advanced.protection.griefprevention.in-other-claim";
-
-                if (plugin.getConfig().contains(configPath)) {
-                    boolean keepItems = plugin.getConfig().getBoolean(configPath + ".keep-items", false);
-                    boolean keepXp = plugin.getConfig().getBoolean(configPath + ".keep-xp", false);
-                    plugin.debug("GriefPrevention settings for " + (isOwnClaim ? "own" : "other") + " claim: keepItems=" + keepItems + ", keepXp=" + keepXp);
-                    String reason = isOwnClaim ? "gp-own" : "gp-other";
-                    return new ProtectionResult(true, keepItems, keepXp, reason);
-                }
-            } else {
-                if (plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.enabled", false)) {
-                    boolean keepItems = plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.keep-items", false);
-                    boolean keepXp = plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.keep-xp", false);
-                    plugin.debug("GriefPrevention wilderness settings: keepItems=" + keepItems + ", keepXp=" + keepXp);
-                    return new ProtectionResult(true, keepItems, keepXp, "gp-wilderness");
-                }
-            }
-        }
-
-        return new ProtectionResult(false, false, false, null);
-    }
-
     private void applyKeepInventorySettings(PlayerDeathEvent event, boolean keepItems, boolean keepXp) {
         Player player = event.getEntity();
         plugin.debug("applyKeepInventorySettings: keepItems=" + keepItems + ", keepXp=" + keepXp);
@@ -543,20 +366,6 @@ public class DeathListener implements Listener {
                 int exp = Math.min(level * 7, 100);
                 event.setDroppedExp(exp);
             }
-        }
-    }
-
-    private static class ProtectionResult {
-        final boolean handled;
-        final boolean keepItems;
-        final boolean keepXp;
-        final String reason;
-
-        ProtectionResult(boolean handled, boolean keepItems, boolean keepXp, String reason) {
-            this.handled = handled;
-            this.keepItems = keepItems;
-            this.keepXp = keepXp;
-            this.reason = reason;
         }
     }
 
