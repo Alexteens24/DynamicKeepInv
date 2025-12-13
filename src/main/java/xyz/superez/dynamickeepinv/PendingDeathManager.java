@@ -169,7 +169,12 @@ public class PendingDeathManager {
      */
     public boolean processPayment(Player player) {
         PendingDeath pending = pendingDeaths.get(player.getUniqueId());
-        if (pending == null || pending.isProcessed()) {
+        if (pending == null) {
+            return false;
+        }
+
+        // Optimistic check before expensive operations
+        if (pending.isProcessed()) {
             return false;
         }
         
@@ -196,6 +201,13 @@ public class PendingDeathManager {
             return false;
         }
         
+        // Atomically check and mark as processed to prevent double processing
+        if (!pending.trySetProcessed()) {
+            // Already processed (e.g., timed out just now) - refund payment
+            eco.deposit(player, cost);
+            return false;
+        }
+
         // Restore inventory
         restoreInventory(player, pending);
         
@@ -206,8 +218,7 @@ public class PendingDeathManager {
             stats.recordDeathSaved(player, pending.getDeathReason());
         }
         
-        // Mark as processed and clean up
-        pending.setProcessed(true);
+        // Clean up
         pendingDeaths.remove(player.getUniqueId());
         deletePendingDeathFromDB(player.getUniqueId());
         
@@ -224,7 +235,12 @@ public class PendingDeathManager {
      */
     public void processDrop(Player player) {
         PendingDeath pending = pendingDeaths.get(player.getUniqueId());
-        if (pending == null || pending.isProcessed()) {
+        if (pending == null) {
+            return;
+        }
+
+        // Atomically check and mark as processed
+        if (!pending.trySetProcessed()) {
             return;
         }
         
@@ -236,8 +252,7 @@ public class PendingDeathManager {
             stats.recordDeathLost(player, pending.getDeathReason());
         }
         
-        // Mark as processed and clean up
-        pending.setProcessed(true);
+        // Clean up
         pendingDeaths.remove(player.getUniqueId());
         deletePendingDeathFromDB(player.getUniqueId());
         
@@ -252,7 +267,12 @@ public class PendingDeathManager {
      */
     public void handleTimeout(UUID playerId) {
         PendingDeath pending = pendingDeaths.get(playerId);
-        if (pending == null || pending.isProcessed()) {
+        if (pending == null) {
+            return;
+        }
+
+        // Atomically check and mark as processed
+        if (!pending.trySetProcessed()) {
             return;
         }
         
@@ -270,7 +290,6 @@ public class PendingDeathManager {
             stats.recordDeathLost(player, pending.getDeathReason());
         }
         
-        pending.setProcessed(true);
         pendingDeaths.remove(playerId);
         deletePendingDeathFromDB(playerId);
         
@@ -331,8 +350,8 @@ public class PendingDeathManager {
     }
 
     private void performDrop(Location dropLocation, PendingDeath pending, Player player) {
-        // Check for GravesX integration
-        if (player != null && plugin.isGravesXEnabled()) {
+        // Check for Graves integration (GravesX or AxGraves)
+        if (player != null && (plugin.isGravesXEnabled() || plugin.isAxGravesEnabled())) {
             List<ItemStack> drops = new ArrayList<>();
 
             for (ItemStack item : pending.getSavedInventory()) {
@@ -345,9 +364,20 @@ public class PendingDeathManager {
             int xp = calculateTotalExperience(pending.getSavedLevel(), pending.getSavedExp());
 
             if (!drops.isEmpty() || xp > 0) {
-                if (plugin.getGravesXHook().createGrave(player, dropLocation, drops, xp)) {
-                    plugin.debug("Grave created for pending death of " + pending.getPlayerName());
-                    return; // Grave created, skip natural drops
+                // Try GravesX
+                if (plugin.isGravesXEnabled()) {
+                    if (plugin.getGravesXHook().createGrave(player, dropLocation, drops, xp)) {
+                        plugin.debug("Grave created via GravesX for pending death of " + pending.getPlayerName());
+                        return; // Grave created, skip natural drops
+                    }
+                }
+
+                // Try AxGraves
+                if (plugin.isAxGravesEnabled()) {
+                    if (plugin.getAxGravesHook().createGrave(player, dropLocation, drops, xp)) {
+                        plugin.debug("Grave created via AxGraves for pending death of " + pending.getPlayerName());
+                        return; // Grave created, skip natural drops
+                    }
                 }
             }
         }
@@ -532,6 +562,13 @@ public class PendingDeathManager {
             return false;
         }
         
+        // Atomically check and mark as processed
+        if (!pending.trySetProcessed()) {
+            // Already processed - refund payment
+            eco.deposit(player, cost);
+            return false;
+        }
+
         // Restore inventory
         restoreInventory(player, pending);
         
@@ -542,8 +579,7 @@ public class PendingDeathManager {
             stats.recordDeathSaved(player, pending.getDeathReason());
         }
         
-        // Mark as processed and clean up
-        pending.setProcessed(true);
+        // Clean up
         pendingDeaths.remove(player.getUniqueId());
         deletePendingDeathFromDB(player.getUniqueId());
         
