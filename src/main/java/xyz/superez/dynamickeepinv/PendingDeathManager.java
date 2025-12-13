@@ -472,10 +472,22 @@ public class PendingDeathManager {
             return cached;
         }
         
-        // Load from database
+        // Load from database (sync fallback, should be preloaded)
         boolean autoPay = loadAutoPayFromDB(playerId);
         autoPayCache.put(playerId, autoPay);
         return autoPay;
+    }
+
+    /**
+     * Preload auto-pay settings asynchronously
+     */
+    public void preloadAutoPay(UUID playerId) {
+        if (autoPayCache.containsKey(playerId)) return;
+
+        asyncExecutor.execute(() -> {
+            boolean autoPay = loadAutoPayFromDB(playerId);
+            autoPayCache.put(playerId, autoPay);
+        });
     }
     
     /**
