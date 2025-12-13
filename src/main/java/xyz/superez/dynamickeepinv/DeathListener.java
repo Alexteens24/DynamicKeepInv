@@ -571,12 +571,18 @@ public class DeathListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        PendingDeathManager pendingManager = plugin.getPendingDeathManager();
+
+        // Preload auto-pay settings if manager exists
+        if (pendingManager != null) {
+            pendingManager.preloadAutoPay(player.getUniqueId());
+        }
+
         // Check if GUI mode is enabled
         if (!plugin.getConfig().getBoolean("advanced.economy.enabled", false)) return;
         if (!"gui".equalsIgnoreCase(plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep"))) return;
 
-        Player player = event.getPlayer();
-        PendingDeathManager pendingManager = plugin.getPendingDeathManager();
         if (pendingManager == null) return;
 
         // Check for pending death from before disconnect
