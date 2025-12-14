@@ -32,12 +32,20 @@ public class ConfigMigration {
         }
 
         FileConfiguration config = YamlConfiguration.loadConfiguration(file);
-        InputStream defConfigStream = plugin.getResource(filename);
-        if (defConfigStream == null) {
+        FileConfiguration defConfig;
+
+        try (InputStream defConfigStream = plugin.getResource(filename)) {
+            if (defConfigStream == null) {
+                return;
+            }
+            try (InputStreamReader reader = new InputStreamReader(defConfigStream, StandardCharsets.UTF_8)) {
+                defConfig = YamlConfiguration.loadConfiguration(reader);
+            }
+        } catch (IOException e) {
+            plugin.getLogger().log(Level.SEVERE, "Could not load default config for " + filename, e);
             return;
         }
 
-        FileConfiguration defConfig = YamlConfiguration.loadConfiguration(new InputStreamReader(defConfigStream, StandardCharsets.UTF_8));
         boolean changed = false;
 
         // Check for missing keys
