@@ -1,6 +1,6 @@
 # DynamicKeepInv Configuration
 # Wiki: https://github.com/Alexteens24/DynamicKeepInv/wiki
-config-version: 5
+config-version: 6
 
 # --- Core Settings ---
 enabled: true
