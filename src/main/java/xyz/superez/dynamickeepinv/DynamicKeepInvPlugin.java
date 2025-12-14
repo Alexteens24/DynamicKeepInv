@@ -83,7 +83,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     public void onEnable() {
         detectFolia();
         saveDefaultConfig();
-        checkConfigVersion();
+        new ConfigMigration(this).checkAndMigrate();
         loadMessages();
         reloadIntegrations();
         setupRuleManager();
@@ -211,16 +211,6 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         } catch (ClassNotFoundException e) {
             isFolia = false;
             getLogger().info("Paper/Spigot detected! Using standard scheduler.");
-        }
-    }
-
-    private void checkConfigVersion() {
-        int currentVersion = getConfig().getInt("config-version", 0);
-        if (currentVersion < CONFIG_VERSION) {
-            getLogger().warning("Config outdated (v" + currentVersion + " -> v" + CONFIG_VERSION + "). Some new options may be missing.");
-            getLogger().warning("Consider regenerating config.yml or adding missing options manually.");
-            getConfig().set("config-version", CONFIG_VERSION);
-            saveConfig();
         }
     }
 
