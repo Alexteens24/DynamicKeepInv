@@ -67,7 +67,3 @@ Thumbs.db
 
 # Other
 *.orig
-
-# Gradle
-.gradle/
-build/
