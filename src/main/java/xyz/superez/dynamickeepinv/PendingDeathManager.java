@@ -303,11 +303,32 @@ public class PendingDeathManager {
      * Restore inventory to player
      */
     private void restoreInventory(Player player, PendingDeath pending) {
-        player.getInventory().setContents(pending.getSavedInventory());
-        player.getInventory().setArmorContents(pending.getSavedArmor());
+        // Restore main contents (merging to preserve Soulbound/kept items)
+        ItemStack[] savedContents = pending.getSavedInventory();
+        ItemStack[] currentContents = player.getInventory().getContents();
+        for (int i = 0; i < savedContents.length && i < currentContents.length; i++) {
+            if (savedContents[i] != null) {
+                currentContents[i] = savedContents[i];
+            }
+            // If savedContents[i] is null, we keep currentContents[i] (which might be a kept soulbound item)
+        }
+        player.getInventory().setContents(currentContents);
+
+        // Restore armor (merging)
+        ItemStack[] savedArmor = pending.getSavedArmor();
+        ItemStack[] currentArmor = player.getInventory().getArmorContents();
+        for (int i = 0; i < savedArmor.length && i < currentArmor.length; i++) {
+            if (savedArmor[i] != null) {
+                currentArmor[i] = savedArmor[i];
+            }
+        }
+        player.getInventory().setArmorContents(currentArmor);
+
+        // Restore offhand
         if (pending.getOffhandItem() != null) {
             player.getInventory().setItemInOffHand(pending.getOffhandItem());
         }
+
         player.setLevel(pending.getSavedLevel());
         player.setExp(pending.getSavedExp());
         player.updateInventory();
