@@ -1,4 +1,3 @@
-````markdown
 # DynamicKeepInv
 
 ![Java](https://img.shields.io/badge/Java-17%2B-orange) ![Server](https://img.shields.io/badge/Server-Paper%20%7C%20Spigot%20%7C%20Folia-blue) ![License](https://img.shields.io/badge/License-Apache%202.0-green)
@@ -151,3 +150,4 @@ This project is licensed under the [Apache 2.0 License](https://www.google.com/s
 3.  **Detailed Features**: Added specific mentions of **GravesX**, **Folia**, and the **Pending Death Database** mechanism which ensures safety on disconnects.
 4.  **Commands Table**: Clearer presentation of commands found in `wiki/Commands.md`.
 ```
+
