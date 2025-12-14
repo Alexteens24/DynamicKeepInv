@@ -82,9 +82,10 @@ class DynamicKeepInvPluginTest {
 
         assertTrue(plugin.getConfig().getBoolean("enabled"),
                 "Plugin should be enabled by default");
-        assertTrue(plugin.getConfig().getBoolean("keep-inventory-day"),
+        // Updated to new config paths
+        assertTrue(plugin.getConfig().getBoolean("rules.day.keep-items"),
                 "Keep inventory should be ON during day");
-        assertFalse(plugin.getConfig().getBoolean("keep-inventory-night"),
+        assertFalse(plugin.getConfig().getBoolean("rules.night.keep-items"),
                 "Keep inventory should be OFF during night");
         assertEquals(100, plugin.getConfig().getInt("check-interval"),
                 "Check interval should be 100 ticks");
@@ -217,7 +218,8 @@ class DynamicKeepInvPluginTest {
         WorldMock worldNether = server.addSimpleWorld("world_nether");
 
         // Set config to only enable "world" (uppercase W to test case insensitivity)
-        plugin.getConfig().set("enabled-worlds", java.util.Arrays.asList("World"));
+        // Updated to new config path
+        plugin.getConfig().set("worlds.enabled", java.util.Arrays.asList("World"));
 
         // Set times
         world.setTime(6000); // Day

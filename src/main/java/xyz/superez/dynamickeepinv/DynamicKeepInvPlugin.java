@@ -92,8 +92,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         reloadStatsSystem();
 
         // Initialize GUI economy mode components
-        if (getConfig().getBoolean("advanced.economy.enabled", false)
-            && "gui".equalsIgnoreCase(getConfig().getString("advanced.economy.mode", "charge-to-keep"))) {
+        if (getConfig().getBoolean("economy.enabled", false)
+            && "gui".equalsIgnoreCase(getConfig().getString("economy.mode", "charge-to-keep"))) {
             pendingDeathManager = new PendingDeathManager(this);
             deathConfirmGUI = new DeathConfirmGUI(this);
             getLogger().info("Death confirmation GUI mode enabled!");
@@ -109,7 +109,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
         if (getConfig().getBoolean("enabled", true)) {
             startChecking();
-            List<String> enabledWorlds = getConfig().getStringList("enabled-worlds");
+            List<String> enabledWorlds = getConfig().getStringList("worlds.enabled");
             if (!enabledWorlds.isEmpty()) {
                 getLogger().info("Enabled worlds: " + String.join(", ", enabledWorlds));
             } else {
@@ -149,7 +149,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     public EconomyManager getEconomyManager() {
-        if (!getConfig().getBoolean("advanced.economy.enabled", false)) {
+        if (!getConfig().getBoolean("economy.enabled", false)) {
             return economyManager;
         }
 
@@ -187,7 +187,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     public boolean isWorldEnabled(World world) {
-        List<String> enabledWorlds = getConfig().getStringList("enabled-worlds");
+        List<String> enabledWorlds = getConfig().getStringList("worlds.enabled");
         if (enabledWorlds == null || enabledWorlds.isEmpty()) {
             return true;
         }
@@ -232,7 +232,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     private void reloadIntegrations() {
-        boolean economyEnabled = getConfig().getBoolean("advanced.economy.enabled", false);
+        boolean economyEnabled = getConfig().getBoolean("economy.enabled", false);
         synchronized (economyLock) {
             economyManager = null;
             nextEconomyRetryTimeMs.set(0L);
@@ -242,19 +242,19 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             getEconomyManager();
         }
 
-        if (getConfig().getBoolean("advanced.protection.lands.enabled", false)) {
+        if (getConfig().getBoolean("integrations.lands.enabled", false)) {
             landsHook = new LandsHook(this);
         } else {
             landsHook = null;
         }
 
-        if (getConfig().getBoolean("advanced.protection.griefprevention.enabled", false)) {
+        if (getConfig().getBoolean("integrations.griefprevention.enabled", false)) {
             griefPreventionHook = new GriefPreventionHook(this);
         } else {
             griefPreventionHook = null;
         }
 
-        if (getConfig().getBoolean("advanced.gravesx.enabled", false)) {
+        if (getConfig().getBoolean("integrations.gravesx.enabled", false)) {
             if (Bukkit.getPluginManager().getPlugin("GravesX") != null) {
                 gravesXHook = new GravesXHook(this);
                 if (!gravesXHook.setup()) {
@@ -268,7 +268,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             gravesXHook = null;
         }
 
-        if (getConfig().getBoolean("advanced.axgraves.enabled", false)) {
+        if (getConfig().getBoolean("integrations.axgraves.enabled", false)) {
             if (Bukkit.getPluginManager().getPlugin("AxGraves") != null) {
                 axGravesHook = new AxGravesHook(this);
                 if (!axGravesHook.setup()) {
@@ -342,13 +342,13 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     private void checkAndUpdateKeepInventory() {
-        boolean keepInvDay = getConfig().getBoolean("keep-inventory-day", true);
-        boolean keepInvNight = getConfig().getBoolean("keep-inventory-night", false);
-        long dayStart = getConfig().getLong("day-start", 0);
-        long nightStart = getConfig().getLong("night-start", 13000);
+        boolean keepInvDay = getConfig().getBoolean("rules.day.keep-items", true);
+        boolean keepInvNight = getConfig().getBoolean("rules.night.keep-items", false);
+        long dayStart = getConfig().getLong("time.day-start", 0);
+        long nightStart = getConfig().getLong("time.night-start", 13000);
 
-        long dayTrigger = getConfig().getLong("gamerule-change.day-trigger", -1);
-        long nightTrigger = getConfig().getLong("gamerule-change.night-trigger", -1);
+        long dayTrigger = getConfig().getLong("time.triggers.day", -1);
+        long nightTrigger = getConfig().getLong("time.triggers.night", -1);
         if (dayTrigger < 0) dayTrigger = dayStart;
         if (nightTrigger < 0) nightTrigger = nightStart;
 
@@ -413,19 +413,19 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     private boolean shouldBroadcast(boolean isDay) {
-        if (!getConfig().getBoolean("broadcast.enabled", true)) return false;
-        if (isDay && !getConfig().getBoolean("broadcast.day-change", true)) return false;
-        if (!isDay && !getConfig().getBoolean("broadcast.night-change", true)) return false;
+        if (!getConfig().getBoolean("messages.broadcast.enabled", true)) return false;
+        if (isDay && !getConfig().getBoolean("messages.broadcast.events.day-change", true)) return false;
+        if (!isDay && !getConfig().getBoolean("messages.broadcast.events.night-change", true)) return false;
         return true;
     }
 
     private void sendNotifications(World world, String message, boolean isDay) {
         Component component = parseMessage(message);
-        boolean chat = getConfig().getBoolean("broadcast.chat", true);
-        boolean actionBar = getConfig().getBoolean("broadcast.action-bar", false);
-        boolean titleEnabled = getConfig().getBoolean("broadcast.title", false);
-        boolean soundEnabled = getConfig().getBoolean("broadcast.sound.enabled", false);
-        String soundName = isDay ? getConfig().getString("broadcast.sound.day") : getConfig().getString("broadcast.sound.night");
+        boolean chat = getConfig().getBoolean("messages.broadcast.display.chat", true);
+        boolean actionBar = getConfig().getBoolean("messages.broadcast.display.action-bar", false);
+        boolean titleEnabled = getConfig().getBoolean("messages.broadcast.display.title", false);
+        boolean soundEnabled = getConfig().getBoolean("messages.broadcast.sound.enabled", false);
+        String soundName = isDay ? getConfig().getString("messages.broadcast.sound.day") : getConfig().getString("messages.broadcast.sound.night");
         Sound sound = null;
 
         if (soundEnabled) {
@@ -652,8 +652,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
 
         // Check if GUI mode is enabled
-        if (!getConfig().getBoolean("advanced.economy.enabled", false)
-            || !"gui".equalsIgnoreCase(getConfig().getString("advanced.economy.mode", "charge-to-keep"))) {
+        if (!getConfig().getBoolean("economy.enabled", false)
+            || !"gui".equalsIgnoreCase(getConfig().getString("economy.mode", "charge-to-keep"))) {
             sender.sendMessage(parseMessage("&cDeath confirmation GUI is not enabled! Set economy mode to 'gui' in config."));
             return true;
         }
@@ -680,8 +680,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
 
         // Check if GUI mode is enabled
-        if (!getConfig().getBoolean("advanced.economy.enabled", false)
-            || !"gui".equalsIgnoreCase(getConfig().getString("advanced.economy.mode", "charge-to-keep"))) {
+        if (!getConfig().getBoolean("economy.enabled", false)
+            || !"gui".equalsIgnoreCase(getConfig().getString("economy.mode", "charge-to-keep"))) {
             sender.sendMessage(parseMessage("&cAuto-pay requires GUI economy mode! Set economy mode to 'gui' in config."));
             return true;
         }
@@ -738,8 +738,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
 
         // Initialize if GUI mode enabled
-        if (getConfig().getBoolean("advanced.economy.enabled", false)
-            && "gui".equalsIgnoreCase(getConfig().getString("advanced.economy.mode", "charge-to-keep"))) {
+        if (getConfig().getBoolean("economy.enabled", false)
+            && "gui".equalsIgnoreCase(getConfig().getString("economy.mode", "charge-to-keep"))) {
             pendingDeathManager = new PendingDeathManager(this);
             deathConfirmGUI = new DeathConfirmGUI(this);
             getLogger().info("Death confirmation GUI mode enabled!");
@@ -751,15 +751,15 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         sender.sendMessage(parseMessage(getMessage("status.enabled")
                 .replace("{value}", String.valueOf(getConfig().getBoolean("enabled", true)))));
         sender.sendMessage(parseMessage(getMessage("status.keep-inv-day")
-                .replace("{value}", String.valueOf(getConfig().getBoolean("keep-inventory-day", true)))));
+                .replace("{value}", String.valueOf(getConfig().getBoolean("rules.day.keep-items", true)))));
         sender.sendMessage(parseMessage(getMessage("status.keep-inv-night")
-                .replace("{value}", String.valueOf(getConfig().getBoolean("keep-inventory-night", false)))));
+                .replace("{value}", String.valueOf(getConfig().getBoolean("rules.night.keep-items", false)))));
         sender.sendMessage(parseMessage(getMessage("status.check-interval")
                 .replace("{value}", String.valueOf(getConfig().getInt("check-interval", 100)))));
 
         sender.sendMessage(parseMessage(getMessage("status.world-header")));
-        long dayStart = getConfig().getLong("day-start", 0);
-        long nightStart = getConfig().getLong("night-start", 13000);
+        long dayStart = getConfig().getLong("time.day-start", 0);
+        long nightStart = getConfig().getLong("time.night-start", 13000);
         for (World world : Bukkit.getWorlds()) {
             long time = world.getTime();
             boolean isDay = isTimeInRange(time, dayStart, nightStart);
@@ -794,14 +794,19 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     public boolean isDayTime(long time) {
-        return isTimeInRange(time, getConfig().getLong("day-start", 0), getConfig().getLong("night-start", 13000));
+        return isTimeInRange(time, getConfig().getLong("time.day-start", 0), getConfig().getLong("time.night-start", 13000));
     }
 
     private boolean getWorldKeepInventory(World world, boolean isDay, boolean globalKeepInvDay, boolean globalKeepInvNight) {
         String worldName = world.getName();
-        String worldPath = "world-settings." + worldName;
+        String worldPath = "worlds.overrides." + worldName;
 
         if (getConfig().contains(worldPath)) {
+            // Note: The structure in new config for overrides is:
+            // worlds:
+            //   overrides:
+            //     world_nether:
+            //       keep-inventory-day: false
             String timePath = isDay ? ".keep-inventory-day" : ".keep-inventory-night";
             if (getConfig().contains(worldPath + timePath)) {
                 return getConfig().getBoolean(worldPath + timePath);
