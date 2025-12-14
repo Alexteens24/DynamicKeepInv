@@ -3,7 +3,6 @@ package xyz.superez.dynamickeepinv;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -46,10 +45,11 @@ public class DeathConfirmGUI implements Listener {
     private final DecimalFormat df = new DecimalFormat("#.##");
     
     // Slot positions
-    private static final int SLOT_PAY = 2;
-    private static final int SLOT_INFO = 4;
-    private static final int SLOT_DROP = 6;
-    private static final int SLOT_AUTO_PAY = 8;
+    private static final int GUI_SIZE = 27;
+    private static final int SLOT_PAY = 11;
+    private static final int SLOT_INFO = 13;
+    private static final int SLOT_DROP = 15;
+    private static final int SLOT_AUTO_PAY = 22;
     
     public DeathConfirmGUI(DynamicKeepInvPlugin plugin) {
         this.plugin = plugin;
@@ -68,18 +68,15 @@ public class DeathConfirmGUI implements Listener {
         // Cancel any existing timeout
         cancelTimeout(player.getUniqueId());
         
-        Inventory gui = Bukkit.createInventory(null, 9, GUI_TITLE_COMPONENT);
+        Inventory gui = Bukkit.createInventory(new DeathGuiHolder(), GUI_SIZE, GUI_TITLE_COMPONENT);
         
         EconomyManager eco = plugin.getEconomyManager();
         double cost = pendingDeath.getCost();
         String costFormatted = eco != null ? eco.format(cost) : "$" + df.format(cost);
         boolean canAfford = eco != null && eco.isEnabled() && eco.hasEnough(player, cost);
         
-        // Fill background
-        ItemStack background = createItem(Material.GRAY_STAINED_GLASS_PANE, " ");
-        for (int i = 0; i < 9; i++) {
-            gui.setItem(i, background);
-        }
+        // Fill border
+        fillBorder(gui);
         
         // Pay button (green)
         Material payMaterial = canAfford ? Material.EMERALD_BLOCK : Material.BARRIER;
@@ -149,6 +146,26 @@ public class DeathConfirmGUI implements Listener {
         plugin.debug("Opened death confirm GUI for " + player.getName());
     }
     
+    private void fillBorder(Inventory gui) {
+        ItemStack border = createItem(Material.BLACK_STAINED_GLASS_PANE, " ");
+        ItemStack inner = createItem(Material.GRAY_STAINED_GLASS_PANE, " ");
+
+        for (int i = 0; i < GUI_SIZE; i++) {
+            // Fill all with gray first
+            gui.setItem(i, inner);
+        }
+
+        // Top and bottom rows as border
+        for (int i = 0; i < 9; i++) {
+            gui.setItem(i, border); // Top row
+            gui.setItem(GUI_SIZE - 9 + i, border); // Bottom row
+        }
+
+        // Sides
+        gui.setItem(9, border);
+        gui.setItem(17, border);
+    }
+
     /**
      * Create an item with lore
      */
@@ -229,9 +246,7 @@ public class DeathConfirmGUI implements Listener {
         Player player = Bukkit.getPlayer(playerId);
         if (player != null && player.isOnline()) {
             // Check if still in our GUI
-            Component title = player.getOpenInventory().title();
-            String plainTitle = PlainTextComponentSerializer.plainText().serialize(title);
-            if (plainTitle.equals(GUI_TITLE_TEXT)) {
+            if (player.getOpenInventory().getTopInventory().getHolder() instanceof DeathGuiHolder) {
                 player.closeInventory();
             }
         }
@@ -247,11 +262,7 @@ public class DeathConfirmGUI implements Listener {
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         
-        Component title = event.getView().title();
-        if (title == null) return;
-        
-        String plainTitle = PlainTextComponentSerializer.plainText().serialize(title);
-        if (!plainTitle.equals(GUI_TITLE_TEXT)) return;
+        if (!(event.getInventory().getHolder() instanceof DeathGuiHolder)) return;
         
         // Always cancel all clicks in our GUI
         event.setCancelled(true);
@@ -259,7 +270,7 @@ public class DeathConfirmGUI implements Listener {
         int slot = event.getRawSlot();
         
         // Only handle clicks in top inventory
-        if (slot < 0 || slot >= 9) return;
+        if (slot < 0 || slot >= GUI_SIZE) return;
         
         PendingDeathManager manager = plugin.getPendingDeathManager();
         PendingDeath pending = manager.getPendingDeath(player.getUniqueId());
@@ -339,11 +350,7 @@ public class DeathConfirmGUI implements Listener {
     
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
-        Component title = event.getView().title();
-        if (title == null) return;
-        
-        String plainTitle = PlainTextComponentSerializer.plainText().serialize(title);
-        if (plainTitle.equals(GUI_TITLE_TEXT)) {
+        if (event.getInventory().getHolder() instanceof DeathGuiHolder) {
             event.setCancelled(true);
         }
     }
@@ -352,11 +359,7 @@ public class DeathConfirmGUI implements Listener {
     public void onInventoryClose(InventoryCloseEvent event) {
         if (!(event.getPlayer() instanceof Player player)) return;
         
-        Component title = event.getView().title();
-        if (title == null) return;
-        
-        String plainTitle = PlainTextComponentSerializer.plainText().serialize(title);
-        if (!plainTitle.equals(GUI_TITLE_TEXT)) return;
+        if (!(event.getInventory().getHolder() instanceof DeathGuiHolder)) return;
         
         UUID playerId = player.getUniqueId();
         
@@ -403,9 +406,7 @@ public class DeathConfirmGUI implements Listener {
      * Check if player currently has our GUI open
      */
     public boolean hasGUIOpen(Player player) {
-        Component title = player.getOpenInventory().title();
-        String plainTitle = PlainTextComponentSerializer.plainText().serialize(title);
-        return plainTitle.equals(GUI_TITLE_TEXT);
+        return player.getOpenInventory().getTopInventory().getHolder() instanceof DeathGuiHolder;
     }
     
     /**

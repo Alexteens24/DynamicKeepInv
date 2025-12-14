@@ -21,6 +21,12 @@ public class StatsManager {
     private final java.util.Map<UUID, PlayerStatsData> statsCache = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Set<UUID> knownPlayers = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
+    // Cache for global stats
+    private volatile int cachedGlobalDeathsSaved = 0;
+    private volatile int cachedGlobalDeathsLost = 0;
+    private volatile long lastGlobalStatsUpdate = 0;
+    private static final long GLOBAL_STATS_CACHE_DURATION = 60000; // 1 minute
+
     public StatsManager(DynamicKeepInvPlugin plugin) {
         this.plugin = plugin;
         this.asyncExecutor = Executors.newSingleThreadExecutor(r -> {
@@ -34,6 +40,9 @@ public class StatsManager {
         for (Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
             loadStats(p.getUniqueId());
         }
+
+        // Initial load of global stats
+        refreshGlobalStats();
     }
 
     private void initDatabase() {
@@ -218,6 +227,11 @@ public class StatsManager {
                 cached.incrementSaved(time, reason);
                 cached.incrementReason(reason, true);
             }
+
+            // Invalidate global stats cache so it updates next time (or optimistically update)
+            synchronized(this) {
+                cachedGlobalDeathsSaved++;
+            }
         });
     }
 
@@ -259,6 +273,11 @@ public class StatsManager {
             if (cached != null) {
                 cached.incrementLost(time, reason);
                 cached.incrementReason(reason, false);
+            }
+
+            // Invalidate global stats cache so it updates next time (or optimistically update)
+            synchronized(this) {
+                cachedGlobalDeathsLost++;
             }
         });
     }
@@ -399,36 +418,48 @@ public class StatsManager {
         unloadStats(uuid);
     }
 
-    public int getGlobalDeathsSaved() {
-        if (!isConnectionValid()) return 0;
-        String sql = "SELECT COALESCE(SUM(deaths_saved), 0) FROM player_stats";
-        synchronized (dbLock) {
-            try (Statement stmt = connection.createStatement();
-                 ResultSet rs = stmt.executeQuery(sql)) {
-                if (rs.next()) {
-                    return rs.getInt(1);
+    private void refreshGlobalStats() {
+        if (isShuttingDown || !isConnectionValid()) return;
+
+        asyncExecutor.execute(() -> {
+            int saved = 0;
+            int lost = 0;
+
+            synchronized (dbLock) {
+                try {
+                     try (Statement stmt = connection.createStatement();
+                          ResultSet rs = stmt.executeQuery("SELECT COALESCE(SUM(deaths_saved), 0) FROM player_stats")) {
+                         if (rs.next()) saved = rs.getInt(1);
+                     }
+                     try (Statement stmt = connection.createStatement();
+                          ResultSet rs = stmt.executeQuery("SELECT COALESCE(SUM(deaths_lost), 0) FROM player_stats")) {
+                         if (rs.next()) lost = rs.getInt(1);
+                     }
+                } catch (SQLException e) {
+                    plugin.getLogger().log(Level.SEVERE, "Database error fetching global stats!", e);
                 }
-            } catch (SQLException e) {
-                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
             }
+
+            synchronized (this) {
+                cachedGlobalDeathsSaved = saved;
+                cachedGlobalDeathsLost = lost;
+                lastGlobalStatsUpdate = System.currentTimeMillis();
+            }
+        });
+    }
+
+    public int getGlobalDeathsSaved() {
+        if (System.currentTimeMillis() - lastGlobalStatsUpdate > GLOBAL_STATS_CACHE_DURATION) {
+            refreshGlobalStats();
         }
-        return 0;
+        return cachedGlobalDeathsSaved;
     }
 
     public int getGlobalDeathsLost() {
-        if (!isConnectionValid()) return 0;
-        String sql = "SELECT COALESCE(SUM(deaths_lost), 0) FROM player_stats";
-        synchronized (dbLock) {
-            try (Statement stmt = connection.createStatement();
-                 ResultSet rs = stmt.executeQuery(sql)) {
-                if (rs.next()) {
-                    return rs.getInt(1);
-                }
-            } catch (SQLException e) {
-                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
-            }
+         if (System.currentTimeMillis() - lastGlobalStatsUpdate > GLOBAL_STATS_CACHE_DURATION) {
+            refreshGlobalStats();
         }
-        return 0;
+        return cachedGlobalDeathsLost;
     }
 
     public int getGlobalTotalDeaths() {

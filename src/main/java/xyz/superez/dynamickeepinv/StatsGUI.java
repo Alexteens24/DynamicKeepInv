@@ -65,7 +65,7 @@ public class StatsGUI implements Listener {
         Inventory gui = Bukkit.createInventory(null, 45, GUI_TITLE_COMPONENT);
         StatsManager stats = plugin.getStatsManager();
 
-        fillBorder(gui);
+        fillBackground(gui);
 
         ItemStack playerHead = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta skullMeta = (SkullMeta) playerHead.getItemMeta();
@@ -85,19 +85,23 @@ public class StatsGUI implements Listener {
         ItemStack totalItem = createItem(Material.SKELETON_SKULL,
             "§c§lTotal Deaths",
             "§7Deaths tracked: §f" + totalDeaths);
-        gui.setItem(20, totalItem);
+        gui.setItem(19, totalItem);
 
         ItemStack savedItem = createItem(Material.TOTEM_OF_UNDYING,
             "§a§lDeaths Saved",
             "§7Inventory kept: §a" + deathsSaved,
             "§7Times your items were saved!");
-        gui.setItem(21, savedItem);
+        gui.setItem(20, savedItem);
+
+        // Progress bar in center
+        ItemStack progressItem = createProgressBar(saveRate);
+        gui.setItem(22, progressItem);
 
         ItemStack lostItem = createItem(Material.BARRIER,
             "§c§lDeaths Lost",
             "§7Inventory lost: §c" + deathsLost,
             "§7Times your items dropped!");
-        gui.setItem(22, lostItem);
+        gui.setItem(24, lostItem);
 
         Material rateIcon = saveRate >= 50 ? Material.EMERALD : Material.REDSTONE;
         String rateColor = saveRate >= 75 ? "§a" : (saveRate >= 50 ? "§e" : "§c");
@@ -105,10 +109,7 @@ public class StatsGUI implements Listener {
             "§6§lSave Rate",
             "§7Rate: " + rateColor + df.format(saveRate) + "%",
             "§7Percentage of deaths saved");
-        gui.setItem(23, rateItem);
-
-        ItemStack progressItem = createProgressBar(saveRate);
-        gui.setItem(24, progressItem);
+        gui.setItem(25, rateItem);
 
         if (plugin.getConfig().getBoolean("advanced.economy.enabled", false)) {
             double totalPaid = stats.getTotalEconomyPaid(targetUUID);
@@ -117,7 +118,7 @@ public class StatsGUI implements Listener {
                 "§e§lEconomy Stats",
                 "§7Total paid: §6$" + df.format(totalPaid),
                 "§7Payments: §f" + paymentCount);
-            gui.setItem(30, economyItem);
+            gui.setItem(37, economyItem);
         }
 
         long lastDeathTime = stats.getLastDeathTime(targetUUID);
@@ -143,7 +144,7 @@ public class StatsGUI implements Listener {
             "§7During Night: §8" + nightDeaths,
             "§7PvP Deaths: §c" + pvpDeaths,
             "§7Bypass: §b" + (stats.getReasonSavedCount(targetUUID, "bypass")));
-        gui.setItem(32, breakdownItem);
+        gui.setItem(43, breakdownItem);
 
         int globalSaved = stats.getGlobalDeathsSaved();
         int globalLost = stats.getGlobalDeathsLost();
@@ -155,7 +156,7 @@ public class StatsGUI implements Listener {
             "§7Global save rate: §e" + df.format(globalRate) + "%");
         gui.setItem(40, globalItem);
 
-        ItemStack closeItem = createItem(Material.RED_STAINED_GLASS_PANE,
+        ItemStack closeItem = createItem(Material.BARRIER,
             "§c§lClose",
             "§7Click to close");
         gui.setItem(44, closeItem);
@@ -163,13 +164,22 @@ public class StatsGUI implements Listener {
         viewer.openInventory(gui);
     }
 
-    private void fillBorder(Inventory gui) {
+    private void fillBackground(Inventory gui) {
         ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
         ItemMeta meta = border.getItemMeta();
         meta.displayName(Component.text(" "));
         border.setItemMeta(meta);
 
-        int[] borderSlots = {0,1,2,3,5,6,7,8,9,17,18,26,27,35,36,37,38,39,41,42,43};
+        ItemStack inner = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+        ItemMeta innerMeta = inner.getItemMeta();
+        innerMeta.displayName(Component.text(" "));
+        inner.setItemMeta(innerMeta);
+
+        for (int i = 0; i < 45; i++) {
+            gui.setItem(i, inner);
+        }
+
+        int[] borderSlots = {0,1,2,3,5,6,7,8,9,17,18,26,27,35,36,37,38,39,41,42,44};
         for (int slot : borderSlots) {
             gui.setItem(slot, border);
         }

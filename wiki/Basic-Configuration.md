@@ -67,6 +67,8 @@ enabled-worlds:
 
 Worlds not in this list will be ignored by the plugin.
 
+> **Performance Tip (Folia):** On Folia servers, the plugin uses a periodic task to check time. Excluding a world from this list prevents the plugin from keeping that world "awake" or ticking unnecessarily, improving performance.
+
 **Leave empty to enable for ALL worlds:**
 ```yaml
 enabled-worlds: []
@@ -99,12 +101,12 @@ broadcast:
   enabled: true          # Enable notifications
   day-change: true       # Notify when day starts
   night-change: true     # Notify when night starts
-  
+
   # Where to show the message
   chat: true             # In chat
   action-bar: false      # Above hotbar
   title: false           # Center of screen
-  
+
   # Sound effects
   sound:
     enabled: false

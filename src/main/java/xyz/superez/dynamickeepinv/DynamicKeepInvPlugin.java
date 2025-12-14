@@ -23,6 +23,8 @@ import org.bukkit.entity.Player;
 import xyz.superez.dynamickeepinv.hooks.LandsHook;
 import xyz.superez.dynamickeepinv.hooks.GriefPreventionHook;
 import xyz.superez.dynamickeepinv.hooks.GravesXHook;
+import xyz.superez.dynamickeepinv.hooks.AxGravesHook;
+import xyz.superez.dynamickeepinv.rules.*;
 
 import java.io.File;
 import java.time.Duration;
@@ -66,12 +68,14 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private LandsHook landsHook;
     private GriefPreventionHook griefPreventionHook;
     private GravesXHook gravesXHook;
+    private AxGravesHook axGravesHook;
     private DynamicKeepInvExpansion placeholderExpansion;
     private StatsManager statsManager;
     private StatsGUI statsGUI;
     private StatsListener statsListener;
     private PendingDeathManager pendingDeathManager;
     private DeathConfirmGUI deathConfirmGUI;
+    private RuleManager ruleManager;
 
     @Override
     public void onEnable() {
@@ -80,6 +84,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         checkConfigVersion();
         loadMessages();
         reloadIntegrations();
+        setupRuleManager();
 
         getServer().getPluginManager().registerEvents(new WorldListener(this), this);
         getServer().getPluginManager().registerEvents(new DeathListener(this), this);
@@ -261,6 +266,20 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             }
         } else {
             gravesXHook = null;
+        }
+
+        if (getConfig().getBoolean("advanced.axgraves.enabled", false)) {
+            if (Bukkit.getPluginManager().getPlugin("AxGraves") != null) {
+                axGravesHook = new AxGravesHook(this);
+                if (!axGravesHook.setup()) {
+                    axGravesHook = null; // Failed to setup
+                }
+            } else {
+                getLogger().warning("AxGraves integration enabled in config, but AxGraves plugin not found!");
+                axGravesHook = null;
+            }
+        } else {
+            axGravesHook = null;
         }
     }
 
@@ -602,18 +621,22 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             return true;
         }
 
-        if (args.length >= 2 && player.hasPermission("dynamickeepinv.stats.others")) {
-            Player target = Bukkit.getPlayer(args[1]);
-            if (target != null) {
-                statsGUI.openStats(player, target.getUniqueId(), target.getName());
-            } else {
-                org.bukkit.OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(args[1]);
-                if (offlineTarget.hasPlayedBefore() || offlineTarget.isOnline()) {
-                    String displayName = offlineTarget.getName() != null ? offlineTarget.getName() : args[1];
-                    statsGUI.openStats(player, offlineTarget.getUniqueId(), displayName);
+        if (args.length >= 2) {
+            if (player.hasPermission("dynamickeepinv.stats.others")) {
+                Player target = Bukkit.getPlayer(args[1]);
+                if (target != null) {
+                    statsGUI.openStats(player, target.getUniqueId(), target.getName());
                 } else {
-                    sender.sendMessage(parseMessage(getMessage("stats.player-not-found").replace("{player}", args[1])));
+                    org.bukkit.OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(args[1]);
+                    if (offlineTarget.hasPlayedBefore() || offlineTarget.isOnline()) {
+                        String displayName = offlineTarget.getName() != null ? offlineTarget.getName() : args[1];
+                        statsGUI.openStats(player, offlineTarget.getUniqueId(), displayName);
+                    } else {
+                        sender.sendMessage(parseMessage(getMessage("stats.player-not-found").replace("{player}", args[1])));
+                    }
                 }
+            } else {
+                sender.sendMessage(parseMessage(getMessage("no-permission")));
             }
         } else {
             statsGUI.openStats(player);
@@ -795,6 +818,18 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
     }
 
+    private void setupRuleManager() {
+        ruleManager = new RuleManager(this);
+        ruleManager.registerRule(new BypassPermissionRule());
+        ruleManager.registerRule(new ProtectionRule());
+        ruleManager.registerRule(new DeathCauseRule());
+        ruleManager.registerRule(new WorldTimeRule());
+    }
+
+    public RuleManager getRuleManager() {
+        return ruleManager;
+    }
+
     public LandsHook getLandsHook() {
         return landsHook;
     }
@@ -817,6 +852,14 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
     public boolean isGravesXEnabled() {
         return gravesXHook != null && gravesXHook.isEnabled();
+    }
+
+    public AxGravesHook getAxGravesHook() {
+        return axGravesHook;
+    }
+
+    public boolean isAxGravesEnabled() {
+        return axGravesHook != null && axGravesHook.isEnabled();
     }
 
     public StatsManager getStatsManager() {

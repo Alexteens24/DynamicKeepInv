@@ -6,7 +6,7 @@
 
     <groupId>xyz.superez</groupId>
     <artifactId>DynamicKeepInv</artifactId>
-    <version>1.0.20.1</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
     <name>DynamicKeepInv</name>
@@ -37,6 +37,11 @@
         <repository>
             <id>cwhead-dev-repo</id>
             <url>https://repo.cwhead.dev/repository/maven-public/</url>
+        </repository>
+        <!-- Artillex-Studios Repository -->
+        <repository>
+            <id>Artillex-Studios</id>
+            <url>https://repo.artillex-studios.com/releases/</url>
         </repository>
     </repositories>
 
@@ -86,6 +91,14 @@
             <groupId>com.ranull</groupId>
             <artifactId>GravesX</artifactId>
             <version>4.9.9.2-api</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- AxGraves API - Jitpack fallback -->
+        <dependency>
+            <groupId>com.github.Artillex-Studios</groupId>
+            <artifactId>AxGraves</artifactId>
+            <version>1.24.0</version>
             <scope>provided</scope>
         </dependency>
 
