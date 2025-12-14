@@ -303,30 +303,40 @@ public class PendingDeathManager {
      * Restore inventory to player
      */
     private void restoreInventory(Player player, PendingDeath pending) {
+        // Collect any items currently in the player's inventory that might be overwritten
+        List<ItemStack> leftovers = new ArrayList<>();
+
         // Restore main contents (merging to preserve Soulbound/kept items)
         ItemStack[] savedContents = pending.getSavedInventory();
         ItemStack[] currentContents = player.getInventory().getContents();
+
         for (int i = 0; i < savedContents.length && i < currentContents.length; i++) {
             if (savedContents[i] != null) {
+                // If we are about to overwrite a non-empty slot, save the current item
+                if (currentContents[i] != null && !currentContents[i].getType().isAir()) {
+                    leftovers.add(currentContents[i]);
+                }
                 currentContents[i] = savedContents[i];
             }
             // If savedContents[i] is null, we keep currentContents[i] (which might be a kept soulbound item)
         }
         player.getInventory().setContents(currentContents);
 
-        // Restore armor (merging)
-        ItemStack[] savedArmor = pending.getSavedArmor();
-        ItemStack[] currentArmor = player.getInventory().getArmorContents();
-        for (int i = 0; i < savedArmor.length && i < currentArmor.length; i++) {
-            if (savedArmor[i] != null) {
-                currentArmor[i] = savedArmor[i];
-            }
-        }
-        player.getInventory().setArmorContents(currentArmor);
+        // We do not need to restore armor/offhand explicitly as they are included in setContents (from getContents)
+        // savedContents (from getContents) covers slots 0-40 (including armor and offhand)
 
-        // Restore offhand
-        if (pending.getOffhandItem() != null) {
-            player.getInventory().setItemInOffHand(pending.getOffhandItem());
+        // Give back any items that were overwritten (e.g. picked up after respawn)
+        if (!leftovers.isEmpty()) {
+            Map<Integer, ItemStack> couldNotFit = player.getInventory().addItem(leftovers.toArray(new ItemStack[0]));
+            if (!couldNotFit.isEmpty()) {
+                for (ItemStack item : couldNotFit.values()) {
+                    player.getWorld().dropItemNaturally(player.getLocation(), item);
+                }
+                String msg = plugin.getMessage("economy.gui.items-overflow");
+                if (msg != null && !msg.startsWith("Missing message:")) {
+                    player.sendMessage(plugin.parseMessage(msg));
+                }
+            }
         }
 
         player.setLevel(pending.getSavedLevel());
@@ -365,7 +375,8 @@ public class PendingDeathManager {
             // Even if the player is online, they might be in a different region (e.g. at spawn).
             // So we always schedule on the drop location's region.
             Runnable dropTask = () -> performDrop(dropLocation, pending, player);
-            Bukkit.getRegionScheduler().execute(plugin, dropLocation, dropTask);
+            // Use run instead of execute to ensure proper scheduling (handles unloaded chunks gracefully by queueing if needed)
+            Bukkit.getRegionScheduler().run(plugin, dropLocation, task -> dropTask.run());
         } else {
             performDrop(dropLocation, pending, player);
         }
