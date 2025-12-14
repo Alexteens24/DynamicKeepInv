@@ -45,8 +45,8 @@ worlds:
   # Per-world overrides. Example:
   # overrides:
   #   world_nether:
-  #     keep-inventory-day: false
-  #     keep-inventory-night: false
+  #     day: false
+  #     night: false
   overrides: {}
 
 # --- Messages & Broadcasts ---

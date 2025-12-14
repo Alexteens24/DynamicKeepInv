@@ -21,14 +21,6 @@ public class DeathListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
-        // The "advanced.enabled" check was removed in the new config.
-        // We assume core "enabled" is sufficient, or maybe we check "rules.enabled"?
-        // But the user just wanted cleaner structure.
-        // The top level "enabled" controls the plugin's main time task.
-        // But DeathListener should probably respect "enabled" too.
-        // The old config had "advanced.enabled" inside advanced section.
-        // I removed it in my new config structure assuming the main enabled or just having rules implies enabled.
-        // Let's check "enabled" top level.
         if (!plugin.getConfig().getBoolean("enabled", true)) {
              return;
         }

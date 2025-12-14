@@ -29,7 +29,7 @@ public class WorldTimeRule implements DeathRule {
         String worldPath = "worlds.overrides." + worldName;
 
         if (plugin.getConfig().contains(worldPath)) {
-            String timePath = isDay ? ".keep-inventory-day" : ".keep-inventory-night";
+            String timePath = isDay ? ".day" : ".night";
             if (plugin.getConfig().contains(worldPath + timePath)) {
                 return plugin.getConfig().getBoolean(worldPath + timePath);
             }

@@ -802,12 +802,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         String worldPath = "worlds.overrides." + worldName;
 
         if (getConfig().contains(worldPath)) {
-            // Note: The structure in new config for overrides is:
-            // worlds:
-            //   overrides:
-            //     world_nether:
-            //       keep-inventory-day: false
-            String timePath = isDay ? ".keep-inventory-day" : ".keep-inventory-night";
+            String timePath = isDay ? ".day" : ".night";
             if (getConfig().contains(worldPath + timePath)) {
                 return getConfig().getBoolean(worldPath + timePath);
             }
