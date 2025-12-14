@@ -78,15 +78,83 @@ public class DeathListener implements Listener {
                 if (eco != null && eco.isEnabled()) {
                     plugin.debug("GUI mode: Saving inventory for confirmation GUI");
 
+                    // Prepare inventory for saving, filtering out Soulbound items to keep them
+                    org.bukkit.inventory.ItemStack[] contents = player.getInventory().getContents();
+                    org.bukkit.inventory.ItemStack[] armor = player.getInventory().getArmorContents();
+                    org.bukkit.inventory.ItemStack offHand = player.getInventory().getItemInOffHand();
+
+                    // Arrays to pass to PendingDeath (without soulbound items)
+                    org.bukkit.inventory.ItemStack[] savedContents = new org.bukkit.inventory.ItemStack[contents.length];
+                    org.bukkit.inventory.ItemStack[] savedArmor = new org.bukkit.inventory.ItemStack[armor.length];
+                    org.bukkit.inventory.ItemStack savedOffHand = null;
+
+                    int keptSoulbound = 0;
+
+                    // Filter contents
+                    for (int i = 0; i < contents.length; i++) {
+                        org.bukkit.inventory.ItemStack item = contents[i];
+                        if (item != null && !item.getType().isAir()) {
+                            boolean isSoulbound = false;
+                            if (plugin.isMMOItemsEnabled()) {
+                                isSoulbound = plugin.getMMOItemsHook().isSoulbound(item);
+                            }
+
+                            if (isSoulbound) {
+                                event.getItemsToKeep().add(item.clone());
+                                keptSoulbound++;
+                                // Leave null in savedContents
+                            } else {
+                                savedContents[i] = item.clone();
+                            }
+                        }
+                    }
+
+                    // Filter armor
+                    for (int i = 0; i < armor.length; i++) {
+                        org.bukkit.inventory.ItemStack item = armor[i];
+                        if (item != null && !item.getType().isAir()) {
+                            boolean isSoulbound = false;
+                            if (plugin.isMMOItemsEnabled()) {
+                                isSoulbound = plugin.getMMOItemsHook().isSoulbound(item);
+                            }
+
+                            if (isSoulbound) {
+                                event.getItemsToKeep().add(item.clone());
+                                keptSoulbound++;
+                            } else {
+                                savedArmor[i] = item.clone();
+                            }
+                        }
+                    }
+
+                    // Filter offhand
+                    if (offHand != null && !offHand.getType().isAir()) {
+                        boolean isSoulbound = false;
+                        if (plugin.isMMOItemsEnabled()) {
+                            isSoulbound = plugin.getMMOItemsHook().isSoulbound(offHand);
+                        }
+
+                        if (isSoulbound) {
+                            event.getItemsToKeep().add(offHand.clone());
+                            keptSoulbound++;
+                        } else {
+                            savedOffHand = offHand.clone();
+                        }
+                    }
+
+                    if (keptSoulbound > 0) {
+                        plugin.debug("GUI Mode: Kept " + keptSoulbound + " soulbound items from pending death");
+                    }
+
                     // Save inventory to pending death
                     PendingDeathManager pendingManager = plugin.getPendingDeathManager();
                     if (pendingManager != null) {
                         PendingDeath pendingDeath = new PendingDeath(
                             player.getUniqueId(),
                             player.getName(),
-                            player.getInventory().getContents(),
-                            player.getInventory().getArmorContents(),
-                            player.getInventory().getItemInOffHand(),
+                            savedContents,
+                            savedArmor,
+                            savedOffHand,
                             player.getLevel(),
                             player.getExp(),
                             cost,
@@ -116,7 +184,17 @@ public class DeathListener implements Listener {
                             // Don't send death message here - will send in GUI
                             return;
                         } else {
-                            plugin.debug("GUI mode: No items or XP to save, skipping GUI");
+                            plugin.debug("GUI mode: No items or XP to save (all empty or soulbound kept), skipping GUI");
+                            // If everything was soulbound and kept, we should probably set keepInventory=false to clear the rest
+                            // But since we populated getItemsToKeep, those will be restored.
+                            // However, we must ensure other items are cleared.
+                            event.setKeepInventory(false);
+                            event.getDrops().clear();
+                            // If we kept XP in pendingDeath? No, here pendingDeath has no items/XP worth saving.
+                            // But XP might still be there. If pendingDeath.hasItems() is false AND level==0.
+                            // If we are here, it means nothing to save.
+                            // But we might have kept soulbound items.
+                            // The player should just respawn with kept items.
                         }
                     } else {
                         plugin.debug("PendingDeathManager is null, falling back to normal mode");
@@ -364,6 +442,11 @@ public class DeathListener implements Listener {
                 int savedSoulbound = 0;
                 for (org.bukkit.inventory.ItemStack item : player.getInventory().getContents()) {
                     if (item != null && !item.getType().isAir()) {
+                        // Check for Curse of Vanishing
+                        if (item.hasItemMeta() && item.getItemMeta().hasEnchant(org.bukkit.enchantments.Enchantment.VANISHING_CURSE)) {
+                            continue;
+                        }
+
                         boolean isSoulbound = false;
                         if (plugin.isMMOItemsEnabled()) {
                             isSoulbound = plugin.getMMOItemsHook().isSoulbound(item);
