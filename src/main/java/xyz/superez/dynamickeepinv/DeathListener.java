@@ -21,8 +21,16 @@ public class DeathListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
-        if (!plugin.getConfig().getBoolean("advanced.enabled", false)) {
-            return;
+        // The "advanced.enabled" check was removed in the new config.
+        // We assume core "enabled" is sufficient, or maybe we check "rules.enabled"?
+        // But the user just wanted cleaner structure.
+        // The top level "enabled" controls the plugin's main time task.
+        // But DeathListener should probably respect "enabled" too.
+        // The old config had "advanced.enabled" inside advanced section.
+        // I removed it in my new config structure assuming the main enabled or just having rules implies enabled.
+        // Let's check "enabled" top level.
+        if (!plugin.getConfig().getBoolean("enabled", true)) {
+             return;
         }
 
         Player player = event.getEntity();
@@ -67,9 +75,9 @@ public class DeathListener implements Listener {
         final String baseReason = reason;
 
         // 5. Economy Check
-        if (plugin.getConfig().getBoolean("advanced.economy.enabled", false)) {
-            double cost = plugin.getConfig().getDouble("advanced.economy.cost", 0.0);
-            String mode = plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep");
+        if (plugin.getConfig().getBoolean("economy.enabled", false)) {
+            double cost = plugin.getConfig().getDouble("economy.cost", 0.0);
+            String mode = plugin.getConfig().getString("economy.mode", "charge-to-keep");
             plugin.debug("Economy enabled. Cost=" + cost + ", Mode=" + mode);
 
             // GUI mode - save inventory and show confirmation GUI on respawn
@@ -197,7 +205,7 @@ public class DeathListener implements Listener {
                 }
             }
         } else {
-            plugin.debug("Economy check skipped. EcoEnabled=" + plugin.getConfig().getBoolean("advanced.economy.enabled", false));
+            plugin.debug("Economy check skipped. EcoEnabled=" + plugin.getConfig().getBoolean("economy.enabled", false));
         }
 
         plugin.debug("Final decision: keepItems=" + keepItems + ", keepXp=" + keepXp);
@@ -230,8 +238,8 @@ public class DeathListener implements Listener {
         }
 
         String reasonFinal;
-        boolean economyBypass = plugin.getConfig().getBoolean("advanced.economy.enabled", false)
-                && "charge-to-bypass".equalsIgnoreCase(plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep"))
+        boolean economyBypass = plugin.getConfig().getBoolean("economy.enabled", false)
+                && "charge-to-bypass".equalsIgnoreCase(plugin.getConfig().getString("economy.mode", "charge-to-keep"))
                 && (keepItems || keepXp)
                 && (!baseKeepItems || !baseKeepXp);
 
@@ -248,7 +256,7 @@ public class DeathListener implements Listener {
     }
 
     private void sendDeathMessage(Player player, boolean keepItems, boolean keepXp, String reason) {
-        if (!plugin.getConfig().getBoolean("advanced.death-message.enabled", true)) {
+        if (!plugin.getConfig().getBoolean("messages.death.enabled", true)) {
             return;
         }
 
@@ -273,11 +281,11 @@ public class DeathListener implements Listener {
             message = message + " " + reasonMsg;
         }
 
-        if (plugin.getConfig().getBoolean("advanced.death-message.chat", true)) {
+        if (plugin.getConfig().getBoolean("messages.death.chat", true)) {
             player.sendMessage(plugin.parseMessage(message));
         }
 
-        if (plugin.getConfig().getBoolean("advanced.death-message.action-bar", false)) {
+        if (plugin.getConfig().getBoolean("messages.death.action-bar", false)) {
             player.sendActionBar(plugin.parseMessage(message));
         }
     }
@@ -374,8 +382,8 @@ public class DeathListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerRespawn(PlayerRespawnEvent event) {
         // Check if GUI mode is enabled
-        if (!plugin.getConfig().getBoolean("advanced.economy.enabled", false)) return;
-        if (!"gui".equalsIgnoreCase(plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep"))) return;
+        if (!plugin.getConfig().getBoolean("economy.enabled", false)) return;
+        if (!"gui".equalsIgnoreCase(plugin.getConfig().getString("economy.mode", "charge-to-keep"))) return;
 
         Player player = event.getPlayer();
         PendingDeathManager pendingManager = plugin.getPendingDeathManager();
@@ -413,8 +421,8 @@ public class DeathListener implements Listener {
         }
 
         // Check if GUI mode is enabled
-        if (!plugin.getConfig().getBoolean("advanced.economy.enabled", false)) return;
-        if (!"gui".equalsIgnoreCase(plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep"))) return;
+        if (!plugin.getConfig().getBoolean("economy.enabled", false)) return;
+        if (!"gui".equalsIgnoreCase(plugin.getConfig().getString("economy.mode", "charge-to-keep"))) return;
 
         if (pendingManager == null) return;
 

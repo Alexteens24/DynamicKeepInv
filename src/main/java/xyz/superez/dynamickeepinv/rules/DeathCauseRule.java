@@ -8,13 +8,13 @@ public class DeathCauseRule implements DeathRule {
 
     @Override
     public RuleResult evaluate(PlayerDeathEvent event, DynamicKeepInvPlugin plugin) {
-        if (!plugin.getConfig().getBoolean("advanced.death-cause.enabled", false)) {
+        if (!plugin.getConfig().getBoolean("rules.death-cause.enabled", false)) {
             return null;
         }
 
         Player player = event.getEntity();
         boolean isPvp = player.getKiller() != null;
-        String causePath = isPvp ? "advanced.death-cause.pvp" : "advanced.death-cause.pve";
+        String causePath = isPvp ? "rules.death-cause.pvp" : "rules.death-cause.pve";
 
         boolean keepItems = plugin.getConfig().getBoolean(causePath + ".keep-items", false);
         boolean keepXp = plugin.getConfig().getBoolean(causePath + ".keep-xp", false);

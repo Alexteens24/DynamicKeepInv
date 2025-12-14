@@ -10,12 +10,12 @@ public class WorldTimeRule implements DeathRule {
     public RuleResult evaluate(PlayerDeathEvent event, DynamicKeepInvPlugin plugin) {
         World world = event.getEntity().getWorld();
         long time = world.getTime();
-        long dayStart = plugin.getConfig().getLong("day-start", 0);
-        long nightStart = plugin.getConfig().getLong("night-start", 13000);
+        long dayStart = plugin.getConfig().getLong("time.day-start", 0);
+        long nightStart = plugin.getConfig().getLong("time.night-start", 13000);
 
         boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
         String baseReason = isDay ? "time-day" : "time-night";
-        String settingPath = isDay ? "advanced.day" : "advanced.night";
+        String settingPath = isDay ? "rules.day" : "rules.night";
 
         boolean defaultKeepItems = getWorldKeepInventory(plugin, world, isDay);
         boolean keepItems = plugin.getConfig().getBoolean(settingPath + ".keep-items", defaultKeepItems);
@@ -26,7 +26,7 @@ public class WorldTimeRule implements DeathRule {
 
     private boolean getWorldKeepInventory(DynamicKeepInvPlugin plugin, World world, boolean isDay) {
         String worldName = world.getName();
-        String worldPath = "world-settings." + worldName;
+        String worldPath = "worlds.overrides." + worldName;
 
         if (plugin.getConfig().contains(worldPath)) {
             String timePath = isDay ? ".keep-inventory-day" : ".keep-inventory-night";
@@ -37,8 +37,8 @@ public class WorldTimeRule implements DeathRule {
 
         // Fallback to global settings
         return isDay
-            ? plugin.getConfig().getBoolean("keep-inventory-day", true)
-            : plugin.getConfig().getBoolean("keep-inventory-night", false);
+            ? plugin.getConfig().getBoolean("rules.day.keep-items", true)
+            : plugin.getConfig().getBoolean("rules.night.keep-items", false);
     }
 
     @Override
