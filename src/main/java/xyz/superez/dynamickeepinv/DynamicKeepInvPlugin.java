@@ -92,6 +92,9 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
         reloadStatsSystem();
 
+        // Register Command Completer
+        getCommand("dynamickeepinv").setTabCompleter(new CommandCompleter(this));
+
         // Initialize GUI economy mode components
         if (getConfig().getBoolean("economy.enabled", false)
             && "gui".equalsIgnoreCase(getConfig().getString("economy.mode", "charge-to-keep"))) {
