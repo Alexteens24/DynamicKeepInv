@@ -336,18 +336,49 @@ public class DeathListener implements Listener {
         } else {
             event.setKeepInventory(false);
 
+            // Handle MMOItems Soulbound support
+            if (plugin.isMMOItemsEnabled()) {
+                xyz.superez.dynamickeepinv.hooks.MMOItemsHook hook = plugin.getMMOItemsHook();
+                if (event.getDrops() != null && !event.getDrops().isEmpty()) {
+                    java.util.Iterator<org.bukkit.inventory.ItemStack> it = event.getDrops().iterator();
+                    int savedCount = 0;
+                    while (it.hasNext()) {
+                        org.bukkit.inventory.ItemStack drop = it.next();
+                        if (hook.isSoulbound(drop)) {
+                            it.remove();
+                            event.getItemsToKeep().add(drop);
+                            savedCount++;
+                        }
+                    }
+                    if (savedCount > 0) {
+                        plugin.debug("Saved " + savedCount + " MMOItems soulbound items from drops");
+                    }
+                }
+            }
+
             Boolean gameruleKeepInv = player.getWorld().getGameRuleValue(org.bukkit.GameRule.KEEP_INVENTORY);
             boolean wasKeepingInventory = gameruleKeepInv != null && gameruleKeepInv;
             if (event.getDrops() != null && event.getDrops().isEmpty() && wasKeepingInventory) {
                 plugin.debug("Drops empty and gamerule was keepInventory=true, forcing inventory to drops...");
                 int addedItems = 0;
+                int savedSoulbound = 0;
                 for (org.bukkit.inventory.ItemStack item : player.getInventory().getContents()) {
                     if (item != null && !item.getType().isAir()) {
-                        event.getDrops().add(item.clone());
-                        addedItems++;
+                        boolean isSoulbound = false;
+                        if (plugin.isMMOItemsEnabled()) {
+                            isSoulbound = plugin.getMMOItemsHook().isSoulbound(item);
+                        }
+
+                        if (isSoulbound) {
+                            event.getItemsToKeep().add(item.clone());
+                            savedSoulbound++;
+                        } else {
+                            event.getDrops().add(item.clone());
+                            addedItems++;
+                        }
                     }
                 }
-                plugin.debug("Added " + addedItems + " items to drops");
+                plugin.debug("Added " + addedItems + " items to drops, kept " + savedSoulbound + " soulbound items");
                 player.getInventory().clear();
             } else {
                 int dropSize = (event.getDrops() != null) ? event.getDrops().size() : 0;

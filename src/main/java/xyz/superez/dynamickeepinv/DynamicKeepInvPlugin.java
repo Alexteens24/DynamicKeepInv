@@ -24,6 +24,7 @@ import xyz.superez.dynamickeepinv.hooks.LandsHook;
 import xyz.superez.dynamickeepinv.hooks.GriefPreventionHook;
 import xyz.superez.dynamickeepinv.hooks.GravesXHook;
 import xyz.superez.dynamickeepinv.hooks.AxGravesHook;
+import xyz.superez.dynamickeepinv.hooks.MMOItemsHook;
 import xyz.superez.dynamickeepinv.rules.*;
 
 import java.io.File;
@@ -69,6 +70,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private GriefPreventionHook griefPreventionHook;
     private GravesXHook gravesXHook;
     private AxGravesHook axGravesHook;
+    private MMOItemsHook mmoItemsHook;
     private DynamicKeepInvExpansion placeholderExpansion;
     private StatsManager statsManager;
     private StatsGUI statsGUI;
@@ -280,6 +282,13 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             }
         } else {
             axGravesHook = null;
+        }
+
+        if (Bukkit.getPluginManager().getPlugin("MMOItems") != null) {
+            mmoItemsHook = new MMOItemsHook(this);
+            getLogger().info("MMOItems hooked!");
+        } else {
+            mmoItemsHook = null;
         }
     }
 
@@ -860,6 +869,14 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
     public boolean isAxGravesEnabled() {
         return axGravesHook != null && axGravesHook.isEnabled();
+    }
+
+    public MMOItemsHook getMMOItemsHook() {
+        return mmoItemsHook;
+    }
+
+    public boolean isMMOItemsEnabled() {
+        return mmoItemsHook != null;
     }
 
     public StatsManager getStatsManager() {
