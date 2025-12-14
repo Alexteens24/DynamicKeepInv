@@ -178,18 +178,11 @@ public class PendingDeath {
      * Check if inventory has any items worth saving
      */
     public boolean hasItems() {
+        // savedInventory comes from PlayerInventory.getContents() which includes armor and offhand
         for (ItemStack item : savedInventory) {
             if (item != null && !item.getType().isAir()) {
                 return true;
             }
-        }
-        for (ItemStack item : savedArmor) {
-            if (item != null && !item.getType().isAir()) {
-                return true;
-            }
-        }
-        if (offhandItem != null && !offhandItem.getType().isAir()) {
-            return true;
         }
         return false;
     }
@@ -198,19 +191,12 @@ public class PendingDeath {
      * Count total items in inventory
      */
     public int countItems() {
+        // savedInventory comes from PlayerInventory.getContents() which includes armor and offhand
         int count = 0;
         for (ItemStack item : savedInventory) {
             if (item != null && !item.getType().isAir()) {
                 count++;
             }
-        }
-        for (ItemStack item : savedArmor) {
-            if (item != null && !item.getType().isAir()) {
-                count++;
-            }
-        }
-        if (offhandItem != null && !offhandItem.getType().isAir()) {
-            count++;
         }
         return count;
     }
