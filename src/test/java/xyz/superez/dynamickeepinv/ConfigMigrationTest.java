@@ -42,11 +42,12 @@ public class ConfigMigrationTest {
 
     @Test
     public void testConfigMigration() throws Exception {
-        // Create an old config file
+        // Create an old config file with an extra key
         File configFile = new File(dataFolder, "config.yml");
         try (FileWriter writer = new FileWriter(configFile)) {
             writer.write("config-version: 1\n");
             writer.write("old-setting: true\n");
+            writer.write("deprecated-setting: true\n");
         }
 
         // Mock default config resource
@@ -75,14 +76,45 @@ public class ConfigMigrationTest {
 
         // Old setting should be preserved (value true from file, not false from default)
         assertTrue(loadedConfig.getBoolean("old-setting"));
+
+        // Deprecated setting should be removed because it's not in default config
+        assertFalse(loadedConfig.contains("deprecated-setting"));
+    }
+
+    @Test
+    public void testConfigMigrationPreservesWorldOverrides() throws Exception {
+        // Create an config with dynamic world overrides
+        File configFile = new File(dataFolder, "config.yml");
+        try (FileWriter writer = new FileWriter(configFile)) {
+            writer.write("config-version: 2\n");
+            writer.write("worlds:\n  overrides:\n    my_custom_world:\n      day: true\n");
+        }
+
+        // Mock default config resource
+        String defaultConfigContent = "config-version: 2\n" +
+                                      "worlds:\n  overrides: {}\n";
+        InputStream defConfigStream = new ByteArrayInputStream(defaultConfigContent.getBytes(StandardCharsets.UTF_8));
+        when(plugin.getResource("config.yml")).thenReturn(defConfigStream);
+
+        when(plugin.getResource("messages.yml")).thenReturn(null);
+
+        // Run migration
+        ConfigMigration migration = new ConfigMigration(plugin);
+        migration.checkAndMigrate();
+
+        // Verify migration
+        YamlConfiguration loadedConfig = YamlConfiguration.loadConfiguration(configFile);
+
+        // Dynamic key should be preserved
+        assertTrue(loadedConfig.contains("worlds.overrides.my_custom_world.day"));
     }
 
     @Test
     public void testMessagesMigration() throws Exception {
-        // Create an old messages file
+        // Create an old messages file with extra key
         File messagesFile = new File(dataFolder, "messages.yml");
         try (FileWriter writer = new FileWriter(messagesFile)) {
-            writer.write("messages:\n  en:\n    existing: \"Old\"\n");
+            writer.write("messages:\n  en:\n    existing: \"Old\"\n    deprecated: \"Bye\"\n");
         }
 
         // Mock default messages resource
@@ -110,5 +142,8 @@ public class ConfigMigrationTest {
 
         // Existing message should be preserved
         assertEquals("Old", loadedMessages.getString("messages.en.existing"));
+
+        // Deprecated message should be removed
+        assertFalse(loadedMessages.contains("messages.en.deprecated"));
     }
 }
