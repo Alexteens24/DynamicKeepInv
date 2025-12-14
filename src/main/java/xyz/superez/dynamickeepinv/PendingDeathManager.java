@@ -53,8 +53,8 @@ public class PendingDeathManager {
     }
     
     private void loadConfig() {
-        timeoutMs = plugin.getConfig().getLong("advanced.economy.gui.timeout", 30) * 1000L;
-        expireMs = plugin.getConfig().getLong("advanced.economy.gui.expire-time", 300) * 1000L;
+        timeoutMs = plugin.getConfig().getLong("economy.gui.timeout", 30) * 1000L;
+        expireMs = plugin.getConfig().getLong("economy.gui.expire-time", 300) * 1000L;
     }
     
     private void initDatabase() {

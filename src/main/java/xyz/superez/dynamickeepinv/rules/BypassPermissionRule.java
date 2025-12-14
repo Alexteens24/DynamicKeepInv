@@ -8,7 +8,7 @@ public class BypassPermissionRule implements DeathRule {
 
     @Override
     public RuleResult evaluate(PlayerDeathEvent event, DynamicKeepInvPlugin plugin) {
-        if (!plugin.getConfig().getBoolean("advanced.bypass-permission", true)) {
+        if (!plugin.getConfig().getBoolean("rules.bypass-permission", true)) {
             return null;
         }
 
