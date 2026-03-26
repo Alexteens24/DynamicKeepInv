@@ -1,14 +1,26 @@
 package xyz.superez.dynamickeepinv;
 
+import org.bukkit.Bukkit;
+import org.bukkit.GameRule;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import xyz.superez.dynamickeepinv.hooks.LandsHook;
-import xyz.superez.dynamickeepinv.hooks.GriefPreventionHook;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.inventory.ItemStack;
+import xyz.superez.dynamickeepinv.hooks.MMOItemsHook;
+import xyz.superez.dynamickeepinv.rules.RuleManager;
+import xyz.superez.dynamickeepinv.rules.RuleReasons;
+import xyz.superez.dynamickeepinv.rules.RuleResult;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
 public class DeathListener implements Listener {
     private final DynamicKeepInvPlugin plugin;
@@ -19,8 +31,9 @@ public class DeathListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
-        if (!plugin.getConfig().getBoolean("advanced.enabled", false)) {
-            return;
+        DKIConfig cfg = plugin.getDKIConfig();
+        if (!cfg.enabled) {
+             return;
         }
 
         Player player = event.getEntity();
@@ -32,123 +45,189 @@ public class DeathListener implements Listener {
         }
 
         plugin.debug("Advanced death handling triggered for " + player.getName());
-        plugin.debug("Current gamerule KEEP_INVENTORY: " + world.getGameRuleValue(org.bukkit.GameRule.KEEP_INVENTORY));
+        plugin.debug("Current gamerule KEEP_INVENTORY: " + world.getGameRuleValue(GameRule.KEEP_INVENTORY));
         plugin.debug("Event keepInventory before processing: " + event.getKeepInventory());
 
-        // If gamerule keepInventory is already true, no need to process or show messages
-        Boolean gameruleValue = world.getGameRuleValue(org.bukkit.GameRule.KEEP_INVENTORY);
-        if (gameruleValue != null && gameruleValue) {
-            plugin.debug("Gamerule KEEP_INVENTORY is true, skipping advanced death handling.");
+        // Evaluate rules via RuleManager
+        RuleManager ruleManager = plugin.getRuleManager();
+        if (ruleManager == null) {
+            plugin.getLogger().severe("RuleManager is null! Aborting death handling.");
             return;
         }
 
-        if (plugin.getConfig().getBoolean("advanced.bypass-permission", true)) {
-            if (player.hasPermission("dynamickeepinv.bypass")) {
-                plugin.debug("Player " + player.getName() + " has bypass permission. Keeping inventory.");
-                event.setKeepInventory(true);
-                event.setKeepLevel(true);
-                event.setDroppedExp(0);
-                if (event.getDrops() != null) {
-                    event.getDrops().clear();
-                }
-                sendDeathMessage(player, true, true, "bypass");
-                return;
-            }
+        RuleResult result = ruleManager.evaluate(event);
+        if (result == null) {
+            plugin.debug("No rule matched! Using defaults (DROP).");
+            result = new RuleResult(false, false, RuleReasons.UNKNOWN);
         }
 
-        ProtectionResult protectionResult = checkProtectionPlugins(player, deathLocation);
-        
-        // Protection plugins in claimed areas have highest priority - return immediately
-        if (protectionResult.handled && !protectionResult.reason.contains("wilderness")) {
-            plugin.debug("Death handled by protection plugin (claimed area): keepItems=" + protectionResult.keepItems + ", keepXp=" + protectionResult.keepXp);
-            applyKeepInventorySettings(event, protectionResult.keepItems, protectionResult.keepXp);
-            sendDeathMessage(player, protectionResult.keepItems, protectionResult.keepXp, protectionResult.reason);
+        // Handle deferral (e.g. Lands-defer)
+        if (RuleReasons.LANDS_DEFER.equals(result.reason())) {
+            plugin.debug("Rule deferred to Lands without altering drops.");
             return;
         }
-        
-        // Check if wilderness should use death-cause instead
-        boolean wildernessUseDeathCause = false;
-        if (protectionResult.handled && protectionResult.reason.contains("wilderness")) {
-            // Check which protection plugin's wilderness setting
-            if (protectionResult.reason.contains("lands")) {
-                wildernessUseDeathCause = plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.use-death-cause", false);
-            } else if (protectionResult.reason.contains("griefprevention")) {
-                wildernessUseDeathCause = plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.use-death-cause", false);
-            }
-            plugin.debug("Wilderness use-death-cause: " + wildernessUseDeathCause);
-        }
-        
-        // For wilderness with use-death-cause=true, skip wilderness settings and go straight to death-cause
-        boolean keepItems, keepXp;
-        String baseReason;
-        
-        if (protectionResult.handled && !wildernessUseDeathCause) {
-            // Wilderness with fixed settings - use as base values
-            keepItems = protectionResult.keepItems;
-            keepXp = protectionResult.keepXp;
-            baseReason = protectionResult.reason;
-            plugin.debug("Wilderness base settings: keepItems=" + keepItems + ", keepXp=" + keepXp);
-        } else if (protectionResult.handled && wildernessUseDeathCause) {
-            // Wilderness but defer to death-cause - use time-based as fallback
-            long time = world.getTime();
-            long dayStart = plugin.getConfig().getLong("day-start", 0);
-            long nightStart = plugin.getConfig().getLong("night-start", 13000);
-            boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
-            
-            String settingPath = isDay ? "advanced.day" : "advanced.night";
-            boolean defaultKeepItems = getWorldKeepInventory(world, isDay);
-            keepItems = plugin.getConfig().getBoolean(settingPath + ".keep-items", defaultKeepItems);
-            keepXp = plugin.getConfig().getBoolean(settingPath + ".keep-xp", defaultKeepItems);
-            baseReason = isDay ? "time-day" : "time-night";
-            plugin.debug("Wilderness with use-death-cause=true, using time-based: Time=" + time + ", isDay=" + isDay + ", keepItems=" + keepItems + ", keepXp=" + keepXp);
-        } else {
-            // No protection plugin handling - use time-based settings
-            long time = world.getTime();
-            long dayStart = plugin.getConfig().getLong("day-start", 0);
-            long nightStart = plugin.getConfig().getLong("night-start", 13000);
-            boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
-            
-            String settingPath = isDay ? "advanced.day" : "advanced.night";
-            boolean defaultKeepItems = getWorldKeepInventory(world, isDay);
-            keepItems = plugin.getConfig().getBoolean(settingPath + ".keep-items", defaultKeepItems);
-            keepXp = plugin.getConfig().getBoolean(settingPath + ".keep-xp", defaultKeepItems);
-            baseReason = isDay ? "time-day" : "time-night";
-            plugin.debug("Time-based settings: Time=" + time + ", isDay=" + isDay + ", keepItems=" + keepItems + ", keepXp=" + keepXp);
-        }
 
-        // Death cause can override wilderness (with use-death-cause) and time-based settings
-        if (plugin.getConfig().getBoolean("advanced.death-cause.enabled", false)) {
-            boolean isPvp = player.getKiller() != null;
-            String causePath = isPvp ? "advanced.death-cause.pvp" : "advanced.death-cause.pve";
-            plugin.debug("Death cause enabled. isPvp=" + isPvp + " (cause: " + (isPvp ? "PvP" : "PvE") + ")");
-            
-            boolean oldKeepItems = keepItems;
-            boolean oldKeepXp = keepXp;
-            keepItems = plugin.getConfig().getBoolean(causePath + ".keep-items", keepItems);
-            keepXp = plugin.getConfig().getBoolean(causePath + ".keep-xp", keepXp);
-            
-            if (oldKeepItems != keepItems || oldKeepXp != keepXp) {
-                plugin.debug("Death cause OVERRIDE: keepItems " + oldKeepItems + " -> " + keepItems + ", keepXp " + oldKeepXp + " -> " + keepXp);
-                baseReason = isPvp ? "pvp" : "pve";
-            }
-        }
+        boolean keepItems = result.keepItems();
+        boolean keepXp = result.keepXp();
+        String reason = result.reason();
+
+        plugin.debug("Rule matched: " + reason + ", keepItems=" + keepItems + ", keepXp=" + keepXp);
 
         final boolean baseKeepItems = keepItems;
         final boolean baseKeepXp = keepXp;
+        final String baseReason = reason;
 
-        if (plugin.getConfig().getBoolean("advanced.economy.enabled", false)) {
-            double cost = plugin.getConfig().getDouble("advanced.economy.cost", 0.0);
-            String mode = plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep");
+        // 5. Economy Check
+        if (cfg.economyEnabled) {
+            double cost = cfg.economyCost;
+            EconomyMode mode = cfg.economyMode;
             plugin.debug("Economy enabled. Cost=" + cost + ", Mode=" + mode);
-            
+
+            // GUI mode - save inventory and show confirmation GUI on respawn
+            if (mode == EconomyMode.GUI && cost > 0 && !baseKeepItems) {
+                EconomyManager eco = plugin.getEconomyManager();
+                if (eco != null && eco.isEnabled()) {
+                    plugin.debug("GUI mode: Saving inventory for confirmation GUI");
+
+                    // Prepare inventory for saving, filtering out Soulbound items to keep them
+                    ItemStack[] contents = player.getInventory().getContents();
+                    ItemStack[] armor = player.getInventory().getArmorContents();
+                    ItemStack offHand = player.getInventory().getItemInOffHand();
+
+                    // Arrays to pass to PendingDeath (without soulbound items)
+                    ItemStack[] savedContents = new ItemStack[contents.length];
+                    ItemStack[] savedArmor = new ItemStack[armor.length];
+                    ItemStack savedOffHand = null;
+
+                    int keptSoulbound = 0;
+
+                    // Filter contents
+                    for (int i = 0; i < contents.length; i++) {
+                        ItemStack item = contents[i];
+                        if (item != null && !item.getType().isAir()) {
+                            boolean isSoulbound = false;
+                            if (plugin.isMMOItemsEnabled()) {
+                                isSoulbound = plugin.getMMOItemsHook().isSoulbound(item);
+                            }
+
+                            if (isSoulbound) {
+                                event.getItemsToKeep().add(item.clone());
+                                keptSoulbound++;
+                                // Leave null in savedContents
+                            } else {
+                                savedContents[i] = item.clone();
+                            }
+                        }
+                    }
+
+                    // Filter armor
+                    for (int i = 0; i < armor.length; i++) {
+                        ItemStack item = armor[i];
+                        if (item != null && !item.getType().isAir()) {
+                            boolean isSoulbound = false;
+                            if (plugin.isMMOItemsEnabled()) {
+                                isSoulbound = plugin.getMMOItemsHook().isSoulbound(item);
+                            }
+
+                            if (isSoulbound) {
+                                event.getItemsToKeep().add(item.clone());
+                                keptSoulbound++;
+                            } else {
+                                savedArmor[i] = item.clone();
+                            }
+                        }
+                    }
+
+                    // Filter offhand
+                    if (offHand != null && !offHand.getType().isAir()) {
+                        boolean isSoulbound = false;
+                        if (plugin.isMMOItemsEnabled()) {
+                            isSoulbound = plugin.getMMOItemsHook().isSoulbound(offHand);
+                        }
+
+                        if (isSoulbound) {
+                            event.getItemsToKeep().add(offHand.clone());
+                            keptSoulbound++;
+                        } else {
+                            savedOffHand = offHand.clone();
+                        }
+                    }
+
+                    if (keptSoulbound > 0) {
+                        plugin.debug("GUI Mode: Kept " + keptSoulbound + " soulbound items from pending death");
+                    }
+
+                    // Save inventory to pending death
+                    PendingDeathManager pendingManager = plugin.getPendingDeathManager();
+                    if (pendingManager != null) {
+                        PendingDeath pendingDeath = new PendingDeath(
+                            player.getUniqueId(),
+                            player.getName(),
+                            savedContents,
+                            savedArmor,
+                            savedOffHand,
+                            player.getLevel(),
+                            player.getExp(),
+                            cost,
+                            world.getName(),
+                            deathLocation.getX(),
+                            deathLocation.getY(),
+                            deathLocation.getZ(),
+                            baseReason
+                        );
+
+                        // Only save if there are items worth saving
+                        if (pendingDeath.hasItems() || player.getLevel() > 0) {
+                            pendingManager.addPendingDeath(pendingDeath);
+
+                            // IMPORTANT: Cancel drops and disable keepInventory
+                            // This removes items from the player (standard death) but prevents them from dropping
+                            // We've already saved the inventory in PendingDeathManager
+                            event.setKeepInventory(false);
+                            event.setKeepLevel(false);
+                            event.getDrops().clear();
+                            event.setDroppedExp(0);
+
+                            // No need to schedule inventory clear as keepInventory=false will handle it
+
+                            plugin.debug("Saved pending death with " + pendingDeath.countItems() + " items, cost=" + cost);
+
+                            // Don't send death message here - will send in GUI
+                            return;
+                        } else {
+                            plugin.debug("GUI mode: No items or XP to save (all empty or soulbound kept), skipping GUI");
+                            // If everything was soulbound and kept, we should probably set keepInventory=false to clear the rest
+                            // But since we populated getItemsToKeep, those will be restored.
+                            // However, we must ensure other items are cleared.
+                            event.setKeepInventory(false);
+                            event.getDrops().clear();
+                            // If we kept XP in pendingDeath? No, here pendingDeath has no items/XP worth saving.
+                            // But XP might still be there. If pendingDeath.hasItems() is false AND level==0.
+                            // If we are here, it means nothing to save.
+                            // But we might have kept soulbound items.
+                            // The player should just respawn with kept items.
+                        }
+                    } else {
+                        plugin.debug("PendingDeathManager is null, falling back to normal mode");
+                    }
+                } else {
+                    plugin.debug("Economy not available for GUI mode, forcing drops");
+                    // Economy unavailable while GUI mode requested -> force drop to avoid free keep
+                    keepItems = false;
+                    keepXp = false;
+                }
+            }
+
             boolean shouldProcessEconomy = false;
-            if ("charge-to-bypass".equalsIgnoreCase(mode)) {
+            if (mode == EconomyMode.CHARGE_TO_BYPASS) {
+                // In bypass mode, we charge if the player WOULD lose items (to bypass the loss)
                 shouldProcessEconomy = !keepItems || !keepXp;
                 plugin.debug("Bypass mode check: keepItems=" + keepItems + ", keepXp=" + keepXp + ", shouldProcess=" + shouldProcessEconomy);
             } else {
+                // In charge-to-keep mode, we charge if the player WOULD keep items (as a fee for keeping)
                 shouldProcessEconomy = keepItems || keepXp;
             }
-            
+
             if (cost > 0 && shouldProcessEconomy) {
                 EconomyManager eco = plugin.getEconomyManager();
                 if (eco == null) {
@@ -159,11 +238,14 @@ public class DeathListener implements Listener {
                         String msg = plugin.getMessage("economy.not-enough-money")
                                 .replace("{amount}", eco.format(cost));
                         player.sendMessage(plugin.parseMessage(msg));
-                        if ("charge-to-bypass".equalsIgnoreCase(mode)) {
-                            plugin.debug("Bypass mode: Player cannot afford, using original keep settings.");
+                        if (mode == EconomyMode.CHARGE_TO_BYPASS) {
+                            plugin.debug("Bypass mode: Player cannot afford, using original keep settings (DROP).");
+                            // Failed to pay for bypass -> use base setting (which was drop)
                             keepItems = baseKeepItems;
                             keepXp = baseKeepXp;
                         } else {
+                            // Charge-to-keep: Failed to pay fee -> lose items
+                            plugin.debug("Charge-to-keep: Player cannot afford fee, dropping items.");
                             keepItems = false;
                             keepXp = false;
                         }
@@ -175,7 +257,7 @@ public class DeathListener implements Listener {
                             String msg = plugin.getMessage("economy.payment-failed")
                                 .replace("{amount}", eco.format(cost));
                             player.sendMessage(plugin.parseMessage(msg));
-                            if ("charge-to-bypass".equalsIgnoreCase(mode)) {
+                            if (mode == EconomyMode.CHARGE_TO_BYPASS) {
                                 plugin.debug("Bypass mode: Payment failed, reverting to original keep settings.");
                                 keepItems = baseKeepItems;
                                 keepXp = baseKeepXp;
@@ -187,11 +269,16 @@ public class DeathListener implements Listener {
                             String msg = plugin.getMessage("economy.paid")
                                 .replace("{amount}", eco.format(cost));
                             player.sendMessage(plugin.parseMessage(msg));
-                            if ("charge-to-bypass".equalsIgnoreCase(mode)) {
+                            StatsManager stats = plugin.getStatsManager();
+                            if (stats != null) {
+                                stats.recordEconomyPayment(player, cost);
+                            }
+                            if (mode == EconomyMode.CHARGE_TO_BYPASS) {
                                 plugin.debug("Bypass mode: Payment successful, keeping items.");
                                 keepItems = true;
                                 keepXp = true;
                             }
+                            // If charge-to-keep, we successfully paid fee, so we keep items (keepItems is already true)
                         }
                     }
                 } else {
@@ -199,51 +286,81 @@ public class DeathListener implements Listener {
                 }
             }
         } else {
-            plugin.debug("Economy check skipped. EcoEnabled=" + plugin.getConfig().getBoolean("advanced.economy.enabled", false));
+            plugin.debug("Economy check skipped. EcoEnabled=" + cfg.economyEnabled);
         }
 
         plugin.debug("Final decision: keepItems=" + keepItems + ", keepXp=" + keepXp);
-        plugin.debug("Event keepInventory after processing: " + event.getKeepInventory());
+
+        // APPLY THE SETTINGS TO THE EVENT
         applyKeepInventorySettings(event, keepItems, keepXp);
-        
-        String reason;
-        boolean economyBypass = plugin.getConfig().getBoolean("advanced.economy.enabled", false) 
-                && "charge-to-bypass".equalsIgnoreCase(plugin.getConfig().getString("advanced.economy.mode", "charge-to-keep"))
-                && (keepItems || keepXp)
-                && (!baseKeepItems || !baseKeepXp);
-        
-        if (economyBypass) {
-            reason = "economy-bypass";
-        } else {
-            reason = baseReason;
-        }
-        sendDeathMessage(player, keepItems, keepXp, reason);
-        
-        plugin.debug("Event keepInventory FINAL: " + event.getKeepInventory());
-    }
-    
-    private boolean getWorldKeepInventory(World world, boolean isDay) {
-        String worldName = world.getName();
-        String worldPath = "world-settings." + worldName;
-        
-        if (plugin.getConfig().contains(worldPath)) {
-            String timePath = isDay ? ".keep-inventory-day" : ".keep-inventory-night";
-            if (plugin.getConfig().contains(worldPath + timePath)) {
-                return plugin.getConfig().getBoolean(worldPath + timePath);
+        plugin.debug("Event keepInventory after processing: " + event.getKeepInventory());
+
+        // Check if we should create a grave (GravesX / AxGraves support)
+        // Only if items are NOT kept (meaning they are dropped) and a hook is enabled
+        if (!keepItems && (plugin.isGravesXEnabled() || plugin.isAxGravesEnabled())) {
+            if (event.getDrops() != null && !event.getDrops().isEmpty()) {
+                List<ItemStack> dropsToSave = new ArrayList<>(event.getDrops());
+                int xpToStore = keepXp ? 0 : player.getTotalExperience();
+                boolean graveCreated = false;
+
+                // Try GravesX first
+                if (plugin.isGravesXEnabled()) {
+                    plugin.debug("GravesX enabled and items dropped. Creating grave...");
+                    if (plugin.getGravesXHook().createGrave(player, deathLocation, dropsToSave, xpToStore)) {
+                        graveCreated = true;
+                        plugin.debug("Grave created with " + dropsToSave.size() + " items and " + xpToStore + " XP.");
+                    } else {
+                        plugin.debug("Failed to create GravesX grave, trying fallback...");
+                    }
+                }
+
+                // Fallback to AxGraves
+                if (!graveCreated && plugin.isAxGravesEnabled()) {
+                    plugin.debug("AxGraves enabled and items dropped. Creating grave...");
+                    if (plugin.getAxGravesHook().createGrave(player, deathLocation, dropsToSave, xpToStore)) {
+                        graveCreated = true;
+                        plugin.debug("Grave created via AxGraves with " + dropsToSave.size() + " items and " + xpToStore + " XP.");
+                    } else {
+                        plugin.debug("Failed to create AxGraves grave, items will drop normally.");
+                    }
+                }
+
+                if (graveCreated) {
+                    event.getDrops().clear();
+                    if (!keepXp) {
+                        event.setDroppedExp(0);
+                    }
+                } else if (cfg.gravesFallbackDrop) {
+                    plugin.getLogger().warning("[DKI] Grave creation failed for " + player.getName()
+                            + " — items will drop at death location (fallback).");
+                }
             }
         }
-        
-        // Fallback to global settings
-        return isDay 
-            ? plugin.getConfig().getBoolean("keep-inventory-day", true)
-            : plugin.getConfig().getBoolean("keep-inventory-night", false);
+
+        String reasonFinal;
+        boolean economyBypass = cfg.economyEnabled
+                && cfg.economyMode == EconomyMode.CHARGE_TO_BYPASS
+                && (keepItems || keepXp)
+                && (!baseKeepItems || !baseKeepXp);
+
+        if (economyBypass) {
+            reasonFinal = RuleReasons.ECONOMY_BYPASS;
+        } else {
+            reasonFinal = baseReason;
+        }
+
+        trackDeathStats(player, keepItems, keepXp, reasonFinal);
+        sendDeathMessage(player, keepItems, keepXp, reasonFinal);
+
+        plugin.debug("Event keepInventory FINAL: " + event.getKeepInventory());
     }
-    
+
     private void sendDeathMessage(Player player, boolean keepItems, boolean keepXp, String reason) {
-        if (!plugin.getConfig().getBoolean("advanced.death-message.enabled", true)) {
+        DKIConfig cfg = plugin.getDKIConfig();
+        if (!cfg.deathMsgEnabled) {
             return;
         }
-        
+
         String messageKey;
         if (keepItems && keepXp) {
             messageKey = "death.keep-all";
@@ -254,99 +371,71 @@ public class DeathListener implements Listener {
         } else {
             messageKey = "death.lost-all";
         }
-        
-        if ("bypass".equals(reason)) {
+
+        if (RuleReasons.BYPASS.equals(reason)) {
             messageKey = "death.bypass";
         }
-        
+
         String message = plugin.getMessage(messageKey);
         String reasonMsg = plugin.getMessage("death." + reason);
         if (reasonMsg != null && !reasonMsg.startsWith("Missing message:")) {
             message = message + " " + reasonMsg;
         }
-        
-        if (plugin.getConfig().getBoolean("advanced.death-message.chat", true)) {
+
+        if (cfg.deathMsgChat) {
             player.sendMessage(plugin.parseMessage(message));
         }
-        
-        if (plugin.getConfig().getBoolean("advanced.death-message.action-bar", false)) {
+
+        if (cfg.deathMsgActionBar) {
             player.sendActionBar(plugin.parseMessage(message));
         }
     }
-    
-    private ProtectionResult checkProtectionPlugins(Player player, Location location) {
-        plugin.debug("Checking protection plugins...");
-        plugin.debug("Lands hook available: " + plugin.isLandsEnabled() + ", Config enabled: " + plugin.getConfig().getBoolean("advanced.protection.lands.enabled", false));
-        
-        if (plugin.isLandsEnabled() && plugin.getConfig().getBoolean("advanced.protection.lands.enabled", false)) {
-            LandsHook lands = plugin.getLandsHook();
-            boolean inLand = lands.isInLand(location);
-            boolean overrideLands = plugin.getConfig().getBoolean("advanced.protection.lands.override-lands", false);
-            plugin.debug("Player in Lands area: " + inLand + ", Override Lands settings: " + overrideLands);
-            
-            if (inLand) {
-                if (!overrideLands) {
-                    plugin.debug("In land but override-lands=false, letting Lands handle it.");
-                    return new ProtectionResult(false, false, false, null);
-                }
-                
-                plugin.debug("Player died in a Lands area: " + lands.getLandName(location));
-                
-                boolean isOwnLand = lands.isInOwnLand(player);
-                String configPath = isOwnLand ? "advanced.protection.lands.in-own-land" : "advanced.protection.lands.in-other-land";
-                
-                if (plugin.getConfig().contains(configPath)) {
-                    boolean keepItems = plugin.getConfig().getBoolean(configPath + ".keep-items", false);
-                    boolean keepXp = plugin.getConfig().getBoolean(configPath + ".keep-xp", false);
-                    plugin.debug("Lands settings for " + (isOwnLand ? "own" : "other") + " land: keepItems=" + keepItems + ", keepXp=" + keepXp);
-                    String reason = isOwnLand ? "lands-own" : "lands-other";
-                    return new ProtectionResult(true, keepItems, keepXp, reason);
-                }
-            } else {
-                plugin.debug("Player died in WILDERNESS (outside any land)");
-                if (plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.enabled", false)) {
-                    boolean keepItems = plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.keep-items", false);
-                    boolean keepXp = plugin.getConfig().getBoolean("advanced.protection.lands.wilderness.keep-xp", false);
-                    plugin.debug("Lands wilderness settings: keepItems=" + keepItems + ", keepXp=" + keepXp);
-                    return new ProtectionResult(true, keepItems, keepXp, "lands-wilderness");
-                }
+
+    private void trackDeathStats(Player player, boolean keepItems, boolean keepXp, String reason) {
+        if (!plugin.getDKIConfig().statsEnabled) {
+            return;
+        }
+
+        StatsManager stats = plugin.getStatsManager();
+        if (stats == null) {
+            return;
+        }
+
+        // Normalize reason for stats
+        String simpleReason = "unknown";
+        if (reason != null) {
+            if (reason.contains("time-day") || reason.contains("day")) {
+                simpleReason = "day";
+            } else if (reason.contains("time-night") || reason.contains("night")) {
+                simpleReason = "night";
+            } else if (reason.contains("pvp")) {
+                simpleReason = "pvp";
+            } else if (reason.contains("pve")) {
+                simpleReason = "pve";
+            } else if (reason.contains("lands")) {
+                simpleReason = "lands";
+            } else if (reason.contains("gp")) {
+                simpleReason = "griefprevention";
+            } else if (reason.equals(RuleReasons.BYPASS)) {
+                simpleReason = "bypass";
+            } else if (reason.equals(RuleReasons.ECONOMY_BYPASS)) {
+                simpleReason = "economy";
             }
         }
-        
-        if (plugin.isGriefPreventionEnabled() && plugin.getConfig().getBoolean("advanced.protection.griefprevention.enabled", false)) {
-            GriefPreventionHook gp = plugin.getGriefPreventionHook();
-            if (gp.isInClaim(location)) {
-                plugin.debug("Player died in a GriefPrevention claim owned by: " + gp.getClaimOwnerName(location));
-                
-                boolean isOwnClaim = gp.isInOwnClaim(player);
-                String configPath = isOwnClaim ? "advanced.protection.griefprevention.in-own-claim" : "advanced.protection.griefprevention.in-other-claim";
-                
-                if (plugin.getConfig().contains(configPath)) {
-                    boolean keepItems = plugin.getConfig().getBoolean(configPath + ".keep-items", false);
-                    boolean keepXp = plugin.getConfig().getBoolean(configPath + ".keep-xp", false);
-                    plugin.debug("GriefPrevention settings for " + (isOwnClaim ? "own" : "other") + " claim: keepItems=" + keepItems + ", keepXp=" + keepXp);
-                    String reason = isOwnClaim ? "gp-own" : "gp-other";
-                    return new ProtectionResult(true, keepItems, keepXp, reason);
-                }
-            } else {
-                if (plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.enabled", false)) {
-                    boolean keepItems = plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.keep-items", false);
-                    boolean keepXp = plugin.getConfig().getBoolean("advanced.protection.griefprevention.wilderness.keep-xp", false);
-                    plugin.debug("GriefPrevention wilderness settings: keepItems=" + keepItems + ", keepXp=" + keepXp);
-                    return new ProtectionResult(true, keepItems, keepXp, "gp-wilderness");
-                }
-            }
+
+        if (keepItems || keepXp) {
+            stats.recordDeathSaved(player, simpleReason);
+        } else {
+            stats.recordDeathLost(player, simpleReason);
         }
-        
-        return new ProtectionResult(false, false, false, null);
     }
-    
+
     private void applyKeepInventorySettings(PlayerDeathEvent event, boolean keepItems, boolean keepXp) {
         Player player = event.getEntity();
         plugin.debug("applyKeepInventorySettings: keepItems=" + keepItems + ", keepXp=" + keepXp);
         plugin.debug("Current drops size: " + (event.getDrops() != null ? event.getDrops().size() : "null"));
         plugin.debug("Current keepInventory: " + event.getKeepInventory());
-        
+
         if (keepItems) {
             event.setKeepInventory(true);
             if (event.getDrops() != null) {
@@ -355,30 +444,55 @@ public class DeathListener implements Listener {
             plugin.debug("Set to KEEP inventory");
         } else {
             event.setKeepInventory(false);
-            
-            Boolean gameruleKeepInv = player.getWorld().getGameRuleValue(org.bukkit.GameRule.KEEP_INVENTORY);
+
+            // Handle MMOItems Soulbound support
+            if (plugin.isMMOItemsEnabled()) {
+                MMOItemsHook hook = plugin.getMMOItemsHook();
+                if (event.getDrops() != null && !event.getDrops().isEmpty()) {
+                    Iterator<ItemStack> it = event.getDrops().iterator();
+                    int savedCount = 0;
+                    while (it.hasNext()) {
+                        ItemStack drop = it.next();
+                        if (hook.isSoulbound(drop)) {
+                            it.remove();
+                            event.getItemsToKeep().add(drop);
+                            savedCount++;
+                        }
+                    }
+                    if (savedCount > 0) {
+                        plugin.debug("Saved " + savedCount + " MMOItems soulbound items from drops");
+                    }
+                }
+            }
+
+            Boolean gameruleKeepInv = player.getWorld().getGameRuleValue(GameRule.KEEP_INVENTORY);
             boolean wasKeepingInventory = gameruleKeepInv != null && gameruleKeepInv;
             if (event.getDrops() != null && event.getDrops().isEmpty() && wasKeepingInventory) {
                 plugin.debug("Drops empty and gamerule was keepInventory=true, forcing inventory to drops...");
                 int addedItems = 0;
-                for (org.bukkit.inventory.ItemStack item : player.getInventory().getContents()) {
+                int savedSoulbound = 0;
+                for (ItemStack item : player.getInventory().getContents()) {
                     if (item != null && !item.getType().isAir()) {
-                        event.getDrops().add(item.clone());
-                        addedItems++;
+                        // Check for Curse of Vanishing
+                        if (item.hasItemMeta() && item.getItemMeta().hasEnchant(Enchantment.VANISHING_CURSE)) {
+                            continue;
+                        }
+
+                        boolean isSoulbound = false;
+                        if (plugin.isMMOItemsEnabled()) {
+                            isSoulbound = plugin.getMMOItemsHook().isSoulbound(item);
+                        }
+
+                        if (isSoulbound) {
+                            event.getItemsToKeep().add(item.clone());
+                            savedSoulbound++;
+                        } else {
+                            event.getDrops().add(item.clone());
+                            addedItems++;
+                        }
                     }
                 }
-                for (org.bukkit.inventory.ItemStack item : player.getInventory().getArmorContents()) {
-                    if (item != null && !item.getType().isAir()) {
-                        event.getDrops().add(item.clone());
-                        addedItems++;
-                    }
-                }
-                org.bukkit.inventory.ItemStack offhand = player.getInventory().getItemInOffHand();
-                if (offhand != null && !offhand.getType().isAir()) {
-                    event.getDrops().add(offhand.clone());
-                    addedItems++;
-                }
-                plugin.debug("Added " + addedItems + " items to drops");
+                plugin.debug("Added " + addedItems + " items to drops, kept " + savedSoulbound + " soulbound items");
                 player.getInventory().clear();
             } else {
                 int dropSize = (event.getDrops() != null) ? event.getDrops().size() : 0;
@@ -399,18 +513,104 @@ public class DeathListener implements Listener {
             }
         }
     }
-    
-    private static class ProtectionResult {
-        final boolean handled;
-        final boolean keepItems;
-        final boolean keepXp;
-        final String reason;
-        
-        ProtectionResult(boolean handled, boolean keepItems, boolean keepXp, String reason) {
-            this.handled = handled;
-            this.keepItems = keepItems;
-            this.keepXp = keepXp;
-            this.reason = reason;
+
+    // ===== GUI Mode Event Handlers =====
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerRespawn(PlayerRespawnEvent event) {
+        // Check if GUI mode is enabled
+        if (!plugin.getConfig().getBoolean("economy.enabled", false)) return;
+        if (!"gui".equalsIgnoreCase(plugin.getConfig().getString("economy.mode", "charge-to-keep"))) return;
+
+        Player player = event.getPlayer();
+        PendingDeathManager pendingManager = plugin.getPendingDeathManager();
+        if (pendingManager == null) return;
+
+        PendingDeath pending = pendingManager.getPendingDeath(player.getUniqueId());
+        if (pending == null || pending.isProcessed()) return;
+
+        plugin.debug("Player " + player.getName() + " respawned with pending death, opening GUI");
+
+        // Schedule GUI open 1 tick later (for Folia compatibility and to ensure player is fully spawned)
+        if (plugin.isFolia()) {
+            player.getScheduler().runDelayed(plugin, task -> {
+                if (player.isOnline()) {
+                    openDeathConfirmGUI(player, pending);
+                }
+            }, null, 2L);
+        } else {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) {
+                    openDeathConfirmGUI(player, pending);
+                }
+            }, 2L);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        PendingDeathManager pendingManager = plugin.getPendingDeathManager();
+
+        // Preload auto-pay settings if manager exists
+        if (pendingManager != null) {
+            pendingManager.preloadAutoPay(player.getUniqueId());
+        }
+
+        // Check if GUI mode is enabled
+        if (!plugin.getConfig().getBoolean("economy.enabled", false)) return;
+        if (!"gui".equalsIgnoreCase(plugin.getConfig().getString("economy.mode", "charge-to-keep"))) return;
+
+        if (pendingManager == null) return;
+
+        // Check for pending death from before disconnect
+        PendingDeath pending = pendingManager.handlePlayerJoin(player.getUniqueId());
+        if (pending == null) return;
+
+        plugin.debug("Player " + player.getName() + " joined with pending death from before disconnect");
+
+        // Schedule GUI open after a short delay
+        if (plugin.isFolia()) {
+            player.getScheduler().runDelayed(plugin, task -> {
+                if (player.isOnline()) {
+                    String msg = plugin.getMessage("economy.gui.rejoin-notice");
+                    player.sendMessage(plugin.parseMessage(msg));
+                    openDeathConfirmGUI(player, pending);
+                }
+            }, null, 40L); // 2 seconds
+        } else {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) {
+                    String msg = plugin.getMessage("economy.gui.rejoin-notice");
+                    player.sendMessage(plugin.parseMessage(msg));
+                    openDeathConfirmGUI(player, pending);
+                }
+            }, 40L);
+        }
+    }
+
+    private void openDeathConfirmGUI(Player player, PendingDeath pending) {
+        PendingDeathManager pendingManager = plugin.getPendingDeathManager();
+        if (pendingManager == null) return;
+
+        // Check if auto-pay is enabled for this player
+        if (pendingManager.isAutoPayEnabled(player.getUniqueId())) {
+            plugin.debug("Player " + player.getName() + " has auto-pay enabled, attempting auto-pay");
+
+            // Try to process auto-pay
+            if (pendingManager.processAutoPay(player, pending)) {
+                plugin.debug("Auto-pay successful for " + player.getName());
+                return; // Success - no need to show GUI
+            }
+
+            // Auto-pay failed (not enough money) - fall through to show GUI
+            plugin.debug("Auto-pay failed for " + player.getName() + ", showing GUI instead");
+        }
+
+        // Show GUI
+        DeathConfirmGUI gui = plugin.getDeathConfirmGUI();
+        if (gui != null) {
+            gui.openGUI(player, pending);
         }
     }
 }

@@ -1,298 +1,288 @@
 # Advanced Configuration
 
-These settings give you fine-grained control over keep inventory behavior.
-
-> ⚠️ **Note:** You must set `advanced.enabled: true` to use any of these features.
+These settings give you fine-grained control over how and why players keep or lose inventory.
 
 ---
 
 ## How It Works
 
-When a player dies, the plugin checks settings in this order:
+When a player dies, DynamicKeepInv evaluates rules in this order:
 
-```
-1. Bypass Permission     → Always keep (if player has permission)
-      ↓
-2. Claimed Area         → in-own-land / in-other-land settings
-      ↓
-3. Death Cause          → PvP or PvE settings
-      ↓
-4. Wilderness           → Outside claimed areas (if use-death-cause: false)
-      ↓
-5. Time-based           → Day or night settings
+```text
+1. Bypass Permission
+2. First Death Rule
+3. Death Streak Rule
+4. Protection Integrations
+5. Death Cause Rule
+6. Time-based Fallback
 ```
 
-The first matching rule is applied. Higher rules override lower ones.
-
----
-
-## Enable Advanced Mode
-
-```yaml
-advanced:
-  enabled: true  # REQUIRED for any advanced feature
-```
+The first matching rule wins.
 
 ---
 
 ## Bypass Permission
 
 ```yaml
-advanced:
+rules:
   bypass-permission: true
 ```
 
-Players with `dynamickeepinv.bypass` will **always** keep their inventory, ignoring all other rules.
-
-**Use case:** Give this to staff or donators.
-
----
-
-## Lands Integration
-
-For servers using the [Lands](https://www.spigotmc.org/resources/lands.53313/) plugin:
-
-```yaml
-advanced:
-  protection:
-    lands:
-      enabled: true
-      override-lands: false
-      
-      in-own-land:
-        keep-items: true
-        keep-xp: true
-      
-      in-other-land:
-        keep-items: true
-        keep-xp: true
-      
-      wilderness:
-        enabled: true
-        use-death-cause: false
-        keep-items: false
-        keep-xp: false
-```
-
-### Settings Explained
-
-| Setting | Description |
-|---------|-------------|
-| `enabled` | Enable Lands integration |
-| `override-lands` | `true` = override Lands' built-in keep inventory. `false` = let Lands handle it |
-| `in-own-land` | Settings for land you own or are trusted in |
-| `in-other-land` | Settings for someone else's land |
-| `wilderness.enabled` | Enable wilderness rules |
-| `wilderness.use-death-cause` | `true` = use PvP/PvE rules in wilderness. `false` = use wilderness settings |
-
-### Recommended Setup
-
-**Let Lands control its areas, plugin controls wilderness:**
-```yaml
-advanced:
-  protection:
-    lands:
-      enabled: true
-      override-lands: false  # Let Lands handle its areas
-      wilderness:
-        enabled: true
-        use-death-cause: true  # Use PvP/PvE rules outside Lands
-```
-
----
-
-## GriefPrevention Integration
-
-For servers using [GriefPrevention](https://www.spigotmc.org/resources/griefprevention.1884/):
-
-```yaml
-advanced:
-  protection:
-    griefprevention:
-      enabled: true
-      
-      in-own-claim:
-        keep-items: true
-        keep-xp: true
-      
-      in-other-claim:
-        keep-items: false
-        keep-xp: false
-      
-      wilderness:
-        enabled: true
-        use-death-cause: false
-        keep-items: false
-        keep-xp: false
-```
-
-Same logic as Lands - `in-own-claim` is claims you own or are trusted in.
+Players with `dynamickeepinv.bypass` always keep inventory if this is enabled.
 
 ---
 
 ## Death Cause Rules
 
-Different rules based on how the player died:
-
 ```yaml
-advanced:
+rules:
   death-cause:
     enabled: true
-    
-    pvp:                    # Killed by another player
+    pvp:
       keep-items: true
       keep-xp: true
-    
-    pve:                    # Everything else (mobs, fall, lava, etc.)
+    pve:
       keep-items: false
       keep-xp: true
 ```
 
-### What counts as PvP?
+PvP includes direct player kills and player-owned wolves. PvE includes mobs, environment, and command kills.
 
-- Direct player kill (sword, bow, etc.)
-- Player's wolf/pet kills
+---
 
-### What counts as PvE?
+## First-Death Rule
 
-- Mob kills (zombie, skeleton, creeper, etc.)
-- Environmental (fall damage, lava, drowning, fire)
-- Commands (`/kill`)
+```yaml
+rules:
+  first-death:
+    enabled: true
+    keep-items: true
+    keep-xp: true
+```
 
-### Examples
+This grants a safety net on a player's very first recorded death.
 
-| Scenario | Result |
-|----------|--------|
-| Player A kills Player B | PvP settings apply |
-| Zombie kills player | PvE settings apply |
-| Player falls into lava | PvE settings apply |
-| Player dies in wilderness to mob | Wilderness or PvE (depending on config) |
+Note: this depends on the stats system. If stats are disabled or unavailable, this rule is skipped.
+
+---
+
+## Death Streak Rule
+
+```yaml
+rules:
+  streak:
+    enabled: true
+    threshold: 3
+    window-seconds: 300
+    keep-items: false
+    keep-xp: false
+```
+
+| Setting | Description |
+|---------|-------------|
+| `threshold` | Number of deaths required to trigger the rule |
+| `window-seconds` | How long recent deaths stay in the streak window |
+| `keep-items` | Whether items are kept after the threshold |
+| `keep-xp` | Whether XP is kept after the threshold |
+
+This tracking is in-memory and resets on server restart.
+
+---
+
+## Lands Integration
+
+```yaml
+integrations:
+  lands:
+    enabled: true
+    override-lands: false
+    in-own-land:
+      keep-items: true
+      keep-xp: true
+    in-other-land:
+      keep-items: false
+      keep-xp: false
+    wilderness:
+      enabled: true
+      use-death-cause: false
+      keep-items: false
+      keep-xp: false
+```
+
+`override-lands: false` means Lands can keep controlling its own keepInventory behavior.
+
+---
+
+## GriefPrevention Integration
+
+```yaml
+integrations:
+  griefprevention:
+    enabled: true
+    in-own-claim:
+      keep-items: true
+      keep-xp: true
+    in-other-claim:
+      keep-items: false
+      keep-xp: false
+    wilderness:
+      enabled: true
+      use-death-cause: false
+      keep-items: false
+      keep-xp: false
+```
+
+`in-own-claim` applies when the player owns or is trusted in the claim.
+
+---
+
+## WorldGuard Integration
+
+```yaml
+integrations:
+  worldguard:
+    enabled: true
+    in-own-region:
+      keep-items: true
+      keep-xp: true
+    in-other-region:
+      keep-items: false
+      keep-xp: false
+    wilderness:
+      enabled: false
+      keep-items: false
+      keep-xp: false
+```
+
+`in-own-region` applies when the player is owner/member of the region they died in.
+
+---
+
+## Towny Integration
+
+```yaml
+integrations:
+  towny:
+    enabled: true
+    in-own-town:
+      keep-items: true
+      keep-xp: true
+    in-other-town:
+      keep-items: false
+      keep-xp: false
+    wilderness:
+      enabled: false
+      keep-items: false
+      keep-xp: false
+```
+
+`in-own-town` applies when the player is a resident of the town they died in.
+
+---
+
+## GravesX / AxGraves Integration
+
+```yaml
+integrations:
+  gravesx:
+    enabled: true
+  axgraves:
+    enabled: true
+  graves:
+    fallback-on-fail: true
+```
+
+If a player loses items, the plugin attempts to create a grave. If grave creation fails, it logs a warning and falls back to normal item drop behavior.
+
+---
+
+## MMOItems Protected Tags
+
+```yaml
+hooks:
+  mmoitems:
+    protected-tags:
+      - MMOITEMS_SOULBOUND
+      - MY_CUSTOM_PROTECTED_TAG
+```
+
+Leave the list empty to use only the default `MMOITEMS_SOULBOUND` tag.
 
 ---
 
 ## Economy System
 
-Charge players to keep their inventory. Requires [Vault](https://www.spigotmc.org/resources/vault.34315/) + an economy plugin.
+Requires Vault and a compatible economy plugin.
 
 ```yaml
-advanced:
-  economy:
-    enabled: true
-    cost: 100.0
-    mode: "charge-to-keep"
+economy:
+  enabled: true
+  cost: 100.0
+  mode: "charge-to-keep"
 ```
 
 ### Modes
 
-| Mode | When charged | Behavior if can't pay |
+| Mode | When charged | If player cannot pay |
 |------|--------------|----------------------|
-| `charge-to-keep` | When player would keep items | Keeps items for free (no penalty) |
-| `charge-to-bypass` | When player would lose items | Loses items (can't afford protection) |
-| `gui` | Player chooses via GUI | Items dropped if timeout or player clicks Drop |
-
-**Example - charge-to-bypass:**
-- Player dies at night (would lose items)
-- Has $100? → Pay and keep items
-- No money? → Lose items as normal
+| `charge-to-keep` | When the player would keep items | Items are still kept |
+| `charge-to-bypass` | When the player would lose items | Items are lost normally |
+| `gui` | When the player decides in the death GUI | Timeout or drop choice loses items |
 
 ---
 
 ## Death Confirmation GUI
 
-The `gui` mode opens a confirmation GUI when a player dies, letting them choose whether to pay to keep their items or drop them.
+`economy.mode: "gui"` opens a death confirmation GUI after death.
 
-```yaml
-advanced:
-  economy:
-    enabled: true
-    cost: 100.0
-    mode: "gui"
-    gui:
-      timeout: 30        # Seconds to decide (default: 30)
-      expire-time: 300   # Store pending death if disconnected (default: 300 = 5 minutes)
-```
+Player commands:
 
-### How It Works
+- `/dki confirm` reopens the pending GUI
+- `/dki autopay` toggles automatic payment in GUI mode
 
-1. Player dies and respawns
-2. A 9-slot GUI appears with 3 options:
-   - **Pay** (Green) - Pay the cost and keep items
-   - **Info** (Yellow) - Shows item count, cost, and time remaining
-   - **Drop** (Red) - Drop items at death location
-3. If player doesn't choose within `timeout` seconds, items are dropped
-4. If player disconnects, their pending death is saved for up to `expire-time` seconds
+Behavior summary:
 
-### GUI Layout
-
-```
-┌─────────────────────────────────────┐
-│  [ ]  [Pay]  [ ]  [Info]  [ ]  [Drop]  [ ]  [ ]  [ ]  │
-│   0     1     2     3      4     5      6    7    8   │
-└─────────────────────────────────────┘
-```
-
-- Slot 2: Pay button (Green wool)
-- Slot 4: Info display (Yellow wool)
-- Slot 6: Drop button (Red wool)
-
-### Player Commands
-
-Players can also use `/dki confirm` to reopen the GUI if they closed it before the timeout.
-
-### Edge Cases
-
-| Scenario | Result |
-|----------|--------|
-| Player closes GUI | Warning message, GUI can be reopened with `/dki confirm` |
-| Player disconnects | Death saved, GUI shown on rejoin if within expire time |
-| Timeout expires | Items dropped at death location automatically |
-| Not enough money | Player sees insufficient funds message, can still click Drop |
-| Economy unavailable | Items dropped automatically (no GUI shown) |
+- Pay: items kept
+- Drop: items dropped or sent to a grave
+- Timeout: items dropped automatically
+- Disconnect: pending death stored until expiry
 
 ---
 
 ## Death Messages
 
-Show players what happened to their inventory:
-
 ```yaml
-advanced:
-  death-message:
+messages:
+  death:
     enabled: true
-    chat: true        # Show in chat
-    action-bar: false # Show above hotbar
+    chat: true
+    action-bar: false
 ```
 
-Messages show:
-- Whether items/XP were kept or lost
-- The reason (PvP, PvE, time-based, etc.)
+These explain whether items/XP were kept or lost and why.
 
 ---
 
 ## Time-based Item/XP Control
 
-Separate control over items and XP:
-
 ```yaml
-advanced:
+rules:
   day:
     keep-items: true
     keep-xp: true
-  
   night:
     keep-items: false
-    keep-xp: true     # Keep XP but lose items at night
+    keep-xp: true
 ```
 
 ---
 
-## Complete Example Configs
+## Example Setups
 
 ### PvP Server
-No item loss in PvP, but PvE is punishing:
+
 ```yaml
-advanced:
-  enabled: true
+rules:
   death-cause:
     enabled: true
     pvp:
@@ -304,42 +294,42 @@ advanced:
 ```
 
 ### Casual Survival with Lands
-Keep items in claimed areas, lose them in wilderness:
+
 ```yaml
-advanced:
-  enabled: true
-  protection:
-    lands:
+integrations:
+  lands:
+    enabled: true
+    override-lands: false
+    in-own-land:
+      keep-items: true
+      keep-xp: true
+    in-other-land:
+      keep-items: true
+      keep-xp: true
+    wilderness:
       enabled: true
-      override-lands: false
-      in-own-land:
-        keep-items: true
-        keep-xp: true
-      in-other-land:
-        keep-items: true
-        keep-xp: true
-      wilderness:
-        enabled: true
-        use-death-cause: true  # Use PvP/PvE rules
+      use-death-cause: true
+
+rules:
   death-cause:
     enabled: true
     pvp:
-      keep-items: true   # No penalty for PvP in wilderness
+      keep-items: true
       keep-xp: true
     pve:
-      keep-items: false  # Lose items to mobs in wilderness
+      keep-items: false
       keep-xp: true
 ```
 
 ### Economy Server
-Pay to keep items:
+
 ```yaml
-advanced:
+economy:
   enabled: true
-  economy:
-    enabled: true
-    cost: 500.0
-    mode: "charge-to-bypass"
+  cost: 500.0
+  mode: "charge-to-bypass"
+
+rules:
   night:
     keep-items: false
     keep-xp: false
@@ -349,6 +339,6 @@ advanced:
 
 ## Related Pages
 
-- [Basic Configuration](Basic-Configuration) - Time and world settings
-- [Permissions](Permissions) - Permission nodes
-- [FAQ](FAQ) - Common questions
+- [Basic Configuration](Basic-Configuration)
+- [Permissions](Permissions)
+- [FAQ](FAQ)

@@ -1,58 +1,58 @@
 # DynamicKeepInv
 
-A lightweight Minecraft plugin that dynamically controls the `keepInventory` gamerule based on in-game time, protection plugins, and death causes.
+DynamicKeepInv gives you rule-based control over `keepInventory` instead of a single global on/off switch.
 
-## Why This Plugin?
+## What It Can Do
 
-Vanilla Minecraft only has a simple on/off for keepInventory. This plugin gives you granular control:
+- Keep items during the day and drop them at night
+- Override day/night with PvP vs PvE logic
+- Apply special rules inside Lands, GriefPrevention, WorldGuard, or Towny areas
+- Let players pay to keep items with an optional death GUI
+- Protect first deaths or repeated deaths in a short streak
+- Send items to GravesX / AxGraves instead of dropping them on the ground
+- Track stats and expose them through PlaceholderAPI
+- Help admins debug decisions with `/dki test [player]`
 
-- Keep items during day, lose them at night
-- Different rules for PvP vs PvE deaths
-- Integration with land claim plugins
-- Per-world settings
-- Economy support (pay to keep items)
+## Current Rule Order
 
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| **Time-based** | Different settings for day and night |
-| **Death cause** | Separate rules for PvP and PvE |
-| **Protection plugins** | Lands & GriefPrevention integration |
-| **Per-world** | Configure each world independently |
-| **Economy** | Charge players to keep inventory |
-| **Death Confirmation GUI** | Let players choose to pay or drop items |
-| **Player Stats** | Track deaths with GUI and PlaceholderAPI |
-| **Folia support** | Works on Paper, Spigot, and Folia |
+1. Bypass permission
+2. First death rule
+3. Death streak rule
+4. Protection integrations
+5. Death cause rule
+6. Day/night fallback
 
 ## Quick Start
 
-1. Download the [latest release](https://github.com/Alexteens24/DynamicKeepInv/releases)
-2. Place JAR in your `plugins/` folder
-3. Restart the server
-4. Edit `plugins/DynamicKeepInv/config.yml`
-5. Run `/dki reload`
+1. Install Java 21 and a 1.20.4+ Paper/Spigot/Purpur/Folia server.
+2. Put the plugin JAR into `plugins/`.
+3. Start the server once to generate config files.
+4. Edit `plugins/DynamicKeepInv/config.yml`.
+5. Run `/dki reload`.
 
-## Default Behavior
+## Good Defaults
 
 Out of the box:
-- **Day (0-12999 ticks)**: Players keep inventory
-- **Night (13000-23999 ticks)**: Players lose inventory
+
+- Day: keep items and XP
+- Night: lose items and XP
+- Stats: enabled
+- Optional integrations: disabled until enabled in config
 
 ## Pages
 
 | Page | Description |
 |------|-------------|
-| [Installation](Installation) | Requirements and setup |
-| [Basic Configuration](Basic-Configuration) | Time, world, and broadcast settings |
-| [Advanced Configuration](Advanced-Configuration) | Death cause, protection plugins, economy |
-| [Stats](Stats) | Player death statistics and GUI |
-| [Placeholders](Placeholders) | PlaceholderAPI integration |
-| [Commands](Commands) | All available commands |
-| [Permissions](Permissions) | Permission nodes |
-| [FAQ](FAQ) | Common questions and examples |
+| [Installation](Installation) | Requirements, setup, updating, troubleshooting |
+| [Basic Configuration](Basic-Configuration) | Core settings, time, worlds, broadcasts |
+| [Advanced Configuration](Advanced-Configuration) | Death-cause rules, economy, integrations, new rules |
+| [Commands](Commands) | All player and admin commands |
+| [Permissions](Permissions) | Permission nodes and recommended setups |
+| [Stats](Stats) | Player stats GUI and tracked values |
+| [Placeholders](Placeholders) | PlaceholderAPI output list |
+| [FAQ](FAQ) | Common questions |
 
 ## Support
 
-- [GitHub Issues](https://github.com/Alexteens24/DynamicKeepInv/issues) - Bug reports and feature requests
-- [Modrinth](https://modrinth.com/plugin/dynamickeepinv) - Downloads and reviews
+- [GitHub Issues](https://github.com/Alexteens24/DynamicKeepInv/issues)
+- [Modrinth](https://modrinth.com/plugin/dynamickeepinv)

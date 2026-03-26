@@ -48,7 +48,7 @@ No additional setup needed - placeholders are automatically registered when Plac
 
 | Placeholder | Description | Example Output |
 |-------------|-------------|----------------|
-| `%dynamickeepinv_advanced_enabled%` | Advanced mode enabled | `true` / `false` |
+| `%dynamickeepinv_advanced_enabled%` | Deprecated alias of global enabled state | `true` / `false` |
 | `%dynamickeepinv_economy_enabled%` | Economy feature enabled | `true` / `false` |
 | `%dynamickeepinv_economy_cost%` | Economy cost | `100.0` |
 | `%dynamickeepinv_lands_enabled%` | Lands integration enabled | `true` / `false` |
@@ -121,6 +121,10 @@ check_keepinv:
 ### Shows %dynamickeepinv_...% literally
 
 The plugin using placeholders might not support PlaceholderAPI. Check its documentation.
+
+### Placeholder shows old "advanced" wording
+
+`%dynamickeepinv_advanced_enabled%` still exists as a compatibility alias, but the config no longer uses an `advanced:` root section. Prefer `%dynamickeepinv_enabled%` in new setups.
 
 ---
 

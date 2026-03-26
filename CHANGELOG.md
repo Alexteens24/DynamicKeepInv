@@ -1,4 +1,248 @@
 # Changelog
+
+## [1.3.0] - 2026-03-26
+
+### Breaking Changes
+- **Java 21 required** — Minimum Java version raised from 17 to 21. Server must run JDK 21+.
+
+### Performance
+- **`DKIConfig` immutable config snapshot** — All ~60 config values cached in a single object at startup/reload. Hot-path methods (`onPlayerDeath`, `isWorldEnabled`, etc.) no longer call `getConfig().get*()` on every death event.
+- **`EconomyMode` enum** — Replaced string comparisons (`"charge-to-keep"`, `"gui"`) with type-safe enum `CHARGE_TO_KEEP / CHARGE_TO_BYPASS / GUI` throughout `DeathListener`.
+- **Stats TTL cache** — `StatsManager` now evicts offline player stats after 5 minutes instead of holding them indefinitely in memory.
+
+### New Integrations
+- **WorldGuard hook** — Region-based keep-inventory rules:
+  - `in-own-region` — keep items/XP when dying in a region you own/are member of
+  - `in-other-region` — keep items/XP when dying in someone else's region
+  - `wilderness` — fallback rule for areas outside any region
+- **Towny hook** — Town-based keep-inventory rules:
+  - `in-own-town` — keep items/XP when dying in your own town
+  - `in-other-town` — keep items/XP when dying in another player's town
+  - `wilderness` — fallback rule for areas outside any town
+- **Grave fallback warning** — When GravesX/AxGraves fails to create a grave, the plugin now logs a warning and optionally drops items naturally (configurable via `integrations.graves.fallback-on-fail`)
+- **MMOItems configurable tags** — `hooks.mmoitems.protected-tags` list allows specifying which NBT tags count as soulbound (defaults to `MMOITEMS_SOULBOUND`)
+
+### New Rules
+- **First Death Leniency** (`rules.first-death`) — Players keep items/XP on their very first death ever. Configurable keep-items and keep-xp separately.
+- **Death Streak Protection** (`rules.streak`) — Players who die N times within a configurable time window (e.g., 3 deaths in 300 seconds) get keep-inventory protection. Prevents frustration during difficult content.
+
+### New Commands
+- **`/dki test [player]`** — Diagnostic command that simulates the rule chain for a player and reports which rule would apply, what the result would be, and why. Useful for debugging configuration.
+- **`/dki status`** — Now shows the active rule chain with numbered rules in evaluation order.
+
+### Config & UX Improvements
+- **Config validation on startup/reload** — `ConfigMigration.validateConfig()` checks: time ranges (0–24000), day < night, trigger values, check-interval > 0, economy cost ≥ 0, GUI timeout/expire > 0, valid economy mode.
+- **Safe reload** — `/dki reload` now runs config migration before reloading, preventing stale config from being loaded.
+- **Broadcast permission** — New `messages.broadcast.permission` config key to restrict death messages to players with a specific permission (empty = broadcast to all).
+- **`RuleManager.getRuleNames()`** — Exposes ordered list of active rules for status display and debugging.
+
+### Rule Chain Order
+The full rule evaluation order is now:
+1. `BypassPermissionRule` — permission-based bypass
+2. `FirstDeathRule` — first death leniency (if enabled)
+3. `DeathStreakRule` — death streak protection (if enabled)
+4. `ProtectionRule` — Lands / GriefPrevention / WorldGuard / Towny region checks
+5. `DeathCauseRule` — PvP vs PvE filtering
+6. `WorldTimeRule` — day/night cycle rules
+
+### Config Additions
+```yaml
+messages:
+  broadcast:
+    permission: ""          # empty = all players
+
+integrations:
+  graves:
+    fallback-on-fail: true  # drop items if grave creation fails
+  worldguard:
+    enabled: false
+    in-own-region:
+      keep-items: true
+      keep-xp: true
+    in-other-region:
+      keep-items: false
+      keep-xp: false
+    wilderness:
+      enabled: false
+      keep-items: false
+      keep-xp: false
+  towny:
+    enabled: false
+    in-own-town:
+      keep-items: true
+      keep-xp: true
+    in-other-town:
+      keep-items: false
+      keep-xp: false
+    wilderness:
+      enabled: false
+      keep-items: false
+      keep-xp: false
+
+hooks:
+  mmoitems:
+    protected-tags: []      # empty = default MMOITEMS_SOULBOUND
+
+rules:
+  first-death:
+    enabled: false
+    keep-items: true
+    keep-xp: true
+  streak:
+    enabled: false
+    threshold: 3
+    window-seconds: 300
+    keep-items: true
+    keep-xp: true
+```
+
+### Dependencies
+- Added **WorldGuard 7.0.11** (`worldguard-bukkit`, scope: provided)
+- Added **Towny 0.98.3.0** (scope: provided)
+- Updated `plugin.yml` softdepend: `[Vault, Lands, GriefPrevention, PlaceholderAPI, GravesX, AxGraves, WorldGuard, Towny, MMOItems]`
+
+### New Files
+- `DKIConfig.java` — Immutable config snapshot class
+- `EconomyMode.java` — Economy mode enum
+- `WorldGuardHook.java` — WorldGuard region integration
+- `TownyHook.java` — Towny town integration
+- `FirstDeathRule.java` — First death leniency rule
+- `DeathStreakRule.java` — Death streak protection rule
+
+### Tests
+- All **51 tests passing** after upgrade
+- Fixed test compatibility with `DKIConfig` snapshot pattern (`refreshDKIConfig()` after config mutations)
+
+## [1.2.0] - 2026-03-26
+### Bug Fixes
+- **Fixed `DeathGuiHolder.getInventory()` returning null** — Added `inventory` field + setter; `DeathConfirmGUI` now calls `holder.setInventory()` after `Bukkit.createInventory()`
+- **Fixed `StatsGUI` using null holder** — New `StatsGuiHolder` class replaces the null holder; click/drag event handlers now use `instanceof StatsGuiHolder` instead of fragile title-string matching
+- **Fixed language default `"vi"`** — Default language in `DynamicKeepInvPlugin` corrected to `"en"` to match `messages.yml`
+- **Fixed misleading `volatile` on `economyRetryCount`** — Removed `volatile` keyword; all accesses are already inside a `synchronized` block
+- **Fixed missing AxGraves path in `DeathListener`** — Added AxGraves fallback after GravesX, mirroring the logic already present in `PendingDeathManager.performDrop()`
+
+### Improvements
+- **`RuleReasons` constants class** — All magic reason strings (`"bypass"`, `"pvp"`, `"pve"`, `"time-day"`, `"time-night"`, `"lands-defer"`, etc.) replaced with typed constants in `rules/RuleReasons.java`
+- **Imports cleanup in `DeathListener`** — All inline fully-qualified class names moved to proper top-of-file imports
+
+### New Tests (30 new cases)
+- `BypassPermissionRuleTest` — 4 Mockito unit tests
+- `DeathCauseRuleTest` — 4 Mockito unit tests
+- `WorldTimeRuleTest` — 4 Mockito unit tests
+- `RuleManagerTest` — 6 Mockito unit tests
+- `EconomyManagerTest` — 10 Mockito unit tests
+- `DeathListenerTest` — 6 MockBukkit integration tests
+
+### Code Quality
+- **God class split** — `DynamicKeepInvPlugin` (893 → 639 lines) decomposed into:
+  - `IntegrationManager` — owns all hook setup/teardown and availability checks
+  - `CommandDispatcher` — owns all `/dki` command handling logic
+- **pom.xml** — All 11 dependency versions extracted to named `<properties>`; `maven-enforcer-plugin` added (requires Java ≥ 17, Maven ≥ 3.6)
+
+### Documentation
+- **`wiki/Basic-Configuration.md`** — Rewritten to match actual `config.yml` structure; removed stale keys (`keep-inventory-day`, `keep-inventory-night`, `advanced.enabled`, `world-settings`, `gamerule-change`)
+- **`wiki/Advanced-Configuration.md`** — Removed stale `advanced.enabled` requirement; updated all config paths to match current structure; added AxGraves section
+
+## [1.0.19] - 2025-12-10
+### New Features
+- **Auto-Pay Option** - Players can enable auto-pay to automatically keep items on death
+  - Toggle with `/dki autopay` command or via GUI button
+  - When enabled, automatically pays and keeps items without showing GUI
+  - Falls back to GUI if player doesn't have enough money
+  - Setting saved per-player in database
+
+### Bug Fixes
+- **Fixed `/dki confirm` and `/dki autopay` error messages** - Now properly checks if GUI mode is enabled before allowing commands
+
+### Technical Changes
+- Added `player_settings` table for storing auto-pay preferences
+- Added auto-pay toggle button in Death Confirmation GUI (slot 8)
+
+## [1.0.18] - 2025-12-10
+### New Features
+- **Death Confirmation GUI** - New economy mode `gui` that shows a GUI when player dies
+  - Players can choose to pay to keep items or drop them
+  - Configurable timeout (default: 30 seconds)
+  - Persistent storage survives server restarts
+  - Handles disconnect/reconnect gracefully
+  - Protected against inventory duplication exploits
+  - Command `/dki confirm` to reopen the GUI
+- **Pending Death Database** - Separate SQLite database for pending deaths persistence
+
+### Config Changes
+- New economy mode: `mode: "gui"` (alongside existing `charge-to-keep` and `charge-to-bypass`)
+- New GUI settings under `advanced.economy.gui`:
+  - `timeout: 30` - Seconds before auto-drop
+  - `expire-time: 300` - Seconds to store pending death if player disconnects
+
+### Bug Fixes
+- **Fixed timestamp not restored from DB** - Pending deaths loaded from database now use original timestamp instead of current time
+- **Fixed ConcurrentModificationException** - Cleanup task now collects expired IDs before iterating
+- **Fixed duplicate event listeners on reload** - Old DeathConfirmGUI listeners are now unregistered before creating new instance
+
+### Technical Changes
+- New classes: `PendingDeath`, `PendingDeathManager`, `DeathConfirmGUI`
+- Added `EconomyManager.getBalance()` method
+- Full Folia compatibility for GUI mode
+
+## [1.0.17] - 2025-12-10
+### Bug Fixes
+- **Fixed ResultSet resource leak** - 6 database queries were not properly closing ResultSet objects, causing potential memory leaks
+- **Fixed async task race condition** - Stats async tasks now check shutdown flag inside the task to prevent SQLException after connection close
+- **Fixed economy retry spam** - Limited economy setup retries to 5 attempts (30s interval) instead of infinite retries
+- **Fixed PlaceholderAPI version** - Now uses dynamic version from plugin instead of hardcoded "1.0.15"
+
+### Improvements
+- Economy retry counter resets on `/dki reload`
+- Added debug logging for economy retry attempts
+- Better shutdown safety for async database operations
+
+## [1.0.16] - 2025-12-09
+### Bug Fixes
+- Fixed stats GUI title detection so inventory clicks/drags are always cancelled
+- Fixed per-world keep-inventory resolution to use actual day/night state (not trigger window)
+- Lands override now cleanly defers to Lands when `override-lands=false`, avoiding double handling
+- Serialized all SQLite access to prevent concurrent connection use and potential locks
+- Removed unnecessary deprecation suppression in stats command lookup
+
+
+## [1.0.15] - 2025-12-07
+### Bug Fixes
+- Fixed economy payments not being tracked in stats database
+- Fixed potential SQLite connection crashes on server lag
+- Fixed `/dki stats <player>` not working for offline players
+
+### Improvements
+- Added async database writes for better Paper/Folia performance
+- Database operations no longer block main server thread
+- Graceful shutdown with async task completion
+
+## [1.0.14] - 2025-12-07
+### New Features
+- Added Player Stats GUI (`/dki stats [player]`)
+- SQLite database for persistent death statistics
+- Track deaths saved, deaths lost, economy paid, death reasons
+- 45-slot inventory GUI with player head, progress bar, server stats
+- Added 8 new PlaceholderAPI placeholders for stats
+
+### PlaceholderAPI Stats Placeholders
+- `%dynamickeepinv_stats_deaths_saved%` - Total deaths saved
+- `%dynamickeepinv_stats_deaths_lost%` - Total deaths lost
+- `%dynamickeepinv_stats_total_deaths%` - Total deaths
+- `%dynamickeepinv_stats_save_rate%` - Save rate percentage
+- `%dynamickeepinv_stats_economy_paid%` - Total economy paid
+- `%dynamickeepinv_stats_global_saved%` - Server-wide deaths saved
+- `%dynamickeepinv_stats_global_lost%` - Server-wide deaths lost
+- `%dynamickeepinv_stats_global_rate%` - Server-wide save rate
+
+### Config Changes
+- Config version updated to 5
+- Added `stats.enabled` option
+
+### Permissions
+- `dynamickeepinv.stats` - View own stats
+- `dynamickeepinv.stats.others` - View other players' stats
+
 ## [1.0.13] - 2025-12-04
 ### New Features
 - Added PlaceholderAPI support with 14 placeholders

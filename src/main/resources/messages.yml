@@ -18,6 +18,8 @@ messages:
       enable: "&e/dki enable &f- Enable plugin"
       disable: "&e/dki disable &f- Disable plugin"
       toggle: "&e/dki toggle &f- Toggle plugin on/off"
+      stats: "&e/dki stats [player] &f- View death statistics"
+      autopay: "&e/dki autopay &f- Toggle auto-pay on death"
     
     status:
       header: "&6=== DynamicKeepInv Status ==="
@@ -46,6 +48,18 @@ messages:
       paid: "&aYou paid &6{amount} &ato keep your inventory."
       not-enough-money: "&cYou did not have enough money ({amount}) to keep your inventory!"
       payment-failed: "&cPayment could not be processed ({amount}). Your inventory will be dropped."
+      gui:
+        paid: "&aYou paid &6{amount} &ato keep your inventory!"
+        dropped: "&cYou chose to drop your items."
+        timeout: "&cTime ran out! Your items have been dropped."
+        insufficient-now: "&cYou no longer have enough money ({amount})!"
+        payment-failed: "&cPayment failed! Please try again or choose to drop."
+        closed-warning: "&eYou still have a pending death! Use &6/dki confirm &eto reopen the GUI."
+        rejoin-notice: "&eYou have a pending death from before you disconnected!"
+        items-overflow: "&eSome items could not fit in your inventory and were dropped!"
+        auto-paid: "&aAuto-pay: &6{amount} &adeducted to keep your inventory!"
+        auto-pay-enabled: "&aAuto-pay enabled! You will automatically pay to keep items on death."
+        auto-pay-disabled: "&eAuto-pay disabled. You will see the confirmation GUI on death."
     
     protection:
       lands:
@@ -74,6 +88,10 @@ messages:
       time-night: "&7(Nighttime - no protection)"
       pvp: "&7(PvP death)"
       pve: "&7(PvE death)"
+    
+    stats:
+      disabled: "&cStats system is disabled!"
+      player-not-found: "&cPlayer {player} not found!"
   
   # Vietnamese Messages
   vi:
@@ -87,6 +105,8 @@ messages:
       enable: "&e/dki enable &f- Bật plugin"
       disable: "&e/dki disable &f- Tắt plugin"
       toggle: "&e/dki toggle &f- Chuyển đổi bật/tắt"
+      stats: "&e/dki stats [player] &f- Xem thống kê chết"
+      autopay: "&e/dki autopay &f- Bật/tắt tự động trả tiền khi chết"
     
     status:
       header: "&6=== Trạng Thái DynamicKeepInv ==="
@@ -115,6 +135,18 @@ messages:
       paid: "&aBạn đã trả &6{amount} &ađể giữ lại kho đồ."
       not-enough-money: "&cBạn không đủ tiền ({amount}) để giữ lại kho đồ!"
       payment-failed: "&cThanh toán ({amount}) thất bại. Kho đồ của bạn sẽ bị rơi."
+      gui:
+        paid: "&aBạn đã trả &6{amount} &ađể giữ lại kho đồ!"
+        dropped: "&cBạn đã chọn bỏ đồ."
+        timeout: "&cHết thời gian! Đồ của bạn đã bị rơi."
+        insufficient-now: "&cBạn không còn đủ tiền ({amount})!"
+        payment-failed: "&cThanh toán thất bại! Vui lòng thử lại hoặc chọn bỏ đồ."
+        closed-warning: "&eBạn vẫn còn pending death! Dùng &6/dki confirm &eđể mở lại GUI."
+        rejoin-notice: "&eBạn có pending death từ trước khi disconnect!"
+        items-overflow: "&eMột số vật phẩm không thể chứa trong túi đồ và đã bị rơi!"
+        auto-paid: "&aTự động trả: &6{amount} &ađã được trừ để giữ lại kho đồ!"
+        auto-pay-enabled: "&aTự động trả đã bật! Bạn sẽ tự động trả tiền để giữ đồ khi chết."
+        auto-pay-disabled: "&eTự động trả đã tắt. Bạn sẽ thấy GUI xác nhận khi chết."
     
     protection:
       lands:
@@ -143,3 +175,7 @@ messages:
       time-night: "&7(Ban đêm - không bảo vệ)"
       pvp: "&7(Chết do PvP)"
       pve: "&7(Chết do PvE)"
+    
+    stats:
+      disabled: "&cHệ thống thống kê đã bị tắt!"
+      player-not-found: "&cKhông tìm thấy người chơi {player}!"

@@ -1,89 +1,34 @@
 # DynamicKeepInv Configuration
 # Wiki: https://github.com/Alexteens24/DynamicKeepInv/wiki
-config-version: 4
+config-version: 6
 
+# --- Core Settings ---
 enabled: true
-keep-inventory-day: true
-keep-inventory-night: false
-check-interval: 100
-day-start: 0
-night-start: 13000
-
-# Empty = all worlds
-enabled-worlds: []
-
-# Per-world override (see wiki)
-world-settings: {}
-
 debug: false
+check-interval: 100
 
-broadcast:
-  enabled: true
-  day-change: true
-  night-change: true
-  chat: true
-  action-bar: false
-  title: false
-  sound:
-    enabled: false
-    day: "ENTITY_PLAYER_LEVELUP"
-    night: "ENTITY_WITHER_SPAWN"
+# --- Time Configuration ---
+time:
+  day-start: 0
+  night-start: 13000
+  triggers:
+    day: -1
+    night: -1
 
-# Custom trigger times (-1 = use day-start/night-start)
-gamerule-change:
-  day-trigger: -1
-  night-trigger: -1
+# --- Keep Inventory Rules ---
+rules:
+  # Default rules for day/night
+  day:
+    keep-items: true
+    keep-xp: true
+  night:
+    keep-items: false
+    keep-xp: false
 
-# === ADVANCED SETTINGS ===
-# See wiki for detailed documentation
-advanced:
-  enabled: false
+  # Bypass permission: dynamickeepinv.bypass
   bypass-permission: true
-  
-  # Lands plugin integration
-  protection:
-    lands:
-      enabled: false
-      override-lands: false
-      in-own-land:
-        keep-items: false
-        keep-xp: false
-      in-other-land:
-        keep-items: false
-        keep-xp: false
-      wilderness:
-        enabled: false
-        use-death-cause: false  # true = use death-cause settings, false = use below values
-        keep-items: false
-        keep-xp: false
-    
-    # GriefPrevention plugin integration
-    griefprevention:
-      enabled: false
-      in-own-claim:
-        keep-items: true
-        keep-xp: true
-      in-other-claim:
-        keep-items: false
-        keep-xp: false
-      wilderness:
-        enabled: false
-        use-death-cause: false
-        keep-items: false
-        keep-xp: false
-  
-  death-message:
-    enabled: true
-    chat: true
-    action-bar: false
-  
-  # Economy (requires Vault)
-  economy:
-    enabled: false
-    cost: 100.0
-    mode: "charge-to-keep"
-  
-  # Death cause rules (PvP vs PvE)
+
+  # PvP vs PvE Rules (Overwrites time rules if enabled)
   death-cause:
     enabled: false
     pvp:
@@ -92,11 +37,147 @@ advanced:
     pve:
       keep-items: true
       keep-xp: true
-  
-  # Time-based overrides
-  day:
+
+  # First-death leniency: keep items/xp on the player's very first death
+  first-death:
+    enabled: false
     keep-items: true
     keep-xp: true
-  night:
+
+  # Death streak: keep items/xp if the player dies N times within a time window
+  streak:
+    enabled: false
+    threshold: 3          # Number of deaths required to trigger
+    window-seconds: 300   # Time window in seconds
     keep-items: false
     keep-xp: false
+
+# --- World Settings ---
+worlds:
+  # Empty = all worlds
+  enabled: []
+  # Per-world overrides. Example:
+  # overrides:
+  #   world_nether:
+  #     day: false
+  #     night: false
+  overrides: {}
+
+# --- Messages & Broadcasts ---
+messages:
+  broadcast:
+    enabled: true
+    permission: ""  # Leave empty to broadcast to all; set to a permission node to restrict who sees it
+    events:
+      day-change: true
+      night-change: true
+    display:
+      chat: true
+      action-bar: false
+      title: false
+    sound:
+      enabled: false
+      day: "ENTITY_PLAYER_LEVELUP"
+      night: "ENTITY_WITHER_SPAWN"
+
+  death:
+    enabled: true
+    chat: true
+    action-bar: false
+
+# --- Integrations ---
+integrations:
+  # Lands
+  lands:
+    enabled: false
+    override-lands: false
+    in-own-land:
+        keep-items: false
+        keep-xp: false
+    in-other-land:
+        keep-items: false
+        keep-xp: false
+    wilderness:
+        enabled: false
+        use-death-cause: false
+        keep-items: false
+        keep-xp: false
+
+  # GriefPrevention
+  griefprevention:
+    enabled: false
+    in-own-claim:
+        keep-items: true
+        keep-xp: true
+    in-other-claim:
+        keep-items: false
+        keep-xp: false
+    wilderness:
+        enabled: false
+        use-death-cause: false
+        keep-items: false
+        keep-xp: false
+
+  # GravesX
+  gravesx:
+    enabled: false
+
+  # AxGraves
+  axgraves:
+    enabled: false
+
+  # Graves shared settings
+  graves:
+    # If grave creation fails, log a warning. Items drop normally (vanilla behavior) as fallback.
+    fallback-on-fail: true
+
+  # WorldGuard
+  worldguard:
+    enabled: false
+    in-own-region:
+      keep-items: true
+      keep-xp: true
+    in-other-region:
+      keep-items: false
+      keep-xp: false
+    wilderness:
+      enabled: false
+      keep-items: false
+      keep-xp: false
+
+  # Towny
+  towny:
+    enabled: false
+    in-own-town:
+      keep-items: true
+      keep-xp: true
+    in-other-town:
+      keep-items: false
+      keep-xp: false
+    wilderness:
+      enabled: false
+      keep-items: false
+      keep-xp: false
+
+# --- MMOItems ---
+hooks:
+  mmoitems:
+    # Tags to treat as protected (items kept regardless of death settings). Leave empty for default (MMOITEMS_SOULBOUND only).
+    protected-tags: []
+
+# --- Economy ---
+# Requires Vault
+economy:
+  enabled: false
+  cost: 100.0
+  # Modes: "charge-to-keep" (auto-charge), "charge-to-bypass", "gui" (player confirms)
+  mode: "charge-to-keep"
+  gui:
+    # Timeout in seconds
+    timeout: 30
+    # Expire time in seconds (for disconnects)
+    expire-time: 300
+
+# --- Statistics ---
+stats:
+  enabled: true
