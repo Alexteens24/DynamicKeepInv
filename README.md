@@ -1,10 +1,33 @@
 # DynamicKeepInv
 
-![Java](https://img.shields.io/badge/Java-21%2B-orange) ![Server](https://img.shields.io/badge/Server-Paper%20%7C%20Spigot%20%7C%20Folia-blue) ![License](https://img.shields.io/badge/License-Apache%202.0-green)
+![Java](https://img.shields.io/badge/Java-21%2B-orange) ![Server](https://img.shields.io/badge/Server-Paper%20%7C%20Spigot%20%7C%20Folia-blue) ![License](https://img.shields.io/badge/License-Apache%202.0-green) [![CI](https://github.com/Alexteens24/DynamicKeepInv/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexteens24/DynamicKeepInv/actions/workflows/ci.yml)
 
-DynamicKeepInv makes `keepInventory` configurable instead of binary. You can decide whether players keep items and XP based on time of day, death cause, protection plugins, economy rules, and optional safety-net rules.
+DynamicKeepInv turns `keepInventory` from a simple on/off gamerule into a configurable rule engine.
+
+Instead of choosing between fully safe or fully punishing deaths, you can decide whether players keep items and XP based on:
+
+- day or night
+- PvP or PvE
+- claims, regions, or towns
+- economy rules
+- first-death leniency
+- repeated-death protection
 
 Built for 1.20.4+ servers with Java 21 and full Folia support.
+
+---
+
+## Why Use It?
+
+Vanilla `keepInventory` is too blunt for most servers.
+
+DynamicKeepInv lets you build setups like:
+
+- safe day, dangerous night
+- casual PvE, punishing PvP
+- keep items in your own land, lose them in enemy territory
+- pay to keep items through a death GUI
+- forgive a player's first death or a brutal death streak
 
 ---
 
@@ -23,6 +46,21 @@ Built for 1.20.4+ servers with Java 21 and full Folia support.
 
 ---
 
+## Optional Integrations
+
+| Plugin | What it adds |
+| :--- | :--- |
+| Vault | Economy-based keep-inventory modes |
+| PlaceholderAPI | Player/server placeholders |
+| Lands | Own-land / other-land / wilderness rules |
+| GriefPrevention | Own-claim / other-claim / wilderness rules |
+| WorldGuard | Own-region / other-region / wilderness rules |
+| Towny | Own-town / other-town / wilderness rules |
+| GravesX / AxGraves | Graves instead of normal drops |
+| MMOItems | Protected tag handling for soulbound-style items |
+
+---
+
 ## Rule Order
 
 When a player dies, the plugin evaluates rules in this order:
@@ -35,6 +73,8 @@ When a player dies, the plugin evaluates rules in this order:
 6. `WorldTimeRule` for day/night fallback
 
 The first rule that returns a result wins.
+
+This means high-priority safety rules like bypass, first-death, and streak protection can override the final day/night fallback.
 
 ---
 
@@ -54,7 +94,7 @@ Optional plugins:
 
 ---
 
-## Installation
+## Quick Start
 
 1. Download the latest JAR from [Releases](https://github.com/Alexteens24/DynamicKeepInv/releases).
 2. Place it in your server's `plugins/` folder.
@@ -64,6 +104,17 @@ Optional plugins:
 6. Run `/dki reload` after config changes.
 
 Config migration runs automatically on startup and reload.
+
+---
+
+## Default Behavior
+
+Out of the box:
+
+- day keeps items and XP
+- night drops items and XP
+- stats are enabled
+- optional integrations are disabled until you enable them in config
 
 ---
 
@@ -88,7 +139,7 @@ Useful permissions:
 
 ---
 
-## Config Example
+## Example Config
 
 ```yaml
 rules:
@@ -146,6 +197,55 @@ economy:
 
 ---
 
+## Common Use Cases
+
+### Safe Day, Dangerous Night
+
+```yaml
+rules:
+  day:
+    keep-items: true
+    keep-xp: true
+  night:
+    keep-items: false
+    keep-xp: false
+```
+
+### Keep Items On First Death
+
+```yaml
+rules:
+  first-death:
+    enabled: true
+    keep-items: true
+    keep-xp: true
+```
+
+### Pay To Keep Items
+
+```yaml
+economy:
+  enabled: true
+  cost: 250.0
+  mode: "gui"
+```
+
+### Claimed Areas Are Safe, Wilderness Is Not
+
+```yaml
+integrations:
+  lands:
+    enabled: true
+    in-own-land:
+      keep-items: true
+      keep-xp: true
+    in-other-land:
+      keep-items: false
+      keep-xp: false
+```
+
+---
+
 ## Placeholders
 
 Requires PlaceholderAPI.
@@ -161,7 +261,9 @@ See the wiki pages for full details.
 
 ---
 
-## Wiki
+## Documentation
+
+Full documentation lives in the wiki:
 
 - [Home](wiki/Home.md)
 - [Installation](wiki/Installation.md)
@@ -171,6 +273,10 @@ See the wiki pages for full details.
 - [Permissions](wiki/Permissions.md)
 - [Stats](wiki/Stats.md)
 - [Placeholders](wiki/Placeholders.md)
+
+GitHub Wiki:
+
+- https://github.com/Alexteens24/DynamicKeepInv/wiki
 
 ---
 
