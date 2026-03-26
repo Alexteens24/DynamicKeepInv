@@ -47,6 +47,17 @@ public class MMOItemsHook {
 
         try {
             Object nbtItem = getMethod.invoke(null, item);
+            // Check configurable protected tags first (if any configured)
+            java.util.List<String> protectedTags = plugin.getDKIConfig().mmoProtectedTags;
+            if (protectedTags != null && !protectedTags.isEmpty()) {
+                for (String tag : protectedTags) {
+                    if ((boolean) hasTagMethod.invoke(nbtItem, tag)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            // Default: only MMOITEMS_SOULBOUND
             return (boolean) hasTagMethod.invoke(nbtItem, "MMOITEMS_SOULBOUND");
         } catch (Exception e) {
             plugin.debug("Error checking soulbound status: " + e.getMessage());

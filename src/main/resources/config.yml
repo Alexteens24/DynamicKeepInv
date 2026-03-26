@@ -38,6 +38,20 @@ rules:
       keep-items: true
       keep-xp: true
 
+  # First-death leniency: keep items/xp on the player's very first death
+  first-death:
+    enabled: false
+    keep-items: true
+    keep-xp: true
+
+  # Death streak: keep items/xp if the player dies N times within a time window
+  streak:
+    enabled: false
+    threshold: 3          # Number of deaths required to trigger
+    window-seconds: 300   # Time window in seconds
+    keep-items: false
+    keep-xp: false
+
 # --- World Settings ---
 worlds:
   # Empty = all worlds
@@ -53,6 +67,7 @@ worlds:
 messages:
   broadcast:
     enabled: true
+    permission: ""  # Leave empty to broadcast to all; set to a permission node to restrict who sees it
     events:
       day-change: true
       night-change: true
@@ -110,6 +125,45 @@ integrations:
   # AxGraves
   axgraves:
     enabled: false
+
+  # Graves shared settings
+  graves:
+    # If grave creation fails, log a warning. Items drop normally (vanilla behavior) as fallback.
+    fallback-on-fail: true
+
+  # WorldGuard
+  worldguard:
+    enabled: false
+    in-own-region:
+      keep-items: true
+      keep-xp: true
+    in-other-region:
+      keep-items: false
+      keep-xp: false
+    wilderness:
+      enabled: false
+      keep-items: false
+      keep-xp: false
+
+  # Towny
+  towny:
+    enabled: false
+    in-own-town:
+      keep-items: true
+      keep-xp: true
+    in-other-town:
+      keep-items: false
+      keep-xp: false
+    wilderness:
+      enabled: false
+      keep-items: false
+      keep-xp: false
+
+# --- MMOItems ---
+hooks:
+  mmoitems:
+    # Tags to treat as protected (items kept regardless of death settings). Leave empty for default (MMOITEMS_SOULBOUND only).
+    protected-tags: []
 
 # --- Economy ---
 # Requires Vault

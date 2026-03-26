@@ -23,6 +23,14 @@ public class RuleManager {
         rules.clear();
     }
 
+    public List<String> getRuleNames() {
+        List<String> names = new ArrayList<>();
+        for (DeathRule rule : rules) {
+            names.add(rule.getName());
+        }
+        return names;
+    }
+
     public RuleResult evaluate(PlayerDeathEvent event) {
         for (DeathRule rule : rules) {
             plugin.debug("Evaluating rule: " + rule.getName());

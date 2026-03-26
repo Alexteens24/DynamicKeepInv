@@ -1,5 +1,118 @@
 # Changelog
 
+## [1.3.0] - 2026-03-26
+
+### Breaking Changes
+- **Java 21 required** — Minimum Java version raised from 17 to 21. Server must run JDK 21+.
+
+### Performance
+- **`DKIConfig` immutable config snapshot** — All ~60 config values cached in a single object at startup/reload. Hot-path methods (`onPlayerDeath`, `isWorldEnabled`, etc.) no longer call `getConfig().get*()` on every death event.
+- **`EconomyMode` enum** — Replaced string comparisons (`"charge-to-keep"`, `"gui"`) with type-safe enum `CHARGE_TO_KEEP / CHARGE_TO_BYPASS / GUI` throughout `DeathListener`.
+- **Stats TTL cache** — `StatsManager` now evicts offline player stats after 5 minutes instead of holding them indefinitely in memory.
+
+### New Integrations
+- **WorldGuard hook** — Region-based keep-inventory rules:
+  - `in-own-region` — keep items/XP when dying in a region you own/are member of
+  - `in-other-region` — keep items/XP when dying in someone else's region
+  - `wilderness` — fallback rule for areas outside any region
+- **Towny hook** — Town-based keep-inventory rules:
+  - `in-own-town` — keep items/XP when dying in your own town
+  - `in-other-town` — keep items/XP when dying in another player's town
+  - `wilderness` — fallback rule for areas outside any town
+- **Grave fallback warning** — When GravesX/AxGraves fails to create a grave, the plugin now logs a warning and optionally drops items naturally (configurable via `integrations.graves.fallback-on-fail`)
+- **MMOItems configurable tags** — `hooks.mmoitems.protected-tags` list allows specifying which NBT tags count as soulbound (defaults to `MMOITEMS_SOULBOUND`)
+
+### New Rules
+- **First Death Leniency** (`rules.first-death`) — Players keep items/XP on their very first death ever. Configurable keep-items and keep-xp separately.
+- **Death Streak Protection** (`rules.streak`) — Players who die N times within a configurable time window (e.g., 3 deaths in 300 seconds) get keep-inventory protection. Prevents frustration during difficult content.
+
+### New Commands
+- **`/dki test [player]`** — Diagnostic command that simulates the rule chain for a player and reports which rule would apply, what the result would be, and why. Useful for debugging configuration.
+- **`/dki status`** — Now shows the active rule chain with numbered rules in evaluation order.
+
+### Config & UX Improvements
+- **Config validation on startup/reload** — `ConfigMigration.validateConfig()` checks: time ranges (0–24000), day < night, trigger values, check-interval > 0, economy cost ≥ 0, GUI timeout/expire > 0, valid economy mode.
+- **Safe reload** — `/dki reload` now runs config migration before reloading, preventing stale config from being loaded.
+- **Broadcast permission** — New `messages.broadcast.permission` config key to restrict death messages to players with a specific permission (empty = broadcast to all).
+- **`RuleManager.getRuleNames()`** — Exposes ordered list of active rules for status display and debugging.
+
+### Rule Chain Order
+The full rule evaluation order is now:
+1. `BypassPermissionRule` — permission-based bypass
+2. `FirstDeathRule` — first death leniency (if enabled)
+3. `DeathStreakRule` — death streak protection (if enabled)
+4. `ProtectionRule` — Lands / GriefPrevention / WorldGuard / Towny region checks
+5. `DeathCauseRule` — PvP vs PvE filtering
+6. `WorldTimeRule` — day/night cycle rules
+
+### Config Additions
+```yaml
+messages:
+  broadcast:
+    permission: ""          # empty = all players
+
+integrations:
+  graves:
+    fallback-on-fail: true  # drop items if grave creation fails
+  worldguard:
+    enabled: false
+    in-own-region:
+      keep-items: true
+      keep-xp: true
+    in-other-region:
+      keep-items: false
+      keep-xp: false
+    wilderness:
+      enabled: false
+      keep-items: false
+      keep-xp: false
+  towny:
+    enabled: false
+    in-own-town:
+      keep-items: true
+      keep-xp: true
+    in-other-town:
+      keep-items: false
+      keep-xp: false
+    wilderness:
+      enabled: false
+      keep-items: false
+      keep-xp: false
+
+hooks:
+  mmoitems:
+    protected-tags: []      # empty = default MMOITEMS_SOULBOUND
+
+rules:
+  first-death:
+    enabled: false
+    keep-items: true
+    keep-xp: true
+  streak:
+    enabled: false
+    threshold: 3
+    window-seconds: 300
+    keep-items: true
+    keep-xp: true
+```
+
+### Dependencies
+- Added **WorldGuard 7.0.11** (`worldguard-bukkit`, scope: provided)
+- Added **Towny 0.98.3.0** (scope: provided)
+- Updated `plugin.yml` softdepend: `[Vault, Lands, GriefPrevention, PlaceholderAPI, GravesX, AxGraves, WorldGuard, Towny, MMOItems]`
+
+### New Files
+- `DKIConfig.java` — Immutable config snapshot class
+- `EconomyMode.java` — Economy mode enum
+- `WorldGuardHook.java` — WorldGuard region integration
+- `TownyHook.java` — Towny town integration
+- `FirstDeathRule.java` — First death leniency rule
+- `DeathStreakRule.java` — Death streak protection rule
+
+### Tests
+- All **51 tests passing** after upgrade
+- Fixed test compatibility with `DKIConfig` snapshot pattern (`refreshDKIConfig()` after config mutations)
+
 ## [1.2.0] - 2026-03-26
 ### Bug Fixes
 - **Fixed `DeathGuiHolder.getInventory()` returning null** — Added `inventory` field + setter; `DeathConfirmGUI` now calls `holder.setInventory()` after `Bukkit.createInventory()`

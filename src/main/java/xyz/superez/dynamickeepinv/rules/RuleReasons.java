@@ -26,7 +26,21 @@ public final class RuleReasons {
     public static final String GP_OTHER         = "gp-other";
     public static final String GP_WILDERNESS    = "gp-wilderness";
 
+    // WorldGuard integration
+    public static final String WG_OWN           = "wg-own";
+    public static final String WG_OTHER         = "wg-other";
+    public static final String WG_WILDERNESS    = "wg-wilderness";
+
+    // Towny integration
+    public static final String TOWNY_OWN        = "towny-own";
+    public static final String TOWNY_OTHER      = "towny-other";
+    public static final String TOWNY_WILDERNESS = "towny-wilderness";
+
     // Economy
     public static final String ECONOMY_BYPASS   = "economy-bypass";
     public static final String ECONOMY          = "economy";
+
+    // Special rules
+    public static final String FIRST_DEATH      = "first-death";
+    public static final String DEATH_STREAK     = "death-streak";
 }

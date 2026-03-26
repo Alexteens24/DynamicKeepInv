@@ -6,6 +6,10 @@ import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import xyz.superez.dynamickeepinv.hooks.GriefPreventionHook;
+import xyz.superez.dynamickeepinv.hooks.LandsHook;
+import xyz.superez.dynamickeepinv.hooks.TownyHook;
+import xyz.superez.dynamickeepinv.hooks.WorldGuardHook;
 
 public class CommandDispatcher {
 
@@ -42,6 +46,7 @@ public class CommandDispatcher {
             sender.sendMessage(plugin.parseMessage(plugin.getMessage("help.toggle")));
             sender.sendMessage(plugin.parseMessage(plugin.getMessage("help.stats")));
             sender.sendMessage(plugin.parseMessage(plugin.getMessage("help.autopay")));
+            sender.sendMessage(plugin.parseMessage("&7/dki test [player] &8- &fDiagnose rules for a player"));
             return true;
         }
 
@@ -51,6 +56,7 @@ public class CommandDispatcher {
                 break;
 
             case "reload":
+                new xyz.superez.dynamickeepinv.ConfigMigration(plugin).checkAndMigrate();
                 plugin.reloadConfig();
                 plugin.loadMessages();
                 plugin.reloadIntegrations();
@@ -89,6 +95,10 @@ public class CommandDispatcher {
                     plugin.stopChecking(true);
                     sender.sendMessage(plugin.parseMessage(plugin.getMessage("commands.disabled")));
                 }
+                break;
+
+            case "test":
+                handleTestCommand(sender, args);
                 break;
 
             default:
@@ -191,6 +201,93 @@ public class CommandDispatcher {
         return true;
     }
 
+    private void handleTestCommand(CommandSender sender, String[] args) {
+        Player target;
+        if (args.length >= 2) {
+            target = Bukkit.getPlayer(args[1]);
+            if (target == null) {
+                sender.sendMessage(plugin.parseMessage("&cPlayer &f" + args[1] + " &cnot found or offline."));
+                return;
+            }
+        } else if (sender instanceof Player) {
+            target = (Player) sender;
+        } else {
+            sender.sendMessage(plugin.parseMessage("&cUsage: /dki test [player]"));
+            return;
+        }
+
+        DKIConfig cfg = plugin.getDKIConfig();
+        sender.sendMessage(plugin.parseMessage("&7--- &eDKI Diagnostic: &f" + target.getName() + " &7---"));
+        sender.sendMessage(plugin.parseMessage("&7World: &f" + target.getWorld().getName()
+                + " &7| Loc: &f" + target.getLocation().getBlockX() + "," + target.getLocation().getBlockY() + "," + target.getLocation().getBlockZ()));
+
+        if (!cfg.enabled) {
+            sender.sendMessage(plugin.parseMessage("&c[DISABLED] Plugin is disabled globally."));
+            return;
+        }
+
+        // 1. Bypass permission
+        if (target.hasPermission("dynamickeepinv.bypass")) {
+            sender.sendMessage(plugin.parseMessage("&a[BYPASS] Has bypass permission → keep items & xp"));
+            return;
+        }
+
+        // 2. First-death rule
+        if (cfg.firstDeathEnabled && plugin.getStatsManager() != null) {
+            int deaths = plugin.getStatsManager().getTotalDeaths(target.getUniqueId());
+            if (deaths == 0) {
+                sender.sendMessage(plugin.parseMessage("&a[FIRST-DEATH] 0 deaths on record → keepItems=" + cfg.firstDeathKeepItems + " keepXp=" + cfg.firstDeathKeepXp));
+                return;
+            }
+        }
+
+        // 3. Lands
+        if (plugin.isLandsEnabled() && cfg.landsEnabled) {
+            LandsHook lands = plugin.getLandsHook();
+            if (lands.isInLand(target.getLocation())) {
+                boolean own = lands.isInOwnLand(target);
+                sender.sendMessage(plugin.parseMessage("&e[LANDS] In " + (own ? "own" : "other") + " land → keepItems=" + (own ? cfg.landsOwnKeepItems : cfg.landsOtherKeepItems) + " keepXp=" + (own ? cfg.landsOwnKeepXp : cfg.landsOtherKeepXp)));
+                return;
+            }
+        }
+
+        // 4. GriefPrevention
+        if (plugin.isGriefPreventionEnabled() && cfg.gpEnabled) {
+            GriefPreventionHook gp = plugin.getGriefPreventionHook();
+            if (gp.isInClaim(target.getLocation())) {
+                boolean own = gp.isInOwnClaim(target);
+                sender.sendMessage(plugin.parseMessage("&e[GP] In " + (own ? "own" : "other") + " claim → keepItems=" + (own ? cfg.gpOwnKeepItems : cfg.gpOtherKeepItems) + " keepXp=" + (own ? cfg.gpOwnKeepXp : cfg.gpOtherKeepXp)));
+                return;
+            }
+        }
+
+        // 5. WorldGuard
+        if (plugin.isWorldGuardEnabled() && cfg.worldGuardEnabled) {
+            WorldGuardHook wg = plugin.getWorldGuardHook();
+            if (wg.isInRegion(target.getLocation())) {
+                boolean own = wg.isInOwnRegion(target);
+                sender.sendMessage(plugin.parseMessage("&e[WG] In " + (own ? "own" : "other") + " region → keepItems=" + (own ? cfg.worldGuardOwnRegionKeepItems : cfg.worldGuardOtherRegionKeepItems) + " keepXp=" + (own ? cfg.worldGuardOwnRegionKeepXp : cfg.worldGuardOtherRegionKeepXp)));
+                return;
+            }
+        }
+
+        // 6. Towny
+        if (plugin.isTownyEnabled() && cfg.townyEnabled) {
+            TownyHook towny = plugin.getTownyHook();
+            if (towny.isInTown(target.getLocation())) {
+                boolean resident = towny.isInOwnTown(target);
+                String town = towny.getTownName(target.getLocation());
+                sender.sendMessage(plugin.parseMessage("&e[TOWNY] In town " + (town != null ? town : "?") + " (resident=" + resident + ") → keepItems=" + (resident ? cfg.townyOwnTownKeepItems : cfg.townyOtherTownKeepItems)));
+                return;
+            }
+        }
+
+        // 7. World time fallback
+        long time = target.getWorld().getTime();
+        boolean isDay = plugin.isTimeInRange(time, cfg.dayStart, cfg.nightStart);
+        sender.sendMessage(plugin.parseMessage("&7[TIME] " + (isDay ? "&aDay" : "&9Night") + " &7(time=" + time + ") → keepItems=" + (isDay ? cfg.dayKeepItems : cfg.nightKeepItems) + " keepXp=" + (isDay ? cfg.dayKeepXp : cfg.nightKeepXp)));
+    }
+
     private void showStatus(CommandSender sender) {
         sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.header")));
         sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.enabled")
@@ -201,6 +298,20 @@ public class CommandDispatcher {
                 .replace("{value}", String.valueOf(plugin.getConfig().getBoolean("rules.night.keep-items", false)))));
         sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.check-interval")
                 .replace("{value}", String.valueOf(plugin.getConfig().getInt("check-interval", 100)))));
+
+        // Rule chain summary
+        sender.sendMessage(plugin.parseMessage("&7--- &eActive Rule Chain &7---"));
+        xyz.superez.dynamickeepinv.rules.RuleManager rm = plugin.getRuleManager();
+        if (rm != null) {
+            java.util.List<String> names = rm.getRuleNames();
+            if (names.isEmpty()) {
+                sender.sendMessage(plugin.parseMessage("&7  (none)"));
+            } else {
+                for (int i = 0; i < names.size(); i++) {
+                    sender.sendMessage(plugin.parseMessage("&7  " + (i + 1) + ". &f" + names.get(i)));
+                }
+            }
+        }
 
         sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.world-header")));
         long dayStart = plugin.getConfig().getLong("time.day-start", 0);

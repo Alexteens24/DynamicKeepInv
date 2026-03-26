@@ -30,6 +30,7 @@ public class CommandCompleter implements TabCompleter {
                 commands.add("enable");
                 commands.add("disable");
                 commands.add("toggle");
+                commands.add("test");
             }
 
             if (sender.hasPermission("dynamickeepinv.stats")) {
@@ -46,7 +47,8 @@ public class CommandCompleter implements TabCompleter {
             Collections.sort(completions);
             return completions;
         } else if (args.length == 2) {
-            if (args[0].equalsIgnoreCase("stats") && sender.hasPermission("dynamickeepinv.stats.others")) {
+            if ((args[0].equalsIgnoreCase("stats") && sender.hasPermission("dynamickeepinv.stats.others"))
+                    || (args[0].equalsIgnoreCase("test") && sender.hasPermission("dynamickeepinv.admin"))) {
                 List<String> players = new ArrayList<>();
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     players.add(p.getName());

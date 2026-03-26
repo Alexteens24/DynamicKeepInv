@@ -23,6 +23,8 @@ import xyz.superez.dynamickeepinv.hooks.GriefPreventionHook;
 import xyz.superez.dynamickeepinv.hooks.GravesXHook;
 import xyz.superez.dynamickeepinv.hooks.AxGravesHook;
 import xyz.superez.dynamickeepinv.hooks.MMOItemsHook;
+import xyz.superez.dynamickeepinv.hooks.WorldGuardHook;
+import xyz.superez.dynamickeepinv.hooks.TownyHook;
 import xyz.superez.dynamickeepinv.rules.*;
 
 import java.io.File;
@@ -64,12 +66,14 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private PendingDeathManager pendingDeathManager;
     private DeathConfirmGUI deathConfirmGUI;
     private RuleManager ruleManager;
+    private volatile DKIConfig dkiConfig;
 
     @Override
     public void onEnable() {
         detectFolia();
         saveDefaultConfig();
         new ConfigMigration(this).checkAndMigrate();
+        dkiConfig = new DKIConfig(getConfig());
         loadMessages();
         integrationManager = new IntegrationManager(this);
         commandDispatcher = new CommandDispatcher(this);
@@ -180,7 +184,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     public boolean isWorldEnabled(World world) {
-        List<String> enabledWorlds = getConfig().getStringList("worlds.enabled");
+        List<String> enabledWorlds = dkiConfig.enabledWorlds;
         if (enabledWorlds == null || enabledWorlds.isEmpty()) {
             return true;
         }
@@ -215,7 +219,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     void reloadIntegrations() {
-        boolean economyEnabled = getConfig().getBoolean("economy.enabled", false);
+        dkiConfig = new DKIConfig(getConfig());
+        boolean economyEnabled = dkiConfig.economyEnabled;
         synchronized (economyLock) {
             economyManager = null;
             nextEconomyRetryTimeMs.set(0L);
@@ -225,6 +230,15 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             getEconomyManager();
         }
         integrationManager.reload();
+    }
+
+    public DKIConfig getDKIConfig() {
+        return dkiConfig;
+    }
+
+    /** Re-create the config snapshot from the currently loaded config. Useful for tests. */
+    void refreshDKIConfig() {
+        dkiConfig = new DKIConfig(getConfig());
     }
 
     public String getMessage(String path) {
@@ -286,15 +300,13 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     private void checkAndUpdateKeepInventory() {
-        boolean keepInvDay = getConfig().getBoolean("rules.day.keep-items", true);
-        boolean keepInvNight = getConfig().getBoolean("rules.night.keep-items", false);
-        long dayStart = getConfig().getLong("time.day-start", 0);
-        long nightStart = getConfig().getLong("time.night-start", 13000);
-
-        long dayTrigger = getConfig().getLong("time.triggers.day", -1);
-        long nightTrigger = getConfig().getLong("time.triggers.night", -1);
-        if (dayTrigger < 0) dayTrigger = dayStart;
-        if (nightTrigger < 0) nightTrigger = nightStart;
+        DKIConfig cfg = dkiConfig;
+        boolean keepInvDay = cfg.dayKeepItems;
+        boolean keepInvNight = cfg.nightKeepItems;
+        long dayStart = cfg.dayStart;
+        long nightStart = cfg.nightStart;
+        long dayTrigger = cfg.dayTrigger;
+        long nightTrigger = cfg.nightTrigger;
 
         for (World world : Bukkit.getWorlds()) {
             if (!isWorldEnabled(world)) {
@@ -357,19 +369,22 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     private boolean shouldBroadcast(boolean isDay) {
-        if (!getConfig().getBoolean("messages.broadcast.enabled", true)) return false;
-        if (isDay && !getConfig().getBoolean("messages.broadcast.events.day-change", true)) return false;
-        if (!isDay && !getConfig().getBoolean("messages.broadcast.events.night-change", true)) return false;
+        DKIConfig cfg = dkiConfig;
+        if (!cfg.broadcastEnabled) return false;
+        if (isDay  && !cfg.broadcastDayChange)  return false;
+        if (!isDay && !cfg.broadcastNightChange) return false;
         return true;
     }
 
     private void sendNotifications(World world, String message, boolean isDay) {
+        DKIConfig cfg = dkiConfig;
         Component component = parseMessage(message);
-        boolean chat = getConfig().getBoolean("messages.broadcast.display.chat", true);
-        boolean actionBar = getConfig().getBoolean("messages.broadcast.display.action-bar", false);
-        boolean titleEnabled = getConfig().getBoolean("messages.broadcast.display.title", false);
-        boolean soundEnabled = getConfig().getBoolean("messages.broadcast.sound.enabled", false);
-        String soundName = isDay ? getConfig().getString("messages.broadcast.sound.day") : getConfig().getString("messages.broadcast.sound.night");
+        boolean chat       = cfg.broadcastChat;
+        boolean actionBar  = cfg.broadcastActionBar;
+        boolean titleEnabled = cfg.broadcastTitle;
+        boolean soundEnabled = cfg.broadcastSoundEnabled;
+        String soundName = isDay ? cfg.broadcastSoundDay : cfg.broadcastSoundNight;
+        String broadcastPerm = cfg.broadcastPermission;
         Sound sound = null;
 
         if (soundEnabled) {
@@ -385,6 +400,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         final boolean finalSoundEnabled = soundEnabled;
 
         for (Player p : new java.util.ArrayList<>(world.getPlayers())) {
+            if (!broadcastPerm.isEmpty() && !p.hasPermission(broadcastPerm)) continue;
             Runnable notificationTask = () -> {
                 if (chat) p.sendMessage(component);
                 if (actionBar) p.sendActionBar(component);
@@ -558,6 +574,12 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private void setupRuleManager() {
         ruleManager = new RuleManager(this);
         ruleManager.registerRule(new BypassPermissionRule());
+        if (dkiConfig.firstDeathEnabled) {
+            ruleManager.registerRule(new FirstDeathRule());
+        }
+        if (dkiConfig.deathStreakEnabled) {
+            ruleManager.registerRule(new DeathStreakRule());
+        }
         ruleManager.registerRule(new ProtectionRule());
         ruleManager.registerRule(new DeathCauseRule());
         ruleManager.registerRule(new WorldTimeRule());
@@ -581,6 +603,22 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
     public boolean isGriefPreventionEnabled() {
         return integrationManager.isGriefPreventionEnabled();
+    }
+
+    public WorldGuardHook getWorldGuardHook() {
+        return integrationManager.getWorldGuardHook();
+    }
+
+    public boolean isWorldGuardEnabled() {
+        return integrationManager.isWorldGuardEnabled();
+    }
+
+    public TownyHook getTownyHook() {
+        return integrationManager.getTownyHook();
+    }
+
+    public boolean isTownyEnabled() {
+        return integrationManager.isTownyEnabled();
     }
 
     public GravesXHook getGravesXHook() {

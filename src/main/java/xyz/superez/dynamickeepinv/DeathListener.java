@@ -31,7 +31,8 @@ public class DeathListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
-        if (!plugin.getConfig().getBoolean("enabled", true)) {
+        DKIConfig cfg = plugin.getDKIConfig();
+        if (!cfg.enabled) {
              return;
         }
 
@@ -77,13 +78,13 @@ public class DeathListener implements Listener {
         final String baseReason = reason;
 
         // 5. Economy Check
-        if (plugin.getConfig().getBoolean("economy.enabled", false)) {
-            double cost = plugin.getConfig().getDouble("economy.cost", 0.0);
-            String mode = plugin.getConfig().getString("economy.mode", "charge-to-keep");
+        if (cfg.economyEnabled) {
+            double cost = cfg.economyCost;
+            EconomyMode mode = cfg.economyMode;
             plugin.debug("Economy enabled. Cost=" + cost + ", Mode=" + mode);
 
             // GUI mode - save inventory and show confirmation GUI on respawn
-            if ("gui".equalsIgnoreCase(mode) && cost > 0 && !baseKeepItems) {
+            if (mode == EconomyMode.GUI && cost > 0 && !baseKeepItems) {
                 EconomyManager eco = plugin.getEconomyManager();
                 if (eco != null && eco.isEnabled()) {
                     plugin.debug("GUI mode: Saving inventory for confirmation GUI");
@@ -218,7 +219,7 @@ public class DeathListener implements Listener {
             }
 
             boolean shouldProcessEconomy = false;
-            if ("charge-to-bypass".equalsIgnoreCase(mode)) {
+            if (mode == EconomyMode.CHARGE_TO_BYPASS) {
                 // In bypass mode, we charge if the player WOULD lose items (to bypass the loss)
                 shouldProcessEconomy = !keepItems || !keepXp;
                 plugin.debug("Bypass mode check: keepItems=" + keepItems + ", keepXp=" + keepXp + ", shouldProcess=" + shouldProcessEconomy);
@@ -237,7 +238,7 @@ public class DeathListener implements Listener {
                         String msg = plugin.getMessage("economy.not-enough-money")
                                 .replace("{amount}", eco.format(cost));
                         player.sendMessage(plugin.parseMessage(msg));
-                        if ("charge-to-bypass".equalsIgnoreCase(mode)) {
+                        if (mode == EconomyMode.CHARGE_TO_BYPASS) {
                             plugin.debug("Bypass mode: Player cannot afford, using original keep settings (DROP).");
                             // Failed to pay for bypass -> use base setting (which was drop)
                             keepItems = baseKeepItems;
@@ -256,7 +257,7 @@ public class DeathListener implements Listener {
                             String msg = plugin.getMessage("economy.payment-failed")
                                 .replace("{amount}", eco.format(cost));
                             player.sendMessage(plugin.parseMessage(msg));
-                            if ("charge-to-bypass".equalsIgnoreCase(mode)) {
+                            if (mode == EconomyMode.CHARGE_TO_BYPASS) {
                                 plugin.debug("Bypass mode: Payment failed, reverting to original keep settings.");
                                 keepItems = baseKeepItems;
                                 keepXp = baseKeepXp;
@@ -272,7 +273,7 @@ public class DeathListener implements Listener {
                             if (stats != null) {
                                 stats.recordEconomyPayment(player, cost);
                             }
-                            if ("charge-to-bypass".equalsIgnoreCase(mode)) {
+                            if (mode == EconomyMode.CHARGE_TO_BYPASS) {
                                 plugin.debug("Bypass mode: Payment successful, keeping items.");
                                 keepItems = true;
                                 keepXp = true;
@@ -285,7 +286,7 @@ public class DeathListener implements Listener {
                 }
             }
         } else {
-            plugin.debug("Economy check skipped. EcoEnabled=" + plugin.getConfig().getBoolean("economy.enabled", false));
+            plugin.debug("Economy check skipped. EcoEnabled=" + cfg.economyEnabled);
         }
 
         plugin.debug("Final decision: keepItems=" + keepItems + ", keepXp=" + keepXp);
@@ -329,13 +330,16 @@ public class DeathListener implements Listener {
                     if (!keepXp) {
                         event.setDroppedExp(0);
                     }
+                } else if (cfg.gravesFallbackDrop) {
+                    plugin.getLogger().warning("[DKI] Grave creation failed for " + player.getName()
+                            + " — items will drop at death location (fallback).");
                 }
             }
         }
 
         String reasonFinal;
-        boolean economyBypass = plugin.getConfig().getBoolean("economy.enabled", false)
-                && "charge-to-bypass".equalsIgnoreCase(plugin.getConfig().getString("economy.mode", "charge-to-keep"))
+        boolean economyBypass = cfg.economyEnabled
+                && cfg.economyMode == EconomyMode.CHARGE_TO_BYPASS
                 && (keepItems || keepXp)
                 && (!baseKeepItems || !baseKeepXp);
 
@@ -352,7 +356,8 @@ public class DeathListener implements Listener {
     }
 
     private void sendDeathMessage(Player player, boolean keepItems, boolean keepXp, String reason) {
-        if (!plugin.getConfig().getBoolean("messages.death.enabled", true)) {
+        DKIConfig cfg = plugin.getDKIConfig();
+        if (!cfg.deathMsgEnabled) {
             return;
         }
 
@@ -377,17 +382,17 @@ public class DeathListener implements Listener {
             message = message + " " + reasonMsg;
         }
 
-        if (plugin.getConfig().getBoolean("messages.death.chat", true)) {
+        if (cfg.deathMsgChat) {
             player.sendMessage(plugin.parseMessage(message));
         }
 
-        if (plugin.getConfig().getBoolean("messages.death.action-bar", false)) {
+        if (cfg.deathMsgActionBar) {
             player.sendActionBar(plugin.parseMessage(message));
         }
     }
 
     private void trackDeathStats(Player player, boolean keepItems, boolean keepXp, String reason) {
-        if (!plugin.getConfig().getBoolean("stats.enabled", true)) {
+        if (!plugin.getDKIConfig().statsEnabled) {
             return;
         }
 

@@ -108,5 +108,82 @@ public class ConfigMigration {
                 plugin.getLogger().log(Level.SEVERE, "Could not save migrated " + filename, e);
             }
         }
+
+        if (filename.equals("config.yml")) {
+            validateConfig(config);
+        }
+    }
+
+    /**
+     * Validate config values and warn on out-of-range or nonsensical settings.
+     * Does not modify the config — only logs warnings.
+     */
+    private void validateConfig(FileConfiguration config) {
+        boolean ok = true;
+
+        long dayStart   = config.getLong("time.day-start",   0);
+        long nightStart = config.getLong("time.night-start", 13000);
+        if (dayStart < 0 || dayStart > 24000) {
+            plugin.getLogger().warning("[Config] time.day-start must be between 0 and 24000, got: " + dayStart);
+            ok = false;
+        }
+        if (nightStart < 0 || nightStart > 24000) {
+            plugin.getLogger().warning("[Config] time.night-start must be between 0 and 24000, got: " + nightStart);
+            ok = false;
+        }
+        if (dayStart >= nightStart) {
+            plugin.getLogger().warning("[Config] time.day-start (" + dayStart + ") should be less than time.night-start (" + nightStart + ").");
+            ok = false;
+        }
+
+        long dayTrigger   = config.getLong("time.triggers.day",   -1);
+        long nightTrigger = config.getLong("time.triggers.night", -1);
+        if (dayTrigger != -1 && (dayTrigger < 0 || dayTrigger > 24000)) {
+            plugin.getLogger().warning("[Config] time.triggers.day must be -1 or between 0 and 24000, got: " + dayTrigger);
+            ok = false;
+        }
+        if (nightTrigger != -1 && (nightTrigger < 0 || nightTrigger > 24000)) {
+            plugin.getLogger().warning("[Config] time.triggers.night must be -1 or between 0 and 24000, got: " + nightTrigger);
+            ok = false;
+        }
+
+        int checkInterval = config.getInt("check-interval", 100);
+        if (checkInterval <= 0) {
+            plugin.getLogger().warning("[Config] check-interval must be > 0, got: " + checkInterval);
+            ok = false;
+        }
+
+        double cost = config.getDouble("economy.cost", 0.0);
+        if (cost < 0) {
+            plugin.getLogger().warning("[Config] economy.cost must be >= 0, got: " + cost);
+            ok = false;
+        }
+
+        long guiTimeout = config.getLong("economy.gui.timeout", 30);
+        if (guiTimeout <= 0) {
+            plugin.getLogger().warning("[Config] economy.gui.timeout must be > 0, got: " + guiTimeout);
+            ok = false;
+        }
+
+        long guiExpire = config.getLong("economy.gui.expire-time", 300);
+        if (guiExpire <= 0) {
+            plugin.getLogger().warning("[Config] economy.gui.expire-time must be > 0, got: " + guiExpire);
+            ok = false;
+        }
+
+        String mode = config.getString("economy.mode", "charge-to-keep");
+        if (mode != null && !mode.equalsIgnoreCase("charge-to-keep")
+                && !mode.equalsIgnoreCase("charge-to-bypass")
+                && !mode.equalsIgnoreCase("gui")) {
+            plugin.getLogger().warning("[Config] economy.mode must be 'charge-to-keep', 'charge-to-bypass', or 'gui'. Got: " + mode);
+            ok = false;
+        }
+
+        if (ok) {
+            plugin.getLogger().info("[Config] Validation passed.");
+        } else {
+            plugin.getLogger().warning("[Config] One or more config values are invalid. Plugin will attempt to continue with defaults where possible.");
+        }
     }
 }
+

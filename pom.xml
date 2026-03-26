@@ -14,7 +14,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>17</maven.compiler.release>
+        <maven.compiler.release>21</maven.compiler.release>
 
         <!-- Dependency versions -->
         <paper.version>1.20.4-R0.1-SNAPSHOT</paper.version>
@@ -24,6 +24,8 @@
         <placeholderapi.version>2.11.6</placeholderapi.version>
         <gravesx.version>4.9.9.2-api</gravesx.version>
         <axgraves.version>1.24.0</axgraves.version>
+        <worldguard.version>7.0.11</worldguard.version>
+        <towny.version>0.98.3.0</towny.version>
         <sqlite.version>3.45.1.0</sqlite.version>
         <junit.version>5.10.1</junit.version>
         <mockito.version>5.11.0</mockito.version>
@@ -60,6 +62,16 @@
         <repository>
             <id>Artillex-Studios</id>
             <url>https://repo.artillex-studios.com/releases/</url>
+        </repository>
+        <!-- EngineHub / WorldGuard Repository -->
+        <repository>
+            <id>enginehub</id>
+            <url>https://maven.enginehub.org/repo/</url>
+        </repository>
+        <!-- Towny Repository -->
+        <repository>
+            <id>towny</id>
+            <url>https://repo.glaremasters.me/repository/towny/</url>
         </repository>
     </repositories>
 
@@ -117,6 +129,22 @@
             <groupId>com.github.Artillex-Studios</groupId>
             <artifactId>AxGraves</artifactId>
             <version>${axgraves.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- WorldGuard API -->
+        <dependency>
+            <groupId>com.sk89q.worldguard</groupId>
+            <artifactId>worldguard-bukkit</artifactId>
+            <version>${worldguard.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Towny API -->
+        <dependency>
+            <groupId>com.palmergames.bukkit.towny</groupId>
+            <artifactId>Towny</artifactId>
+            <version>${towny.version}</version>
             <scope>provided</scope>
         </dependency>
 
@@ -202,8 +230,8 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion>
-                                    <version>[17,)</version>
-                                    <message>Java 17 or higher is required.</message>
+                                    <version>[21,)</version>
+                                    <message>Java 21 or higher is required.</message>
                                 </requireJavaVersion>
                                 <requireMavenVersion>
                                     <version>[3.6,)</version>

@@ -49,7 +49,8 @@ public class CommandCompleterTest {
         assertTrue(results.contains("enable"));
         assertTrue(results.contains("disable"));
         assertTrue(results.contains("toggle"));
-        assertEquals(5, results.size());
+        assertTrue(results.contains("test"));
+        assertEquals(6, results.size());
     }
 
     @Test

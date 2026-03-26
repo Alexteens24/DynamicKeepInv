@@ -19,7 +19,9 @@ public class StatsManager {
 
     // Cache for online players
     private final java.util.Map<UUID, PlayerStatsData> statsCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<UUID, Long> statsCacheTimestamp = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Set<UUID> knownPlayers = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static final long PLAYER_STATS_CACHE_TTL = 300_000; // 5 minutes for offline lookups
 
     // Cache for global stats
     private volatile int cachedGlobalDeathsSaved = 0;
@@ -87,6 +89,7 @@ public class StatsManager {
     public void close() {
         isShuttingDown = true;
         statsCache.clear();
+        statsCacheTimestamp.clear();
         asyncExecutor.shutdown();
         try {
             if (!asyncExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
@@ -112,11 +115,13 @@ public class StatsManager {
         return java.util.concurrent.CompletableFuture.runAsync(() -> {
             PlayerStatsData data = fetchStats(uuid);
             statsCache.put(uuid, data);
+            statsCacheTimestamp.put(uuid, System.currentTimeMillis());
         }, asyncExecutor);
     }
 
     public void unloadStats(UUID uuid) {
         statsCache.remove(uuid);
+        statsCacheTimestamp.remove(uuid);
     }
 
     private PlayerStatsData fetchStats(UUID uuid) {
@@ -344,12 +349,22 @@ public class StatsManager {
 
     private PlayerStatsData getCachedOrLoad(UUID uuid) {
         PlayerStatsData data = statsCache.get(uuid);
-        if (data != null) return data;
+        if (data != null) {
+            // Online players: always valid. Offline fallback entries: check TTL
+            Long ts = statsCacheTimestamp.get(uuid);
+            if (ts == null || (System.currentTimeMillis() - ts) < PLAYER_STATS_CACHE_TTL) {
+                return data;
+            }
+            // TTL expired for an offline lookup — evict and re-fetch
+            statsCache.remove(uuid);
+            statsCacheTimestamp.remove(uuid);
+        }
 
-        // Synchronous fallback (should be avoided in main thread if possible, but required for PAPI/GUI if cache miss)
-        // ideally PAPI should be tolerant or we just return 0.
-        // For offline targets in GUI, we should probably fetch async.
-        return fetchStats(uuid);
+        // Synchronous fallback for PAPI/GUI cache misses
+        data = fetchStats(uuid);
+        statsCache.put(uuid, data);
+        statsCacheTimestamp.put(uuid, System.currentTimeMillis());
+        return data;
     }
 
     public int getDeathsSaved(UUID uuid) {

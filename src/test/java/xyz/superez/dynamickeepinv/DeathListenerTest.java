@@ -72,6 +72,7 @@ class DeathListenerTest {
     @DisplayName("Plugin disabled in config → event unmodified")
     void testPluginDisabledSkipsProcessing() {
         plugin.getConfig().set("enabled", false);
+        plugin.refreshDKIConfig();
         world.setTime(6000); // Day (would normally keep)
         PlayerMock player = server.addPlayer();
         player.teleport(world.getSpawnLocation());
@@ -90,6 +91,7 @@ class DeathListenerTest {
     @DisplayName("Disabled world → event unmodified")
     void testDisabledWorldSkipsProcessing() {
         plugin.getConfig().set("worlds.enabled", List.of("other_world")); // only other_world enabled
+        plugin.refreshDKIConfig();
         world.setTime(6000);
         PlayerMock player = server.addPlayer();
         player.teleport(world.getSpawnLocation());

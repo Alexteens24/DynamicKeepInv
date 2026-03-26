@@ -193,6 +193,7 @@ class DynamicKeepInvPluginTest {
         // Set config to only enable "world" (uppercase W to test case insensitivity)
         // Updated to new config path
         plugin.getConfig().set("worlds.enabled", java.util.Arrays.asList("World"));
+        plugin.refreshDKIConfig();
 
         // Set times
         world.setTime(6000); // Day
