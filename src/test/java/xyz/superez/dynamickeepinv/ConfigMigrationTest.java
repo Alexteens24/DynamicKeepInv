@@ -146,4 +146,57 @@ public class ConfigMigrationTest {
         // Deprecated message should be removed
         assertFalse(loadedMessages.contains("messages.en.deprecated"));
     }
+
+    @Test
+    public void testConfigValidationPassesForSaneValues() throws Exception {
+        File configFile = new File(dataFolder, "config.yml");
+        try (FileWriter writer = new FileWriter(configFile)) {
+            writer.write("config-version: 6\n");
+            writer.write("time:\n  day-start: 0\n  night-start: 13000\n  triggers:\n    day: -1\n    night: -1\n");
+            writer.write("check-interval: 100\n");
+            writer.write("economy:\n  cost: 10\n  mode: gui\n  gui:\n    timeout: 30\n    expire-time: 300\n");
+        }
+
+        String defaultConfigContent = "config-version: 6\n" +
+                "time:\n  day-start: 0\n  night-start: 13000\n  triggers:\n    day: -1\n    night: -1\n" +
+                "check-interval: 100\n" +
+                "economy:\n  cost: 10\n  mode: gui\n  gui:\n    timeout: 30\n    expire-time: 300\n";
+        when(plugin.getResource("config.yml")).thenReturn(new ByteArrayInputStream(defaultConfigContent.getBytes(StandardCharsets.UTF_8)));
+        when(plugin.getResource("messages.yml")).thenReturn(null);
+
+        new ConfigMigration(plugin).checkAndMigrate();
+
+        verify(logger).info("[Config] Validation passed.");
+        verify(logger, never()).warning(contains("[Config] One or more config values are invalid"));
+    }
+
+    @Test
+    public void testConfigValidationWarnsForInvalidValues() throws Exception {
+        File configFile = new File(dataFolder, "config.yml");
+        try (FileWriter writer = new FileWriter(configFile)) {
+            writer.write("config-version: 6\n");
+            writer.write("time:\n  day-start: 14000\n  night-start: 13000\n  triggers:\n    day: 25000\n    night: -2\n");
+            writer.write("check-interval: 0\n");
+            writer.write("economy:\n  cost: -1\n  mode: bad-mode\n  gui:\n    timeout: 0\n    expire-time: 0\n");
+        }
+
+        String defaultConfigContent = "config-version: 6\n" +
+                "time:\n  day-start: 0\n  night-start: 13000\n  triggers:\n    day: -1\n    night: -1\n" +
+                "check-interval: 100\n" +
+                "economy:\n  cost: 10\n  mode: charge-to-keep\n  gui:\n    timeout: 30\n    expire-time: 300\n";
+        when(plugin.getResource("config.yml")).thenReturn(new ByteArrayInputStream(defaultConfigContent.getBytes(StandardCharsets.UTF_8)));
+        when(plugin.getResource("messages.yml")).thenReturn(null);
+
+        new ConfigMigration(plugin).checkAndMigrate();
+
+        verify(logger).warning(contains("time.day-start (14000) should be less than time.night-start (13000)"));
+        verify(logger).warning(contains("time.triggers.day must be -1 or between 0 and 24000"));
+        verify(logger).warning(contains("time.triggers.night must be -1 or between 0 and 24000"));
+        verify(logger).warning(contains("check-interval must be > 0"));
+        verify(logger).warning(contains("economy.cost must be >= 0"));
+        verify(logger).warning(contains("economy.gui.timeout must be > 0"));
+        verify(logger).warning(contains("economy.gui.expire-time must be > 0"));
+        verify(logger).warning(contains("economy.mode must be 'charge-to-keep', 'charge-to-bypass', or 'gui'"));
+        verify(logger).warning(contains("[Config] One or more config values are invalid"));
+    }
 }
