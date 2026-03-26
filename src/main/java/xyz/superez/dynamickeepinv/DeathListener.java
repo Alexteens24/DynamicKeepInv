@@ -1,7 +1,10 @@
 package xyz.superez.dynamickeepinv;
 
+import org.bukkit.Bukkit;
+import org.bukkit.GameRule;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -9,8 +12,15 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
-import xyz.superez.dynamickeepinv.rules.RuleResult;
+import org.bukkit.inventory.ItemStack;
+import xyz.superez.dynamickeepinv.hooks.MMOItemsHook;
 import xyz.superez.dynamickeepinv.rules.RuleManager;
+import xyz.superez.dynamickeepinv.rules.RuleReasons;
+import xyz.superez.dynamickeepinv.rules.RuleResult;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
 public class DeathListener implements Listener {
     private final DynamicKeepInvPlugin plugin;
@@ -34,7 +44,7 @@ public class DeathListener implements Listener {
         }
 
         plugin.debug("Advanced death handling triggered for " + player.getName());
-        plugin.debug("Current gamerule KEEP_INVENTORY: " + world.getGameRuleValue(org.bukkit.GameRule.KEEP_INVENTORY));
+        plugin.debug("Current gamerule KEEP_INVENTORY: " + world.getGameRuleValue(GameRule.KEEP_INVENTORY));
         plugin.debug("Event keepInventory before processing: " + event.getKeepInventory());
 
         // Evaluate rules via RuleManager
@@ -47,11 +57,11 @@ public class DeathListener implements Listener {
         RuleResult result = ruleManager.evaluate(event);
         if (result == null) {
             plugin.debug("No rule matched! Using defaults (DROP).");
-            result = new RuleResult(false, false, "unknown");
+            result = new RuleResult(false, false, RuleReasons.UNKNOWN);
         }
 
         // Handle deferral (e.g. Lands-defer)
-        if ("lands-defer".equals(result.reason())) {
+        if (RuleReasons.LANDS_DEFER.equals(result.reason())) {
             plugin.debug("Rule deferred to Lands without altering drops.");
             return;
         }
@@ -79,20 +89,20 @@ public class DeathListener implements Listener {
                     plugin.debug("GUI mode: Saving inventory for confirmation GUI");
 
                     // Prepare inventory for saving, filtering out Soulbound items to keep them
-                    org.bukkit.inventory.ItemStack[] contents = player.getInventory().getContents();
-                    org.bukkit.inventory.ItemStack[] armor = player.getInventory().getArmorContents();
-                    org.bukkit.inventory.ItemStack offHand = player.getInventory().getItemInOffHand();
+                    ItemStack[] contents = player.getInventory().getContents();
+                    ItemStack[] armor = player.getInventory().getArmorContents();
+                    ItemStack offHand = player.getInventory().getItemInOffHand();
 
                     // Arrays to pass to PendingDeath (without soulbound items)
-                    org.bukkit.inventory.ItemStack[] savedContents = new org.bukkit.inventory.ItemStack[contents.length];
-                    org.bukkit.inventory.ItemStack[] savedArmor = new org.bukkit.inventory.ItemStack[armor.length];
-                    org.bukkit.inventory.ItemStack savedOffHand = null;
+                    ItemStack[] savedContents = new ItemStack[contents.length];
+                    ItemStack[] savedArmor = new ItemStack[armor.length];
+                    ItemStack savedOffHand = null;
 
                     int keptSoulbound = 0;
 
                     // Filter contents
                     for (int i = 0; i < contents.length; i++) {
-                        org.bukkit.inventory.ItemStack item = contents[i];
+                        ItemStack item = contents[i];
                         if (item != null && !item.getType().isAir()) {
                             boolean isSoulbound = false;
                             if (plugin.isMMOItemsEnabled()) {
@@ -111,7 +121,7 @@ public class DeathListener implements Listener {
 
                     // Filter armor
                     for (int i = 0; i < armor.length; i++) {
-                        org.bukkit.inventory.ItemStack item = armor[i];
+                        ItemStack item = armor[i];
                         if (item != null && !item.getType().isAir()) {
                             boolean isSoulbound = false;
                             if (plugin.isMMOItemsEnabled()) {
@@ -284,25 +294,41 @@ public class DeathListener implements Listener {
         applyKeepInventorySettings(event, keepItems, keepXp);
         plugin.debug("Event keepInventory after processing: " + event.getKeepInventory());
 
-        // Check if we should create a grave (GravesX support)
-        // Only if items are NOT kept (meaning they are dropped) and hook is enabled
-        if (!keepItems && plugin.isGravesXEnabled()) {
+        // Check if we should create a grave (GravesX / AxGraves support)
+        // Only if items are NOT kept (meaning they are dropped) and a hook is enabled
+        if (!keepItems && (plugin.isGravesXEnabled() || plugin.isAxGravesEnabled())) {
             if (event.getDrops() != null && !event.getDrops().isEmpty()) {
-                plugin.debug("GravesX enabled and items dropped. Creating grave...");
-                // Create a list copy because passing event.getDrops() might be risky if we clear it later
-                java.util.List<org.bukkit.inventory.ItemStack> dropsToSave = new java.util.ArrayList<>(event.getDrops());
-
-                // Determine XP to store in grave
+                List<ItemStack> dropsToSave = new ArrayList<>(event.getDrops());
                 int xpToStore = keepXp ? 0 : player.getTotalExperience();
+                boolean graveCreated = false;
 
-                if (plugin.getGravesXHook().createGrave(player, deathLocation, dropsToSave, xpToStore)) {
+                // Try GravesX first
+                if (plugin.isGravesXEnabled()) {
+                    plugin.debug("GravesX enabled and items dropped. Creating grave...");
+                    if (plugin.getGravesXHook().createGrave(player, deathLocation, dropsToSave, xpToStore)) {
+                        graveCreated = true;
+                        plugin.debug("Grave created with " + dropsToSave.size() + " items and " + xpToStore + " XP.");
+                    } else {
+                        plugin.debug("Failed to create GravesX grave, trying fallback...");
+                    }
+                }
+
+                // Fallback to AxGraves
+                if (!graveCreated && plugin.isAxGravesEnabled()) {
+                    plugin.debug("AxGraves enabled and items dropped. Creating grave...");
+                    if (plugin.getAxGravesHook().createGrave(player, deathLocation, dropsToSave, xpToStore)) {
+                        graveCreated = true;
+                        plugin.debug("Grave created via AxGraves with " + dropsToSave.size() + " items and " + xpToStore + " XP.");
+                    } else {
+                        plugin.debug("Failed to create AxGraves grave, items will drop normally.");
+                    }
+                }
+
+                if (graveCreated) {
                     event.getDrops().clear();
                     if (!keepXp) {
                         event.setDroppedExp(0);
                     }
-                    plugin.debug("Grave created with " + dropsToSave.size() + " items and " + xpToStore + " XP.");
-                } else {
-                     plugin.debug("Failed to create grave, items will drop normally.");
                 }
             }
         }
@@ -314,7 +340,7 @@ public class DeathListener implements Listener {
                 && (!baseKeepItems || !baseKeepXp);
 
         if (economyBypass) {
-            reasonFinal = "economy-bypass";
+            reasonFinal = RuleReasons.ECONOMY_BYPASS;
         } else {
             reasonFinal = baseReason;
         }
@@ -341,7 +367,7 @@ public class DeathListener implements Listener {
             messageKey = "death.lost-all";
         }
 
-        if ("bypass".equals(reason)) {
+        if (RuleReasons.BYPASS.equals(reason)) {
             messageKey = "death.bypass";
         }
 
@@ -385,9 +411,9 @@ public class DeathListener implements Listener {
                 simpleReason = "lands";
             } else if (reason.contains("gp")) {
                 simpleReason = "griefprevention";
-            } else if (reason.equals("bypass")) {
+            } else if (reason.equals(RuleReasons.BYPASS)) {
                 simpleReason = "bypass";
-            } else if (reason.equals("economy-bypass")) {
+            } else if (reason.equals(RuleReasons.ECONOMY_BYPASS)) {
                 simpleReason = "economy";
             }
         }
@@ -416,12 +442,12 @@ public class DeathListener implements Listener {
 
             // Handle MMOItems Soulbound support
             if (plugin.isMMOItemsEnabled()) {
-                xyz.superez.dynamickeepinv.hooks.MMOItemsHook hook = plugin.getMMOItemsHook();
+                MMOItemsHook hook = plugin.getMMOItemsHook();
                 if (event.getDrops() != null && !event.getDrops().isEmpty()) {
-                    java.util.Iterator<org.bukkit.inventory.ItemStack> it = event.getDrops().iterator();
+                    Iterator<ItemStack> it = event.getDrops().iterator();
                     int savedCount = 0;
                     while (it.hasNext()) {
-                        org.bukkit.inventory.ItemStack drop = it.next();
+                        ItemStack drop = it.next();
                         if (hook.isSoulbound(drop)) {
                             it.remove();
                             event.getItemsToKeep().add(drop);
@@ -434,16 +460,16 @@ public class DeathListener implements Listener {
                 }
             }
 
-            Boolean gameruleKeepInv = player.getWorld().getGameRuleValue(org.bukkit.GameRule.KEEP_INVENTORY);
+            Boolean gameruleKeepInv = player.getWorld().getGameRuleValue(GameRule.KEEP_INVENTORY);
             boolean wasKeepingInventory = gameruleKeepInv != null && gameruleKeepInv;
             if (event.getDrops() != null && event.getDrops().isEmpty() && wasKeepingInventory) {
                 plugin.debug("Drops empty and gamerule was keepInventory=true, forcing inventory to drops...");
                 int addedItems = 0;
                 int savedSoulbound = 0;
-                for (org.bukkit.inventory.ItemStack item : player.getInventory().getContents()) {
+                for (ItemStack item : player.getInventory().getContents()) {
                     if (item != null && !item.getType().isAir()) {
                         // Check for Curse of Vanishing
-                        if (item.hasItemMeta() && item.getItemMeta().hasEnchant(org.bukkit.enchantments.Enchantment.VANISHING_CURSE)) {
+                        if (item.hasItemMeta() && item.getItemMeta().hasEnchant(Enchantment.VANISHING_CURSE)) {
                             continue;
                         }
 
@@ -508,7 +534,7 @@ public class DeathListener implements Listener {
                 }
             }, null, 2L);
         } else {
-            org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (player.isOnline()) {
                     openDeathConfirmGUI(player, pending);
                 }
@@ -548,7 +574,7 @@ public class DeathListener implements Listener {
                 }
             }, null, 40L); // 2 seconds
         } else {
-            org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (player.isOnline()) {
                     String msg = plugin.getMessage("economy.gui.rejoin-notice");
                     player.sendMessage(plugin.parseMessage(msg));

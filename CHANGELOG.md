@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.2.0] - 2026-03-26
+### Bug Fixes
+- **Fixed `DeathGuiHolder.getInventory()` returning null** — Added `inventory` field + setter; `DeathConfirmGUI` now calls `holder.setInventory()` after `Bukkit.createInventory()`
+- **Fixed `StatsGUI` using null holder** — New `StatsGuiHolder` class replaces the null holder; click/drag event handlers now use `instanceof StatsGuiHolder` instead of fragile title-string matching
+- **Fixed language default `"vi"`** — Default language in `DynamicKeepInvPlugin` corrected to `"en"` to match `messages.yml`
+- **Fixed misleading `volatile` on `economyRetryCount`** — Removed `volatile` keyword; all accesses are already inside a `synchronized` block
+- **Fixed missing AxGraves path in `DeathListener`** — Added AxGraves fallback after GravesX, mirroring the logic already present in `PendingDeathManager.performDrop()`
+
+### Improvements
+- **`RuleReasons` constants class** — All magic reason strings (`"bypass"`, `"pvp"`, `"pve"`, `"time-day"`, `"time-night"`, `"lands-defer"`, etc.) replaced with typed constants in `rules/RuleReasons.java`
+- **Imports cleanup in `DeathListener`** — All inline fully-qualified class names moved to proper top-of-file imports
+
+### New Tests (30 new cases)
+- `BypassPermissionRuleTest` — 4 Mockito unit tests
+- `DeathCauseRuleTest` — 4 Mockito unit tests
+- `WorldTimeRuleTest` — 4 Mockito unit tests
+- `RuleManagerTest` — 6 Mockito unit tests
+- `EconomyManagerTest` — 10 Mockito unit tests
+- `DeathListenerTest` — 6 MockBukkit integration tests
+
+### Code Quality
+- **God class split** — `DynamicKeepInvPlugin` (893 → 639 lines) decomposed into:
+  - `IntegrationManager` — owns all hook setup/teardown and availability checks
+  - `CommandDispatcher` — owns all `/dki` command handling logic
+- **pom.xml** — All 11 dependency versions extracted to named `<properties>`; `maven-enforcer-plugin` added (requires Java ≥ 17, Maven ≥ 3.6)
+
+### Documentation
+- **`wiki/Basic-Configuration.md`** — Rewritten to match actual `config.yml` structure; removed stale keys (`keep-inventory-day`, `keep-inventory-night`, `advanced.enabled`, `world-settings`, `gamerule-change`)
+- **`wiki/Advanced-Configuration.md`** — Removed stale `advanced.enabled` requirement; updated all config paths to match current structure; added AxGraves section
+
 ## [1.0.19] - 2025-12-10
 ### New Features
 - **Auto-Pay Option** - Players can enable auto-pay to automatically keep items on death

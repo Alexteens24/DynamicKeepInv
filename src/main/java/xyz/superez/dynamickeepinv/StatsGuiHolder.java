@@ -4,7 +4,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.jetbrains.annotations.NotNull;
 
-public class DeathGuiHolder implements InventoryHolder {
+public class StatsGuiHolder implements InventoryHolder {
     private Inventory inventory;
 
     public void setInventory(@NotNull Inventory inventory) {

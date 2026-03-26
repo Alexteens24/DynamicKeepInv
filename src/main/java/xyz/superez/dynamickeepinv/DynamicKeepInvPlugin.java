@@ -63,13 +63,10 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private volatile EconomyManager economyManager;
     private final Object economyLock = new Object();
     private final AtomicLong nextEconomyRetryTimeMs = new AtomicLong(0L);
-    private volatile int economyRetryCount = 0;
+    private int economyRetryCount = 0;
 
-    private LandsHook landsHook;
-    private GriefPreventionHook griefPreventionHook;
-    private GravesXHook gravesXHook;
-    private AxGravesHook axGravesHook;
-    private MMOItemsHook mmoItemsHook;
+    private IntegrationManager integrationManager;
+    private CommandDispatcher commandDispatcher;
     private DynamicKeepInvExpansion placeholderExpansion;
     private StatsManager statsManager;
     private StatsGUI statsGUI;
@@ -84,6 +81,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         saveDefaultConfig();
         new ConfigMigration(this).checkAndMigrate();
         loadMessages();
+        integrationManager = new IntegrationManager(this);
+        commandDispatcher = new CommandDispatcher(this);
         reloadIntegrations();
         setupRuleManager();
 
@@ -216,72 +215,26 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
     }
 
-    private void loadMessages() {
+    void loadMessages() {
         File messagesFile = new File(getDataFolder(), "messages.yml");
         if (!messagesFile.exists()) {
             saveResource("messages.yml", false);
         }
         messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
-        lang = messagesConfig.getString("language", "vi");
+        lang = messagesConfig.getString("language", "en");
     }
 
-    private void reloadIntegrations() {
+    void reloadIntegrations() {
         boolean economyEnabled = getConfig().getBoolean("economy.enabled", false);
         synchronized (economyLock) {
             economyManager = null;
             nextEconomyRetryTimeMs.set(0L);
-            economyRetryCount = 0; // Reset retry counter on reload
+            economyRetryCount = 0;
         }
         if (economyEnabled) {
             getEconomyManager();
         }
-
-        if (getConfig().getBoolean("integrations.lands.enabled", false)) {
-            landsHook = new LandsHook(this);
-        } else {
-            landsHook = null;
-        }
-
-        if (getConfig().getBoolean("integrations.griefprevention.enabled", false)) {
-            griefPreventionHook = new GriefPreventionHook(this);
-        } else {
-            griefPreventionHook = null;
-        }
-
-        if (getConfig().getBoolean("integrations.gravesx.enabled", false)) {
-            if (Bukkit.getPluginManager().getPlugin("GravesX") != null) {
-                gravesXHook = new GravesXHook(this);
-                if (!gravesXHook.setup()) {
-                    gravesXHook = null; // Failed to setup
-                }
-            } else {
-                getLogger().warning("GravesX integration enabled in config, but GravesX plugin not found!");
-                gravesXHook = null;
-            }
-        } else {
-            gravesXHook = null;
-        }
-
-        if (getConfig().getBoolean("integrations.axgraves.enabled", false)) {
-            if (Bukkit.getPluginManager().getPlugin("AxGraves") != null) {
-                axGravesHook = new AxGravesHook(this);
-                if (!axGravesHook.setup()) {
-                    axGravesHook = null; // Failed to setup
-                }
-            } else {
-                getLogger().warning("AxGraves integration enabled in config, but AxGraves plugin not found!");
-                axGravesHook = null;
-            }
-        } else {
-            axGravesHook = null;
-        }
-
-        if (Bukkit.getPluginManager().getPlugin("MMOItems") != null) {
-            mmoItemsHook = new MMOItemsHook(this);
-            getLogger().info("MMOItems hooked!");
-        } else {
-            mmoItemsHook = null;
-        }
+        integrationManager.reload();
     }
 
     public String getMessage(String path) {
@@ -301,7 +254,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         return LegacyComponentSerializer.legacyAmpersand().deserialize(message);
     }
 
-    private void startChecking() {
+    void startChecking() {
         stopChecking(false);
 
         int interval = getConfig().getInt("check-interval", 100);
@@ -324,7 +277,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
     }
 
-    private void stopChecking(boolean resetGameRules) {
+    void stopChecking(boolean resetGameRules) {
         if (isFolia) {
             if (foliaTask != null) {
                 foliaTask.cancel();
@@ -521,182 +474,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length > 0 && args[0].equalsIgnoreCase("stats")) {
-            return handleStatsCommand(sender, args);
-        }
-
-        if (args.length > 0 && args[0].equalsIgnoreCase("confirm")) {
-            return handleConfirmCommand(sender);
-        }
-
-        if (args.length > 0 && args[0].equalsIgnoreCase("autopay")) {
-            return handleAutoPayCommand(sender);
-        }
-
-        if (!sender.hasPermission("dynamickeepinv.admin")) {
-            sender.sendMessage(parseMessage(getMessage("no-permission")));
-            return true;
-        }
-
-        if (args.length == 0) {
-            sender.sendMessage(parseMessage(getMessage("help.header")));
-            sender.sendMessage(parseMessage(getMessage("help.status")));
-            sender.sendMessage(parseMessage(getMessage("help.reload")));
-            sender.sendMessage(parseMessage(getMessage("help.enable")));
-            sender.sendMessage(parseMessage(getMessage("help.disable")));
-            sender.sendMessage(parseMessage(getMessage("help.toggle")));
-            sender.sendMessage(parseMessage(getMessage("help.stats")));
-            sender.sendMessage(parseMessage(getMessage("help.autopay")));
-            return true;
-        }
-
-        switch (args[0].toLowerCase()) {
-            case "status":
-                showStatus(sender);
-                break;
-
-            case "reload":
-                reloadConfig();
-                loadMessages();
-                reloadIntegrations();
-                reloadPendingDeathManager();
-                reloadStatsSystem();
-                if (getConfig().getBoolean("enabled", true)) {
-                    startChecking();
-                } else {
-                    stopChecking(true);
-                }
-                sender.sendMessage(parseMessage(getMessage("commands.reload")));
-                break;
-
-            case "enable":
-                getConfig().set("enabled", true);
-                saveConfig();
-                startChecking();
-                sender.sendMessage(parseMessage(getMessage("commands.enabled")));
-                break;
-
-            case "disable":
-                getConfig().set("enabled", false);
-                saveConfig();
-                stopChecking(true);
-                sender.sendMessage(parseMessage(getMessage("commands.disabled")));
-                break;
-
-            case "toggle":
-                boolean newState = !getConfig().getBoolean("enabled", true);
-                getConfig().set("enabled", newState);
-                saveConfig();
-
-                if (newState) {
-                    startChecking();
-                    sender.sendMessage(parseMessage(getMessage("commands.enabled")));
-                } else {
-                    stopChecking(true);
-                    sender.sendMessage(parseMessage(getMessage("commands.disabled")));
-                }
-                break;
-
-            default:
-                sender.sendMessage(parseMessage(getMessage("commands.unknown")));
-        }
-
-        return true;
-    }
-
-    private boolean handleStatsCommand(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage(parseMessage("&cThis command can only be used by players!"));
-            return true;
-        }
-
-        Player player = (Player) sender;
-
-        if (!player.hasPermission("dynamickeepinv.stats")) {
-            sender.sendMessage(parseMessage(getMessage("no-permission")));
-            return true;
-        }
-
-        if (statsGUI == null || statsManager == null) {
-            sender.sendMessage(parseMessage(getMessage("stats.disabled")));
-            return true;
-        }
-
-        if (args.length >= 2) {
-            if (player.hasPermission("dynamickeepinv.stats.others")) {
-                Player target = Bukkit.getPlayer(args[1]);
-                if (target != null) {
-                    statsGUI.openStats(player, target.getUniqueId(), target.getName());
-                } else {
-                    org.bukkit.OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(args[1]);
-                    if (offlineTarget.hasPlayedBefore() || offlineTarget.isOnline()) {
-                        String displayName = offlineTarget.getName() != null ? offlineTarget.getName() : args[1];
-                        statsGUI.openStats(player, offlineTarget.getUniqueId(), displayName);
-                    } else {
-                        sender.sendMessage(parseMessage(getMessage("stats.player-not-found").replace("{player}", args[1])));
-                    }
-                }
-            } else {
-                sender.sendMessage(parseMessage(getMessage("no-permission")));
-            }
-        } else {
-            statsGUI.openStats(player);
-        }
-
-        return true;
-    }
-
-    private boolean handleConfirmCommand(CommandSender sender) {
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage(parseMessage("&cThis command can only be used by players!"));
-            return true;
-        }
-
-        // Check if GUI mode is enabled
-        if (!getConfig().getBoolean("economy.enabled", false)
-            || !"gui".equalsIgnoreCase(getConfig().getString("economy.mode", "charge-to-keep"))) {
-            sender.sendMessage(parseMessage("&cDeath confirmation GUI is not enabled! Set economy mode to 'gui' in config."));
-            return true;
-        }
-
-        if (pendingDeathManager == null || deathConfirmGUI == null) {
-            sender.sendMessage(parseMessage("&cDeath confirmation GUI is not enabled!"));
-            return true;
-        }
-
-        PendingDeath pending = pendingDeathManager.getPendingDeath(player.getUniqueId());
-        if (pending == null || pending.isProcessed()) {
-            sender.sendMessage(parseMessage("&eYou don't have a pending death to confirm."));
-            return true;
-        }
-
-        deathConfirmGUI.openGUI(player, pending);
-        return true;
-    }
-
-    private boolean handleAutoPayCommand(CommandSender sender) {
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage(parseMessage("&cThis command can only be used by players!"));
-            return true;
-        }
-
-        // Check if GUI mode is enabled
-        if (!getConfig().getBoolean("economy.enabled", false)
-            || !"gui".equalsIgnoreCase(getConfig().getString("economy.mode", "charge-to-keep"))) {
-            sender.sendMessage(parseMessage("&cAuto-pay requires GUI economy mode! Set economy mode to 'gui' in config."));
-            return true;
-        }
-
-        if (pendingDeathManager == null) {
-            sender.sendMessage(parseMessage("&cDeath confirmation GUI is not enabled!"));
-            return true;
-        }
-
-        boolean newState = pendingDeathManager.toggleAutoPay(player.getUniqueId());
-        String msgKey = newState ? "economy.gui.auto-pay-enabled" : "economy.gui.auto-pay-disabled";
-        String msg = getMessage(msgKey);
-        player.sendMessage(parseMessage(msg));
-        return true;
+        return commandDispatcher.dispatch(sender, command, label, args);
     }
 
     private void cleanupStatsSystem() {
@@ -714,7 +492,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
     }
 
-    private void reloadStatsSystem() {
+    void reloadStatsSystem() {
         cleanupStatsSystem();
 
         if (getConfig().getBoolean("stats.enabled", true)) {
@@ -726,7 +504,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
     }
 
-    private void reloadPendingDeathManager() {
+    void reloadPendingDeathManager() {
         // Close old manager if exists
         if (pendingDeathManager != null) {
             pendingDeathManager.close();
@@ -744,38 +522,6 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             pendingDeathManager = new PendingDeathManager(this);
             deathConfirmGUI = new DeathConfirmGUI(this);
             getLogger().info("Death confirmation GUI mode enabled!");
-        }
-    }
-
-    private void showStatus(CommandSender sender) {
-        sender.sendMessage(parseMessage(getMessage("status.header")));
-        sender.sendMessage(parseMessage(getMessage("status.enabled")
-                .replace("{value}", String.valueOf(getConfig().getBoolean("enabled", true)))));
-        sender.sendMessage(parseMessage(getMessage("status.keep-inv-day")
-                .replace("{value}", String.valueOf(getConfig().getBoolean("rules.day.keep-items", true)))));
-        sender.sendMessage(parseMessage(getMessage("status.keep-inv-night")
-                .replace("{value}", String.valueOf(getConfig().getBoolean("rules.night.keep-items", false)))));
-        sender.sendMessage(parseMessage(getMessage("status.check-interval")
-                .replace("{value}", String.valueOf(getConfig().getInt("check-interval", 100)))));
-
-        sender.sendMessage(parseMessage(getMessage("status.world-header")));
-        long dayStart = getConfig().getLong("time.day-start", 0);
-        long nightStart = getConfig().getLong("time.night-start", 13000);
-        for (World world : Bukkit.getWorlds()) {
-            long time = world.getTime();
-            boolean isDay = isTimeInRange(time, dayStart, nightStart);
-            Boolean keepInv = world.getGameRuleValue(GameRule.KEEP_INVENTORY);
-
-            String period = isDay ? getMessage("status.day") : getMessage("status.night");
-            String status = (keepInv != null && keepInv) ? getMessage("status.on") : getMessage("status.off");
-
-            String worldInfo = getMessage("status.world-info")
-                    .replace("{world}", world.getName())
-                    .replace("{time}", String.valueOf(time))
-                    .replace("{period}", period)
-                    .replace("{status}", status);
-
-            sender.sendMessage(parseMessage(worldInfo));
         }
     }
 
@@ -832,43 +578,43 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     public LandsHook getLandsHook() {
-        return landsHook;
+        return integrationManager.getLandsHook();
     }
 
     public GriefPreventionHook getGriefPreventionHook() {
-        return griefPreventionHook;
+        return integrationManager.getGriefPreventionHook();
     }
 
     public boolean isLandsEnabled() {
-        return landsHook != null && landsHook.isAvailable();
+        return integrationManager.isLandsEnabled();
     }
 
     public boolean isGriefPreventionEnabled() {
-        return griefPreventionHook != null && griefPreventionHook.isAvailable();
+        return integrationManager.isGriefPreventionEnabled();
     }
 
     public GravesXHook getGravesXHook() {
-        return gravesXHook;
+        return integrationManager.getGravesXHook();
     }
 
     public boolean isGravesXEnabled() {
-        return gravesXHook != null && gravesXHook.isEnabled();
+        return integrationManager.isGravesXEnabled();
     }
 
     public AxGravesHook getAxGravesHook() {
-        return axGravesHook;
+        return integrationManager.getAxGravesHook();
     }
 
     public boolean isAxGravesEnabled() {
-        return axGravesHook != null && axGravesHook.isEnabled();
+        return integrationManager.isAxGravesEnabled();
     }
 
     public MMOItemsHook getMMOItemsHook() {
-        return mmoItemsHook;
+        return integrationManager.getMMOItemsHook();
     }
 
     public boolean isMMOItemsEnabled() {
-        return mmoItemsHook != null;
+        return integrationManager.isMMOItemsEnabled();
     }
 
     public StatsManager getStatsManager() {

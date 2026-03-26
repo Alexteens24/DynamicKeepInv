@@ -18,7 +18,7 @@ public class DeathCauseRule implements DeathRule {
 
         boolean keepItems = plugin.getConfig().getBoolean(causePath + ".keep-items", false);
         boolean keepXp = plugin.getConfig().getBoolean(causePath + ".keep-xp", false);
-        String reason = isPvp ? "pvp" : "pve";
+        String reason = isPvp ? RuleReasons.PVP : RuleReasons.PVE;
 
         return new RuleResult(keepItems, keepXp, reason);
     }

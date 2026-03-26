@@ -62,7 +62,9 @@ public class StatsGUI implements Listener {
     }
 
     private void openGUI(Player viewer, UUID targetUUID, String targetName) {
-        Inventory gui = Bukkit.createInventory(null, 45, GUI_TITLE_COMPONENT);
+        StatsGuiHolder holder = new StatsGuiHolder();
+        Inventory gui = Bukkit.createInventory(holder, 45, GUI_TITLE_COMPONENT);
+        holder.setInventory(gui);
         StatsManager stats = plugin.getStatsManager();
 
         fillBackground(gui);
@@ -230,12 +232,7 @@ public class StatsGUI implements Listener {
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) return;
-
-        Component title = event.getView().title();
-        if (title == null) return;
-
-        String plainTitle = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(title);
-        if (!plainTitle.equals(GUI_TITLE_TEXT)) return;
+        if (!(event.getInventory().getHolder() instanceof StatsGuiHolder)) return;
 
         event.setCancelled(true);
 
@@ -246,11 +243,7 @@ public class StatsGUI implements Listener {
 
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
-        Component title = event.getView().title();
-        if (title == null) return;
-
-        String plainTitle = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(title);
-        if (plainTitle.equals(GUI_TITLE_TEXT)) {
+        if (event.getInventory().getHolder() instanceof StatsGuiHolder) {
             event.setCancelled(true);
         }
     }

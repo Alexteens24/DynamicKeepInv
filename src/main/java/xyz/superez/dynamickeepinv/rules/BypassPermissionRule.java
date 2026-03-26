@@ -14,7 +14,7 @@ public class BypassPermissionRule implements DeathRule {
 
         Player player = event.getEntity();
         if (player.hasPermission("dynamickeepinv.bypass")) {
-            return new RuleResult(true, true, "bypass");
+            return new RuleResult(true, true, RuleReasons.BYPASS);
         }
 
         return null;

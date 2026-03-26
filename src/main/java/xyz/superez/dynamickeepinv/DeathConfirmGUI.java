@@ -68,7 +68,9 @@ public class DeathConfirmGUI implements Listener {
         // Cancel any existing timeout
         cancelTimeout(player.getUniqueId());
         
-        Inventory gui = Bukkit.createInventory(new DeathGuiHolder(), GUI_SIZE, GUI_TITLE_COMPONENT);
+        DeathGuiHolder holder = new DeathGuiHolder();
+        Inventory gui = Bukkit.createInventory(holder, GUI_SIZE, GUI_TITLE_COMPONENT);
+        holder.setInventory(gui);
         
         EconomyManager eco = plugin.getEconomyManager();
         double cost = pendingDeath.getCost();

@@ -14,7 +14,7 @@ public class WorldTimeRule implements DeathRule {
         long nightStart = plugin.getConfig().getLong("time.night-start", 13000);
 
         boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
-        String baseReason = isDay ? "time-day" : "time-night";
+        String baseReason = isDay ? RuleReasons.TIME_DAY : RuleReasons.TIME_NIGHT;
         String settingPath = isDay ? "rules.day" : "rules.night";
 
         boolean defaultKeepItems = getWorldKeepInventory(plugin, world, isDay);

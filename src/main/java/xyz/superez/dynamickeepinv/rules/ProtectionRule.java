@@ -22,7 +22,7 @@ public class ProtectionRule implements DeathRule {
 
             if (inLand) {
                 if (!overrideLands) {
-                    return new RuleResult(false, false, "lands-defer");
+                    return new RuleResult(false, false, RuleReasons.LANDS_DEFER);
                 }
 
                 boolean isOwnLand = lands.isInOwnLand(player);
@@ -31,7 +31,7 @@ public class ProtectionRule implements DeathRule {
                 if (plugin.getConfig().contains(configPath)) {
                     boolean keepItems = plugin.getConfig().getBoolean(configPath + ".keep-items", false);
                     boolean keepXp = plugin.getConfig().getBoolean(configPath + ".keep-xp", false);
-                    String reason = isOwnLand ? "lands-own" : "lands-other";
+                    String reason = isOwnLand ? RuleReasons.LANDS_OWN : RuleReasons.LANDS_OTHER;
                     return new RuleResult(keepItems, keepXp, reason);
                 }
             } else {
@@ -41,7 +41,7 @@ public class ProtectionRule implements DeathRule {
                     if (!useDeathCause) {
                          boolean keepItems = plugin.getConfig().getBoolean("integrations.lands.wilderness.keep-items", false);
                          boolean keepXp = plugin.getConfig().getBoolean("integrations.lands.wilderness.keep-xp", false);
-                         return new RuleResult(keepItems, keepXp, "lands-wilderness");
+                         return new RuleResult(keepItems, keepXp, RuleReasons.LANDS_WILDERNESS);
                     }
                     // If useDeathCause is true, we return null to let DeathCauseRule handle it.
                 }
@@ -58,7 +58,7 @@ public class ProtectionRule implements DeathRule {
                 if (plugin.getConfig().contains(configPath)) {
                     boolean keepItems = plugin.getConfig().getBoolean(configPath + ".keep-items", false);
                     boolean keepXp = plugin.getConfig().getBoolean(configPath + ".keep-xp", false);
-                    String reason = isOwnClaim ? "gp-own" : "gp-other";
+                    String reason = isOwnClaim ? RuleReasons.GP_OWN : RuleReasons.GP_OTHER;
                     return new RuleResult(keepItems, keepXp, reason);
                 }
             } else {
@@ -67,7 +67,7 @@ public class ProtectionRule implements DeathRule {
                      if (!useDeathCause) {
                          boolean keepItems = plugin.getConfig().getBoolean("integrations.griefprevention.wilderness.keep-items", false);
                          boolean keepXp = plugin.getConfig().getBoolean("integrations.griefprevention.wilderness.keep-xp", false);
-                         return new RuleResult(keepItems, keepXp, "gp-wilderness");
+                         return new RuleResult(keepItems, keepXp, RuleReasons.GP_WILDERNESS);
                      }
                  }
             }
