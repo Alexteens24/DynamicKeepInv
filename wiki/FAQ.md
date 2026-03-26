@@ -6,10 +6,10 @@
 **A:** Yes! The plugin fully supports Folia's region-based scheduling.
 
 ### Q: What Minecraft versions are supported?
-**A:** 1.20.4 and higher (requires Java 17+).
+**A:** 1.20.4 and higher (requires Java 21+).
 
 ### Q: Will this conflict with other plugins?
-**A:** Generally no. But if you use Lands or GriefPrevention, they have their own keep inventory features. See [Advanced Configuration](Advanced-Configuration) for how to handle this.
+**A:** Generally no. But if you use Lands, GriefPrevention, WorldGuard, or Towny, they may influence death handling in specific areas. See [Advanced Configuration](Advanced-Configuration).
 
 ---
 
@@ -24,21 +24,18 @@
 ### Q: How do I make players always keep inventory in their own land?
 **A:** 
 ```yaml
-advanced:
-  enabled: true
-  protection:
-    lands:
-      enabled: true
-      in-own-land:
-        keep-items: true
-        keep-xp: true
+integrations:
+  lands:
+    enabled: true
+    in-own-land:
+      keep-items: true
+      keep-xp: true
 ```
 
 ### Q: How do I make PvP not drop items but PvE does?
 **A:**
 ```yaml
-advanced:
-  enabled: true
+rules:
   death-cause:
     enabled: true
     pvp:
@@ -52,11 +49,34 @@ advanced:
 ### Q: I want night to drop items but still keep XP
 **A:**
 ```yaml
-advanced:
-  enabled: true
+rules:
   night:
     keep-items: false
     keep-xp: true
+```
+
+### Q: Can I protect a player's first death?
+**A:** Yes.
+
+```yaml
+rules:
+  first-death:
+    enabled: true
+    keep-items: true
+    keep-xp: true
+```
+
+### Q: Can I reduce punishment if a player keeps dying repeatedly?
+**A:** Yes, use the streak rule.
+
+```yaml
+rules:
+  streak:
+    enabled: true
+    threshold: 3
+    window-seconds: 300
+    keep-items: false
+    keep-xp: false
 ```
 
 ---
@@ -73,15 +93,16 @@ advanced:
 **A:** You need:
 1. [Vault](https://www.spigotmc.org/resources/vault.34315/) plugin
 2. An economy plugin (EssentialsX, CMI, etc.)
-3. `advanced.economy.enabled: true` in config
+3. `economy.enabled: true` in config
 
 ### Q: Settings seem to be ignored
 **A:** Check the priority order:
 1. Bypass permission (highest)
-2. Claimed areas (in-own-land, in-other-land)
-3. Death cause (PvP/PvE)
-4. Wilderness
-5. Time-based (lowest)
+2. First death
+3. Death streak
+4. Protection integrations
+5. Death cause (PvP/PvE)
+6. Time-based (lowest)
 
 Higher priority settings override lower ones.
 
@@ -91,26 +112,34 @@ Higher priority settings override lower ones.
 
 ### Hardcore Survival
 ```yaml
-keep-inventory-day: false
-keep-inventory-night: false
+rules:
+  day:
+    keep-items: false
+  night:
+    keep-items: false
 ```
 
 ### Casual Survival
 ```yaml
-keep-inventory-day: true
-keep-inventory-night: true
+rules:
+  day:
+    keep-items: true
+  night:
+    keep-items: true
 ```
 
 ### Day Safe, Night Dangerous
 ```yaml
-keep-inventory-day: true
-keep-inventory-night: false
+rules:
+  day:
+    keep-items: true
+  night:
+    keep-items: false
 ```
 
 ### PvP Server (no item loss in PvP)
 ```yaml
-advanced:
-  enabled: true
+rules:
   death-cause:
     enabled: true
     pvp:
@@ -128,15 +157,13 @@ advanced:
 ### Q: How do I use the Death Confirmation GUI?
 **A:** Set economy mode to `gui`:
 ```yaml
-advanced:
+economy:
   enabled: true
-  economy:
-    enabled: true
-    cost: 100.0
-    mode: "gui"
-    gui:
-      timeout: 30
-      expire-time: 300
+  cost: 100.0
+  mode: "gui"
+  gui:
+    timeout: 30
+    expire-time: 300
 ```
 
 When players die:
@@ -161,14 +188,14 @@ When players die:
 
 Just disable death-cause:
 ```yaml
-advanced:
-  enabled: true
+rules:
   death-cause:
-    enabled: false  # Disable this
-  protection:
-    lands:
-      enabled: true
-      override-lands: false  # Let Lands handle its own settings
+    enabled: false
+
+integrations:
+  lands:
+    enabled: true
+    override-lands: false
 ```
 
 This way:
@@ -179,10 +206,11 @@ This way:
 ### Q: Death-cause vs Wilderness vs Lands - what takes priority?
 **A:** Priority order (highest to lowest):
 1. **Bypass permission** - `dynamickeepinv.bypass`
-2. **Claimed areas** - in-own-land, in-other-land (Lands/GriefPrevention)
-3. **Death cause** - PvP/PvE settings
-4. **Wilderness** - Outside claimed areas
-5. **Time-based** - Day/Night rules
+2. **First death**
+3. **Death streak**
+4. **Protection integrations** - Lands/GriefPrevention/WorldGuard/Towny
+5. **Death cause** - PvP/PvE settings
+6. **Time-based** - Day/Night rules
 
 Example: Player dies at night, killed by another player, in wilderness:
 - If `death-cause.enabled: true` → PvP settings apply
@@ -191,16 +219,14 @@ Example: Player dies at night, killed by another player, in wilderness:
 ### Q: I want Lands to fully control its areas, plugin only controls wilderness
 **A:** 
 ```yaml
-advanced:
-  enabled: true
-  protection:
-    lands:
+integrations:
+  lands:
+    enabled: true
+    override-lands: false
+    wilderness:
       enabled: true
-      override-lands: false  # Important!
-      wilderness:
-        enabled: true
-        keep-items: false
-        keep-xp: true
+      keep-items: false
+      keep-xp: true
 ```
 
 With `override-lands: false`, the plugin won't touch areas inside Lands. Only wilderness (unclaimed) will use your settings.
