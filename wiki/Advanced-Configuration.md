@@ -1,25 +1,23 @@
 # Advanced Configuration
 
-These settings give you fine-grained control over keep inventory behaviour.
+These settings give you fine-grained control over how and why players keep or lose inventory.
 
 ---
 
 ## How It Works
 
-When a player dies, the plugin evaluates rules in this order:
+When a player dies, DynamicKeepInv evaluates rules in this order:
 
-```
-1. Bypass Permission     → Always keep (if player has dynamickeepinv.bypass)
-      ↓
-2. Protection (Lands / GriefPrevention)
-             → in-own-land / in-other-land settings
-      ↓
-3. Death Cause           → PvP or PvE settings
-      ↓
-4. Time-based            → Day or night settings (always fires)
+```text
+1. Bypass Permission
+2. First Death Rule
+3. Death Streak Rule
+4. Protection Integrations
+5. Death Cause Rule
+6. Time-based Fallback
 ```
 
-The **first** matching rule is applied. Rules that are disabled are skipped.
+The first matching rule wins.
 
 ---
 
@@ -30,59 +28,80 @@ rules:
   bypass-permission: true
 ```
 
-Players with `dynamickeepinv.bypass` will **always** keep inventory, ignoring all other rules.
-
-**Use case:** Give this permission to staff or donators.
+Players with `dynamickeepinv.bypass` always keep inventory if this is enabled.
 
 ---
 
 ## Death Cause Rules
 
-Override day/night defaults based on how the player died:
-
 ```yaml
 rules:
   death-cause:
     enabled: true
-    pvp:             # Killed by another player
+    pvp:
       keep-items: true
       keep-xp: true
-    pve:             # Everything else (mobs, environment)
+    pve:
       keep-items: false
       keep-xp: true
 ```
 
-### What counts as PvP?
+PvP includes direct player kills and player-owned wolves. PvE includes mobs, environment, and command kills.
 
-- Direct player kill (sword, bow, etc.)
-- Player's tamed wolf killing another player
+---
 
-### What counts as PvE?
+## First-Death Rule
 
-- Mob kills (zombie, skeleton, creeper, etc.)
-- Environmental (fall, lava, drowning, fire)
-- Commands (`/kill`)
+```yaml
+rules:
+  first-death:
+    enabled: true
+    keep-items: true
+    keep-xp: true
+```
+
+This grants a safety net on a player's very first recorded death.
+
+Note: this depends on the stats system. If stats are disabled or unavailable, this rule is skipped.
+
+---
+
+## Death Streak Rule
+
+```yaml
+rules:
+  streak:
+    enabled: true
+    threshold: 3
+    window-seconds: 300
+    keep-items: false
+    keep-xp: false
+```
+
+| Setting | Description |
+|---------|-------------|
+| `threshold` | Number of deaths required to trigger the rule |
+| `window-seconds` | How long recent deaths stay in the streak window |
+| `keep-items` | Whether items are kept after the threshold |
+| `keep-xp` | Whether XP is kept after the threshold |
+
+This tracking is in-memory and resets on server restart.
 
 ---
 
 ## Lands Integration
 
-For servers using the [Lands](https://www.spigotmc.org/resources/lands.53313/) plugin:
-
 ```yaml
 integrations:
   lands:
     enabled: true
     override-lands: false
-
     in-own-land:
       keep-items: true
       keep-xp: true
-
     in-other-land:
       keep-items: false
       keep-xp: false
-
     wilderness:
       enabled: true
       use-death-cause: false
@@ -90,49 +109,22 @@ integrations:
       keep-xp: false
 ```
 
-### Settings Explained
-
-| Setting | Description |
-|---------|-------------|
-| `enabled` | Enable Lands integration |
-| `override-lands` | `true` = ignore Lands' own keepInventory flag. `false` = let Lands handle it |
-| `in-own-land` | Settings when the player dies in land they own or are trusted in |
-| `in-other-land` | Settings when the player dies in someone else's land |
-| `wilderness.enabled` | Apply a rule when the player dies outside all Lands claims |
-| `wilderness.use-death-cause` | `true` = fall through to DeathCause rules in wilderness |
-
-### Recommended Setup
-
-**Let Lands control its own areas; plugin controls wilderness:**
-```yaml
-integrations:
-  lands:
-    enabled: true
-    override-lands: false
-    wilderness:
-      enabled: true
-      use-death-cause: true  # Use PvP/PvE rules outside Lands
-```
+`override-lands: false` means Lands can keep controlling its own keepInventory behavior.
 
 ---
 
 ## GriefPrevention Integration
 
-For servers using [GriefPrevention](https://www.spigotmc.org/resources/griefprevention.1884/):
-
 ```yaml
 integrations:
   griefprevention:
     enabled: true
-
     in-own-claim:
       keep-items: true
       keep-xp: true
-
     in-other-claim:
       keep-items: false
       keep-xp: false
-
     wilderness:
       enabled: true
       use-death-cause: false
@@ -140,137 +132,157 @@ integrations:
       keep-xp: false
 ```
 
-Same logic as Lands — `in-own-claim` applies to claims you own or are trusted in.
+`in-own-claim` applies when the player owns or is trusted in the claim.
+
+---
+
+## WorldGuard Integration
+
+```yaml
+integrations:
+  worldguard:
+    enabled: true
+    in-own-region:
+      keep-items: true
+      keep-xp: true
+    in-other-region:
+      keep-items: false
+      keep-xp: false
+    wilderness:
+      enabled: false
+      keep-items: false
+      keep-xp: false
+```
+
+`in-own-region` applies when the player is owner/member of the region they died in.
+
+---
+
+## Towny Integration
+
+```yaml
+integrations:
+  towny:
+    enabled: true
+    in-own-town:
+      keep-items: true
+      keep-xp: true
+    in-other-town:
+      keep-items: false
+      keep-xp: false
+    wilderness:
+      enabled: false
+      keep-items: false
+      keep-xp: false
+```
+
+`in-own-town` applies when the player is a resident of the town they died in.
 
 ---
 
 ## GravesX / AxGraves Integration
 
-When a player **loses** their inventory, the plugin can automatically create a grave at the death location rather than scattering items on the ground.
-
 ```yaml
 integrations:
   gravesx:
-    enabled: true   # enable GravesX
+    enabled: true
   axgraves:
-    enabled: true   # enable AxGraves (fallback if GravesX didn't create a grave)
+    enabled: true
+  graves:
+    fallback-on-fail: true
 ```
 
-### How It Works
+If a player loses items, the plugin attempts to create a grave. If grave creation fails, it logs a warning and falls back to normal item drop behavior.
 
-- If a player **keeps** their inventory, no grave is created.
-- If a player **loses** their inventory, a grave is created containing their items.
-- If `keep-xp` is `true` but `keep-items` is `false`, the grave contains items but 0 XP.
+---
 
-### Interaction with GUI Mode
+## MMOItems Protected Tags
 
-1. Player dies → GUI opens.
-2. Player clicks **Pay** → Keeps items (no grave).
-3. Player clicks **Drop** or timeout expires → Items go to a grave instead of the ground.
+```yaml
+hooks:
+  mmoitems:
+    protected-tags:
+      - MMOITEMS_SOULBOUND
+      - MY_CUSTOM_PROTECTED_TAG
+```
+
+Leave the list empty to use only the default `MMOITEMS_SOULBOUND` tag.
 
 ---
 
 ## Economy System
 
-Charge players to keep their inventory. Requires [Vault](https://www.spigotmc.org/resources/vault.34315/) and a compatible economy plugin.
+Requires Vault and a compatible economy plugin.
 
 ```yaml
 economy:
   enabled: true
   cost: 100.0
-  # Modes: charge-to-keep | charge-to-bypass | gui
   mode: "charge-to-keep"
 ```
 
 ### Modes
 
-| Mode | When charged | Behaviour if broke |
-|------|--------------|-------------------|
-| `charge-to-keep` | Player would keep items | Items kept anyway (no penalty) |
-| `charge-to-bypass` | Player would lose items | Items lost (couldn't afford protection) |
-| `gui` | Player chooses via death confirmation GUI | Items drop if timeout or player clicks Drop |
-
-**Example — charge-to-bypass:**
-- Player dies at night (would lose items)
-- Has ≥ $100 → charged, items kept
-- Has < $100 → items lost as normal
+| Mode | When charged | If player cannot pay |
+|------|--------------|----------------------|
+| `charge-to-keep` | When the player would keep items | Items are still kept |
+| `charge-to-bypass` | When the player would lose items | Items are lost normally |
+| `gui` | When the player decides in the death GUI | Timeout or drop choice loses items |
 
 ---
 
-## Death Confirmation GUI (`gui` mode)
+## Death Confirmation GUI
 
-Opens a confirmation screen when a player dies, letting them choose whether to pay or drop items.
+`economy.mode: "gui"` opens a death confirmation GUI after death.
 
-### How It Works
+Player commands:
 
-1. Player dies and respawns.
-2. A GUI appears with three buttons:
-   - **Pay** (green) — pay the cost and keep items.
-   - **Info** (yellow) — hover to see item count, cost, and time remaining.
-   - **Drop** (red) — drop items at death location immediately.
-3. If the player doesn't choose within the timeout, items are dropped automatically.
-4. If the player disconnects, their pending decision is held in the database until the server's configured expire window.
+- `/dki confirm` reopens the pending GUI
+- `/dki autopay` toggles automatic payment in GUI mode
 
-### Player Commands
+Behavior summary:
 
-- `/dki confirm` — Reopens the pending-death GUI.
-- `/dki autopay` — Toggles automatic payment on death (skips the GUI).
-
-### Edge Cases
-
-| Scenario | Result |
-|----------|--------|
-| Player closes GUI | Warning shown; GUI can be reopened with `/dki confirm` |
-| Player disconnects | Death saved in SQLite; GUI shown on rejoin |
-| Timeout expires | Items dropped (or sent to grave if GravesX/AxGraves is enabled) |
-| Not enough money | Insufficient-funds message shown; player can still click Drop |
-| Economy unavailable | Items dropped automatically — no GUI shown |
-| Curse of Vanishing | Item is destroyed; never dropped, restored, or put in a grave |
+- Pay: items kept
+- Drop: items dropped or sent to a grave
+- Timeout: items dropped automatically
+- Disconnect: pending death stored until expiry
 
 ---
 
 ## Death Messages
 
-Show players a message explaining what happened to their inventory:
-
 ```yaml
 messages:
   death:
     enabled: true
-    chat: true        # Show in chat
-    action-bar: false # Show above hotbar
+    chat: true
+    action-bar: false
 ```
 
-Messages show:
-- Whether items/XP were kept or lost
-- The reason (PvP, PvE, time-based, etc.)
+These explain whether items/XP were kept or lost and why.
 
 ---
 
 ## Time-based Item/XP Control
 
-Separate control over items and XP:
-
 ```yaml
-advanced:
+rules:
   day:
     keep-items: true
     keep-xp: true
-
   night:
     keep-items: false
-    keep-xp: true     # Keep XP but lose items at night
+    keep-xp: true
 ```
 
 ---
 
-## Complete Example Configs
+## Example Setups
 
 ### PvP Server
-No item loss in PvP, but PvE is punishing:
+
 ```yaml
-advanced:
-  enabled: true
+rules:
   death-cause:
     enabled: true
     pvp:
@@ -282,42 +294,42 @@ advanced:
 ```
 
 ### Casual Survival with Lands
-Keep items in claimed areas, lose them in wilderness:
+
 ```yaml
-advanced:
-  enabled: true
-  protection:
-    lands:
+integrations:
+  lands:
+    enabled: true
+    override-lands: false
+    in-own-land:
+      keep-items: true
+      keep-xp: true
+    in-other-land:
+      keep-items: true
+      keep-xp: true
+    wilderness:
       enabled: true
-      override-lands: false
-      in-own-land:
-        keep-items: true
-        keep-xp: true
-      in-other-land:
-        keep-items: true
-        keep-xp: true
-      wilderness:
-        enabled: true
-        use-death-cause: true  # Use PvP/PvE rules
+      use-death-cause: true
+
+rules:
   death-cause:
     enabled: true
     pvp:
-      keep-items: true   # No penalty for PvP in wilderness
+      keep-items: true
       keep-xp: true
     pve:
-      keep-items: false  # Lose items to mobs in wilderness
+      keep-items: false
       keep-xp: true
 ```
 
 ### Economy Server
-Pay to keep items:
+
 ```yaml
-advanced:
+economy:
   enabled: true
-  economy:
-    enabled: true
-    cost: 500.0
-    mode: "charge-to-bypass"
+  cost: 500.0
+  mode: "charge-to-bypass"
+
+rules:
   night:
     keep-items: false
     keep-xp: false
@@ -327,6 +339,6 @@ advanced:
 
 ## Related Pages
 
-- [Basic Configuration](Basic-Configuration) - Time and world settings
-- [Permissions](Permissions) - Permission nodes
-- [FAQ](FAQ) - Common questions
+- [Basic Configuration](Basic-Configuration)
+- [Permissions](Permissions)
+- [FAQ](FAQ)

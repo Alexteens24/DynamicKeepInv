@@ -1,120 +1,103 @@
 # DynamicKeepInv
 
-![Java](https://img.shields.io/badge/Java-17%2B-orange) ![Server](https://img.shields.io/badge/Server-Paper%20%7C%20Spigot%20%7C%20Folia-blue) ![License](https://img.shields.io/badge/License-Apache%202.0-green)
+![Java](https://img.shields.io/badge/Java-21%2B-orange) ![Server](https://img.shields.io/badge/Server-Paper%20%7C%20Spigot%20%7C%20Folia-blue) ![License](https://img.shields.io/badge/License-Apache%202.0-green)
 
-**DynamicKeepInv** is a sophisticated plugin that revolutionizes how the keepInventory gamerule works on Minecraft servers. Instead of a simple global toggle, it dynamically controls inventory loss based on in-game time, death causes, territory protection, and economy.
+DynamicKeepInv makes `keepInventory` configurable instead of binary. You can decide whether players keep items and XP based on time of day, death cause, protection plugins, economy rules, and optional safety-net rules.
 
-It is designed for modern servers (1.20.4+) and features full native support for **Folia** region threading.
-
----
-
-## Why use DynamicKeepInv?
-
-Vanilla Minecraft forces server administrators to choose between "Too Easy" (keepInventory true) or "Too Hard" (keepInventory false).
-
-**DynamicKeepInv** bridges this gap by offering a configurable balance:
-* **Day/Night Cycle:** Players feel safe during the day but must survive the night without protection.
-* **PvP vs PvE:** Make PvP high-stakes (drop items) while keeping PvE casual (keep items), or vice-versa.
-* **Economy Sink:** Allow players to pay a fee to save their items upon death via an interactive GUI.
-* **Land Integration:** Respects claims from Lands and GriefPrevention (e.g., keep items in your own base).
+Built for 1.20.4+ servers with Java 21 and full Folia support.
 
 ---
 
-## Key Features
+## Highlights
 
-### Time-Based Rules
-* Automatically enables keepInventory during the day.
-* Disables it at night based on configurable start and end ticks.
-* Plays sounds and sends titles when the status changes.
-
-### Advanced Death Rules
-* **PvP vs PvE:** Configure separate rules for Item Loss and XP Loss based on the killer.
-* **By World:** Set different rules for the Overworld, Nether, and End.
-* **Permission Bypass:** Players with `dynamickeepinv.bypass` never lose items.
-
-### Economy & Death GUI
-* **Death Confirmation GUI:** When a player dies, a GUI appears asking them to **PAY** to keep items or **DROP** them.
-* **Auto-Pay:** Players can toggle `/dki autopay` to automatically deduct the fee and skip the GUI.
-* **Persistence:** If a player disconnects while dead, their pending death is saved to a database and the GUI reopens upon rejoin.
-* *(Requires Vault)*
-
-### Player Statistics
-* Tracks death history for every player.
-* **In-Game GUI:** Run `/dki stats` to view:
-    * Total Deaths, Saved Deaths, and Lost Deaths.
-    * Money spent on keeping inventory.
-    * Death cause breakdown (Day, Night, PvP, etc.).
-* **PlaceholderAPI:** Display these stats on scoreboards or chat.
-
-### Plugin Integrations
-* **Lands:** Configure rules for "Own Land", "Enemy Land", and "Wilderness".
-* **GriefPrevention:** Similar support for claims.
-* **GravesX / AxGraves:** If a player chooses to drop items (or cannot afford to pay), they are placed into a Grave instead of scattering on the ground.
-* **Folia:** 100% thread-safe region scheduling.
+- Day/night keep-inventory rules with separate item and XP control
+- PvP vs PvE overrides
+- Per-world enable list and per-world item overrides
+- Lands, GriefPrevention, WorldGuard, and Towny integration
+- Economy support with `charge-to-keep`, `charge-to-bypass`, or `gui`
+- Death confirmation GUI and player auto-pay toggle
+- First-death leniency and death-streak protection rules
+- Grave integration with GravesX / AxGraves and fallback handling
+- Player stats GUI plus PlaceholderAPI support
+- Admin diagnostics with `/dki status` and `/dki test [player]`
 
 ---
 
-## Logic Hierarchy
+## Rule Order
 
-When a player dies, the plugin decides whether to keep or drop items based on this priority order (highest to lowest):
+When a player dies, the plugin evaluates rules in this order:
 
-1.  **Bypass Permission** (`dynamickeepinv.bypass`)
-    * *If player has this permission, they always keep items.*
-2.  **Claim Protection** (Lands / GriefPrevention)
-    * *Is the player in their own claim? Use claim settings.*
-3.  **Death Cause** (PvP / PvE)
-    * *Did another player kill them? Use PvP settings.*
-4.  **Wilderness Settings**
-    * *If enabled, use specific settings for unclaimed land.*
-5.  **Time-Based** (Day / Night)
-    * *Fallback: Is it currently Day or Night?*
+1. `BypassPermissionRule`
+2. `FirstDeathRule` if enabled
+3. `DeathStreakRule` if enabled
+4. `ProtectionRule` for Lands / GriefPrevention / WorldGuard / Towny
+5. `DeathCauseRule` for PvP vs PvE
+6. `WorldTimeRule` for day/night fallback
+
+The first rule that returns a result wins.
+
+---
+
+## Requirements
+
+- Java 21+
+- Minecraft server 1.20.4+
+- Paper, Spigot, Purpur, or Folia
+
+Optional plugins:
+
+- Vault for economy features
+- PlaceholderAPI for placeholders
+- Lands / GriefPrevention / WorldGuard / Towny for protection-aware rules
+- GravesX / AxGraves for graves instead of ground drops
+- MMOItems for protected tag handling
 
 ---
 
 ## Installation
 
-1.  Download the latest JAR from the [Releases](https://github.com/Alexteens24/DynamicKeepInv/releases) page.
-2.  Place it into your server's `plugins/` folder.
-3.  **(Optional)** Install Vault and an Economy plugin for paid features.
-4.  Restart the server.
+1. Download the latest JAR from [Releases](https://github.com/Alexteens24/DynamicKeepInv/releases).
+2. Place it in your server's `plugins/` folder.
+3. Install any optional integrations you want.
+4. Start the server.
+5. Edit `plugins/DynamicKeepInv/config.yml`.
+6. Run `/dki reload` after config changes.
+
+Config migration runs automatically on startup and reload.
 
 ---
 
-## Commands & Permissions
+## Commands
 
 | Command | Permission | Description |
 | :--- | :--- | :--- |
-| `/dki status` | `dynamickeepinv.admin` | View current status (Time, World, Enabled). |
-| `/dki reload` | `dynamickeepinv.admin` | Reload configuration and messages. |
-| `/dki toggle` | `dynamickeepinv.admin` | Toggle the plugin on/off globally. |
-| `/dki stats [player]` | `dynamickeepinv.stats` | View death statistics GUI. |
-| `/dki confirm` | `dynamickeepinv.use` | Re-open the Death Confirmation GUI (if pending). |
-| `/dki autopay` | `dynamickeepinv.use` | Toggle auto-payment mode. |
+| `/dki status` | `dynamickeepinv.admin` | Show current plugin state, world state, and active rule chain |
+| `/dki reload` | `dynamickeepinv.admin` | Reload config, messages, integrations, GUI, and stats systems |
+| `/dki enable` | `dynamickeepinv.admin` | Enable the plugin globally |
+| `/dki disable` | `dynamickeepinv.admin` | Disable the plugin globally |
+| `/dki toggle` | `dynamickeepinv.admin` | Toggle global enabled state |
+| `/dki test [player]` | `dynamickeepinv.admin` | Diagnose which rule would apply to a player |
+| `/dki stats [player]` | `dynamickeepinv.stats` / `dynamickeepinv.stats.others` | Open stats GUI |
+| `/dki confirm` | `dynamickeepinv.use` | Reopen pending death GUI in `gui` mode |
+| `/dki autopay` | `dynamickeepinv.use` | Toggle auto-pay in `gui` mode |
 
-**Other Permissions:**
-* `dynamickeepinv.bypass`: User always keeps inventory.
-* `dynamickeepinv.stats.others`: View other players' stats.
+Useful permissions:
+
+- `dynamickeepinv.bypass`
+- `dynamickeepinv.stats.others`
 
 ---
 
-## Configuration
-
-A snippet of `config.yml` demonstrating the advanced economy mode:
+## Config Example
 
 ```yaml
-advanced:
-  enabled: true
-  
-  # Economy Settings
-  economy:
-    enabled: true
-    cost: 100.0
-    mode: "gui" # Options: charge-to-keep, charge-to-bypass, gui
-    gui:
-      timeout: 30 # Seconds to decide
-      expire-time: 300 # Seconds to save data on disconnect
-
-  # Death Cause Rules
+rules:
+  day:
+    keep-items: true
+    keep-xp: true
+  night:
+    keep-items: false
+    keep-xp: false
   death-cause:
     enabled: true
     pvp:
@@ -123,24 +106,74 @@ advanced:
     pve:
       keep-items: true
       keep-xp: true
-````
+  first-death:
+    enabled: true
+    keep-items: true
+    keep-xp: true
+  streak:
+    enabled: true
+    threshold: 3
+    window-seconds: 300
+    keep-items: false
+    keep-xp: false
 
------
+integrations:
+  worldguard:
+    enabled: true
+    in-own-region:
+      keep-items: true
+      keep-xp: true
+    in-other-region:
+      keep-items: false
+      keep-xp: false
+  towny:
+    enabled: true
+    in-own-town:
+      keep-items: true
+      keep-xp: true
+    in-other-town:
+      keep-items: false
+      keep-xp: false
+
+economy:
+  enabled: true
+  cost: 100.0
+  mode: "gui"
+  gui:
+    timeout: 30
+    expire-time: 300
+```
+
+---
 
 ## Placeholders
 
-Requires **PlaceholderAPI**.
+Requires PlaceholderAPI.
 
-  * `%dynamickeepinv_isday%` - Returns `true` or `false`.
-  * `%dynamickeepinv_period%` - Returns "Day" or "Night".
-  * `%dynamickeepinv_stats_save_rate%` - Player's save percentage.
-  * `%dynamickeepinv_economy_cost%` - Current death cost.
+- `%dynamickeepinv_enabled%`
+- `%dynamickeepinv_keepinventory_formatted%`
+- `%dynamickeepinv_period%`
+- `%dynamickeepinv_economy_cost%`
+- `%dynamickeepinv_stats_total_deaths%`
+- `%dynamickeepinv_stats_save_rate%`
 
------
+See the wiki pages for full details.
+
+---
+
+## Wiki
+
+- [Home](wiki/Home.md)
+- [Installation](wiki/Installation.md)
+- [Basic Configuration](wiki/Basic-Configuration.md)
+- [Advanced Configuration](wiki/Advanced-Configuration.md)
+- [Commands](wiki/Commands.md)
+- [Permissions](wiki/Permissions.md)
+- [Stats](wiki/Stats.md)
+- [Placeholders](wiki/Placeholders.md)
+
+---
 
 ## License
 
-This project is licensed under the [Apache 2.0 License](https://www.google.com/search?q=LICENSE).
-
-```
-```
+This project is licensed under the [Apache 2.0 License](LICENSE).

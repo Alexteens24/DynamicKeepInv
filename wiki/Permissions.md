@@ -6,7 +6,7 @@ Permission nodes for DynamicKeepInv.
 
 | Permission | Default | Description |
 |------------|---------|-------------|
-| `dynamickeepinv.admin` | `op` | Full access to all plugin commands (`reload`, `status`, `enable`, `disable`). |
+| `dynamickeepinv.admin` | `op` | Full access to admin commands (`reload`, `status`, `enable`, `disable`, `toggle`, `test`). |
 
 ## User Permissions
 
@@ -22,3 +22,8 @@ Permission nodes for DynamicKeepInv.
 - **Default players:** Should have `dynamickeepinv.use` and `dynamickeepinv.stats`.
 - **Admins:** Should have `dynamickeepinv.admin` and `dynamickeepinv.stats.others`.
 - **VIP/Donors:** Can be given `dynamickeepinv.bypass` to never lose items.
+
+## Practical Notes
+
+- `dynamickeepinv.bypass` changes gameplay behavior, not command access.
+- `dynamickeepinv.admin` is required for `/dki test [player]`.

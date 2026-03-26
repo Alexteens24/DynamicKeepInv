@@ -71,8 +71,12 @@ stats:
 | PvP | Deaths from player kills |
 | PvE | Deaths from mobs/environment |
 | Bypass | Deaths with bypass permission |
-| Lands | Deaths in Lands areas |
-| GriefPrevention | Deaths in GP claims |
+| First Death | Deaths saved by the first-death rule |
+| Death Streak | Deaths saved by the streak rule |
+| Lands | Deaths resolved by Lands integration |
+| GriefPrevention | Deaths resolved by GP integration |
+| WorldGuard | Deaths resolved by WorldGuard integration |
+| Towny | Deaths resolved by Towny integration |
 
 ### Global Stats
 
@@ -132,6 +136,11 @@ Currently no in-game command. To reset:
 1. Stop server
 2. Delete `stats.db` (resets all) or edit with SQLite tool
 3. Start server
+
+## Notes
+
+- Stats are also used by the first-death rule. If stats are disabled, first-death leniency is skipped.
+- Death streak tracking is in-memory and resets on server restart. It is not stored in `stats.db`.
 
 ---
 

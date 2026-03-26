@@ -15,10 +15,11 @@ All commands for DynamicKeepInv.
 | Command | Description | Permission |
 |---------|-------------|------------|
 | `/dki reload` | Reload configuration and messages | `dynamickeepinv.admin` |
-| `/dki status` | View current status (enabled/disabled, time, world settings) | `dynamickeepinv.admin` |
+| `/dki status` | View current status, world state, and active rule chain | `dynamickeepinv.admin` |
 | `/dki enable` | Enable the plugin globally | `dynamickeepinv.admin` |
 | `/dki disable` | Disable the plugin globally | `dynamickeepinv.admin` |
 | `/dki toggle` | Toggle the plugin on/off | `dynamickeepinv.admin` |
+| `/dki test [player]` | Diagnose which rule would currently apply to a player | `dynamickeepinv.admin` |
 
 ### User Commands
 
@@ -40,9 +41,20 @@ All commands for DynamicKeepInv.
 ```
 /dki status
 ```
-*This shows if the plugin is enabled, if it's currently day or night, and the settings for the current world.*
+*This shows if the plugin is enabled, the active rule chain, and the current world states.*
+
+**Diagnosing a specific player:**
+```
+/dki test Notch
+```
+*This prints the first rule that would currently match that player.*
 
 **Viewing stats for a player:**
 ```
 /dki stats Notch
 ```
+
+## Notes
+
+- `/dki confirm` and `/dki autopay` are only useful when `economy.mode: "gui"` is enabled.
+- `/dki test` can be run from console if you provide a player name.

@@ -6,7 +6,7 @@
 |-------------|----------|
 | Minecraft Server | 1.20.4 or higher |
 | Server Software | Paper, Spigot, Purpur, or Folia |
-| Java | 17 or higher |
+| Java | 21 or higher |
 
 ## Optional Plugins
 
@@ -15,6 +15,11 @@
 | [Vault](https://www.spigotmc.org/resources/vault.34315/) | Economy integration (pay to keep items) |
 | [Lands](https://www.spigotmc.org/resources/lands.53313/) | Per-land keep inventory rules |
 | [GriefPrevention](https://www.spigotmc.org/resources/griefprevention.1884/) | Per-claim keep inventory rules |
+| [WorldGuard](https://enginehub.org/worldguard/) | Per-region keep inventory rules |
+| [Towny](https://github.com/TownyAdvanced/Towny) | Per-town keep inventory rules |
+| [PlaceholderAPI](https://www.spigotmc.org/resources/placeholderapi.6245/) | Placeholder support |
+| GravesX / AxGraves | Grave creation for dropped deaths |
+| MMOItems | Protected item tag support |
 
 ---
 
@@ -45,6 +50,8 @@ plugins/DynamicKeepInv/
 
 Run `/dki status` in-game or console to verify installation.
 
+For deeper diagnostics, run `/dki test <player>` to see which rule would currently apply.
+
 ---
 
 ## Updating
@@ -63,20 +70,24 @@ Run `/dki status` in-game or console to verify installation.
 ### Plugin not loading
 
 1. Check console for errors
-2. Verify Java version: `java -version` (must be 17+)
+2. Verify Java version: `java -version` (must be 21+)
 3. Verify server version (must be 1.20.4+)
 
-### Lands/GriefPrevention not detected
+### Protection plugin not detected
 
 1. Make sure they load before DynamicKeepInv
-2. Check console for "Lands hooked" or "GriefPrevention hooked"
-3. Set `advanced.protection.lands.enabled: true` in config
+2. Check console for the hook message
+3. Enable the correct config path, for example:
+	- `integrations.lands.enabled: true`
+	- `integrations.griefprevention.enabled: true`
+	- `integrations.worldguard.enabled: true`
+	- `integrations.towny.enabled: true`
 
 ### Economy not working
 
 1. Install Vault
 2. Install an economy plugin (EssentialsX, CMI, etc.)
-3. Set `advanced.economy.enabled: true` in config
+3. Set `economy.enabled: true` in config
 
 ---
 
