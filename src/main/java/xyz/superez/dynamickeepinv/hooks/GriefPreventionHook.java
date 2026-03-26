@@ -1,6 +1,7 @@
 package xyz.superez.dynamickeepinv.hooks;
 
 import me.ryanhamshire.GriefPrevention.Claim;
+import me.ryanhamshire.GriefPrevention.ClaimPermission;
 import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import me.ryanhamshire.GriefPrevention.DataStore;
 import org.bukkit.Location;
@@ -62,7 +63,6 @@ public class GriefPreventionHook {
         }
     }
 
-    @SuppressWarnings("deprecation")
     public boolean isInOwnClaim(Player player) {
         if (!enabled || gp == null) return false;
         try {
@@ -70,7 +70,7 @@ public class GriefPreventionHook {
             Claim claim = dataStore.getClaimAt(player.getLocation(), false, null);
             if (claim == null) return false;
             return claim.getOwnerID().equals(player.getUniqueId()) ||
-                   claim.allowAccess(player) == null;
+                   claim.checkPermission(player, ClaimPermission.Access, null) == null;
         } catch (NoClassDefFoundError | NoSuchMethodError e) {
             plugin.getLogger().warning("GriefPrevention API changed. Disabling GP hook.");
             enabled = false;

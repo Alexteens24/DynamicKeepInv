@@ -3,9 +3,7 @@ package xyz.superez.dynamickeepinv;
 import org.bukkit.Bukkit;
 import org.bukkit.GameRule;
 import org.bukkit.World;
-import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.plugin.java.JavaPluginLoader;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -37,14 +35,6 @@ import java.util.logging.Level;
 import org.bukkit.Sound;
 
 public class DynamicKeepInvPlugin extends JavaPlugin {
-    public DynamicKeepInvPlugin() {
-        super();
-    }
-
-    @SuppressWarnings("removal")
-    protected DynamicKeepInvPlugin(JavaPluginLoader loader, PluginDescriptionFile description, File dataFolder, File file) {
-        super(loader, description, dataFolder, file);
-    }
 
 
     private BukkitRunnable checkTask;

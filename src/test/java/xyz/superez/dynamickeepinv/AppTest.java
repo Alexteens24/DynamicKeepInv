@@ -3,18 +3,10 @@ package xyz.superez.dynamickeepinv;
 import be.seeseemelk.mockbukkit.MockBukkit;
 import be.seeseemelk.mockbukkit.ServerMock;
 import be.seeseemelk.mockbukkit.WorldMock;
-import be.seeseemelk.mockbukkit.plugin.PluginManagerMock;
 import org.bukkit.GameRule;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.plugin.PluginDescriptionFile;
-import org.bukkit.plugin.java.JavaPluginLoader;
 import org.junit.jupiter.api.*;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -27,16 +19,12 @@ class DynamicKeepInvPluginTest {
     private ServerMock server;
     private DynamicKeepInvPlugin plugin;
     private WorldMock world;
-    private Path dataFolder;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         // Setup MockBukkit server and plugin before each test
         server = MockBukkit.mock();
-        plugin = instantiatePlugin();
-        PluginManagerMock pluginManager = server.getPluginManager();
-        pluginManager.registerLoadedPlugin(plugin);
-        pluginManager.enablePlugin(plugin);
+        plugin = MockBukkit.load(DynamicKeepInvPlugin.class);
         world = server.addSimpleWorld("world");
 
         System.out.println("=== Test Setup Complete ===");
@@ -46,21 +34,6 @@ class DynamicKeepInvPluginTest {
     void tearDown() {
         // Cleanup after each test
         MockBukkit.unmock();
-        if (dataFolder != null) {
-            try {
-                Files.walk(dataFolder)
-                        .sorted((a, b) -> b.compareTo(a))
-                        .forEach(path -> {
-                            try {
-                                Files.deleteIfExists(path);
-                            } catch (IOException ignored) {
-                                // Best-effort cleanup
-                            }
-                        });
-            } catch (IOException ignored) {
-                // ignore
-            }
-        }
         System.out.println("=== Test Cleanup Complete ===");
     }
 
@@ -273,17 +246,4 @@ class DynamicKeepInvPluginTest {
         return plugin.onCommand(server.getConsoleSender(), dummyCommand, "dki", args);
     }
 
-    @SuppressWarnings({"deprecation", "removal"})
-    private DynamicKeepInvPlugin instantiatePlugin() throws Exception {
-        JavaPluginLoader loader = new JavaPluginLoader(server);
-        PluginDescriptionFile description;
-        try (InputStream input = getClass().getClassLoader().getResourceAsStream("plugin.yml")) {
-            assertNotNull(input, "plugin.yml not found in classpath");
-            description = new PluginDescriptionFile(input);
-        }
-
-        dataFolder = Files.createTempDirectory("dki-data");
-        Path pluginJar = Files.createTempFile("dki-plugin", ".jar");
-        return new DynamicKeepInvPlugin(loader, description, dataFolder.toFile(), pluginJar.toFile());
-    }
 }

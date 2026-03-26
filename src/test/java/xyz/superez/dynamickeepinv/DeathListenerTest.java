@@ -4,19 +4,11 @@ import be.seeseemelk.mockbukkit.MockBukkit;
 import be.seeseemelk.mockbukkit.ServerMock;
 import be.seeseemelk.mockbukkit.WorldMock;
 import be.seeseemelk.mockbukkit.entity.PlayerMock;
-import be.seeseemelk.mockbukkit.plugin.PluginManagerMock;
-import org.bukkit.GameRule;
 import org.bukkit.Material;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.PluginDescriptionFile;
-import org.bukkit.plugin.java.JavaPluginLoader;
 import org.junit.jupiter.api.*;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,15 +20,11 @@ class DeathListenerTest {
     private DynamicKeepInvPlugin plugin;
     private WorldMock world;
     private DeathListener listener;
-    private Path dataFolder;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         server = MockBukkit.mock();
-        plugin = instantiatePlugin();
-        PluginManagerMock pluginManager = server.getPluginManager();
-        pluginManager.registerLoadedPlugin(plugin);
-        pluginManager.enablePlugin(plugin);
+        plugin = MockBukkit.load(DynamicKeepInvPlugin.class);
         world = server.addSimpleWorld("world");
         listener = new DeathListener(plugin);
     }
@@ -44,15 +32,6 @@ class DeathListenerTest {
     @AfterEach
     void tearDown() {
         MockBukkit.unmock();
-        if (dataFolder != null) {
-            try {
-                Files.walk(dataFolder)
-                        .sorted((a, b) -> b.compareTo(a))
-                        .forEach(path -> {
-                            try { Files.deleteIfExists(path); } catch (IOException ignored) {}
-                        });
-            } catch (IOException ignored) {}
-        }
     }
 
     @Test
@@ -160,21 +139,8 @@ class DeathListenerTest {
         assertFalse(event.getKeepLevel(), "XP level should not be kept at night");
     }
 
-    @SuppressWarnings("deprecation")
     private PlayerDeathEvent createDeathEvent(PlayerMock player, List<ItemStack> drops, int droppedExp) {
         return new PlayerDeathEvent(player, drops, droppedExp, (String) null);
     }
 
-    @SuppressWarnings({"deprecation", "removal"})
-    private DynamicKeepInvPlugin instantiatePlugin() throws Exception {
-        JavaPluginLoader loader = new JavaPluginLoader(server);
-        PluginDescriptionFile description;
-        try (InputStream input = getClass().getClassLoader().getResourceAsStream("plugin.yml")) {
-            assertNotNull(input, "plugin.yml not found in classpath");
-            description = new PluginDescriptionFile(input);
-        }
-        dataFolder = Files.createTempDirectory("dki-death-data");
-        Path pluginJar = Files.createTempFile("dki-plugin", ".jar");
-        return new DynamicKeepInvPlugin(loader, description, dataFolder.toFile(), pluginJar.toFile());
-    }
 }

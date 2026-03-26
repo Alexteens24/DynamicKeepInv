@@ -25,10 +25,9 @@ public class DynamicKeepInvExpansion extends PlaceholderExpansion {
         return "SuperEZ";
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public @NotNull String getVersion() {
-        return plugin.getDescription().getVersion();
+        return plugin.getPluginMeta().getVersion();
     }
 
     @Override
