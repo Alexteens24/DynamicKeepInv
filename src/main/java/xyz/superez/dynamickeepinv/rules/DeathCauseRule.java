@@ -2,22 +2,23 @@ package xyz.superez.dynamickeepinv.rules;
 
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import xyz.superez.dynamickeepinv.DKIConfig;
 import xyz.superez.dynamickeepinv.DynamicKeepInvPlugin;
 
 public class DeathCauseRule implements DeathRule {
 
     @Override
     public RuleResult evaluate(PlayerDeathEvent event, DynamicKeepInvPlugin plugin) {
-        if (!plugin.getConfig().getBoolean("rules.death-cause.enabled", false)) {
+        DKIConfig cfg = plugin.getDKIConfig();
+        if (!cfg.deathCauseEnabled) {
             return null;
         }
 
         Player player = event.getEntity();
         boolean isPvp = player.getKiller() != null;
-        String causePath = isPvp ? "rules.death-cause.pvp" : "rules.death-cause.pve";
 
-        boolean keepItems = plugin.getConfig().getBoolean(causePath + ".keep-items", false);
-        boolean keepXp = plugin.getConfig().getBoolean(causePath + ".keep-xp", false);
+        boolean keepItems = isPvp ? cfg.pvpKeepItems : cfg.pveKeepItems;
+        boolean keepXp = isPvp ? cfg.pvpKeepXp : cfg.pveKeepXp;
         String reason = isPvp ? RuleReasons.PVP : RuleReasons.PVE;
 
         return new RuleResult(keepItems, keepXp, reason);

@@ -60,6 +60,7 @@ public class CommandDispatcher {
                 plugin.reloadConfig();
                 plugin.loadMessages();
                 plugin.reloadIntegrations();
+                plugin.reloadRuleManager();
                 plugin.reloadPendingDeathManager();
                 plugin.reloadStatsSystem();
                 if (plugin.getConfig().getBoolean("enabled", true)) {
@@ -73,6 +74,7 @@ public class CommandDispatcher {
             case "enable":
                 plugin.getConfig().set("enabled", true);
                 plugin.saveConfig();
+                plugin.refreshDKIConfig();
                 plugin.startChecking();
                 sender.sendMessage(plugin.parseMessage(plugin.getMessage("commands.enabled")));
                 break;
@@ -80,6 +82,7 @@ public class CommandDispatcher {
             case "disable":
                 plugin.getConfig().set("enabled", false);
                 plugin.saveConfig();
+                plugin.refreshDKIConfig();
                 plugin.stopChecking(true);
                 sender.sendMessage(plugin.parseMessage(plugin.getMessage("commands.disabled")));
                 break;
@@ -88,6 +91,7 @@ public class CommandDispatcher {
                 boolean newState = !plugin.getConfig().getBoolean("enabled", true);
                 plugin.getConfig().set("enabled", newState);
                 plugin.saveConfig();
+                plugin.refreshDKIConfig();
                 if (newState) {
                     plugin.startChecking();
                     sender.sendMessage(plugin.parseMessage(plugin.getMessage("commands.enabled")));
@@ -156,8 +160,8 @@ public class CommandDispatcher {
             return true;
         }
 
-        if (!plugin.getConfig().getBoolean("economy.enabled", false)
-                || !"gui".equalsIgnoreCase(plugin.getConfig().getString("economy.mode", "charge-to-keep"))) {
+        DKIConfig cfg = plugin.getDKIConfig();
+        if (!cfg.economyEnabled || cfg.economyMode != EconomyMode.GUI) {
             sender.sendMessage(plugin.parseMessage("&cDeath confirmation GUI is not enabled! Set economy mode to 'gui' in config."));
             return true;
         }
@@ -183,8 +187,8 @@ public class CommandDispatcher {
             return true;
         }
 
-        if (!plugin.getConfig().getBoolean("economy.enabled", false)
-                || !"gui".equalsIgnoreCase(plugin.getConfig().getString("economy.mode", "charge-to-keep"))) {
+        DKIConfig cfg = plugin.getDKIConfig();
+        if (!cfg.economyEnabled || cfg.economyMode != EconomyMode.GUI) {
             sender.sendMessage(plugin.parseMessage("&cAuto-pay requires GUI economy mode! Set economy mode to 'gui' in config."));
             return true;
         }
@@ -289,15 +293,16 @@ public class CommandDispatcher {
     }
 
     private void showStatus(CommandSender sender) {
+        DKIConfig cfg = plugin.getDKIConfig();
         sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.header")));
         sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.enabled")
-                .replace("{value}", String.valueOf(plugin.getConfig().getBoolean("enabled", true)))));
+                .replace("{value}", String.valueOf(cfg.enabled))));
         sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.keep-inv-day")
-                .replace("{value}", String.valueOf(plugin.getConfig().getBoolean("rules.day.keep-items", true)))));
+                .replace("{value}", String.valueOf(cfg.dayKeepItems))));
         sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.keep-inv-night")
-                .replace("{value}", String.valueOf(plugin.getConfig().getBoolean("rules.night.keep-items", false)))));
+                .replace("{value}", String.valueOf(cfg.nightKeepItems))));
         sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.check-interval")
-                .replace("{value}", String.valueOf(plugin.getConfig().getInt("check-interval", 100)))));
+                .replace("{value}", String.valueOf(cfg.checkInterval))));
 
         // Rule chain summary
         sender.sendMessage(plugin.parseMessage("&7--- &eActive Rule Chain &7---"));
@@ -314,8 +319,8 @@ public class CommandDispatcher {
         }
 
         sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.world-header")));
-        long dayStart = plugin.getConfig().getLong("time.day-start", 0);
-        long nightStart = plugin.getConfig().getLong("time.night-start", 13000);
+        long dayStart = cfg.dayStart;
+        long nightStart = cfg.nightStart;
         for (World world : Bukkit.getWorlds()) {
             long time = world.getTime();
             boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);

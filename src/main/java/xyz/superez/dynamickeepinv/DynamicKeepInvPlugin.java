@@ -89,8 +89,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         getCommand("dynamickeepinv").setTabCompleter(new CommandCompleter(this));
 
         // Initialize GUI economy mode components
-        if (getConfig().getBoolean("economy.enabled", false)
-            && "gui".equalsIgnoreCase(getConfig().getString("economy.mode", "charge-to-keep"))) {
+        if (dkiConfig.economyEnabled && dkiConfig.economyMode == EconomyMode.GUI) {
             pendingDeathManager = new PendingDeathManager(this);
             deathConfirmGUI = new DeathConfirmGUI(this);
             getLogger().info("Death confirmation GUI mode enabled!");
@@ -104,9 +103,9 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
         getLogger().info("DynamicKeepInv is starting... (Platform: " + (isFolia ? "Folia" : "Paper/Spigot") + ")");
 
-        if (getConfig().getBoolean("enabled", true)) {
+        if (dkiConfig.enabled) {
             startChecking();
-            List<String> enabledWorlds = getConfig().getStringList("worlds.enabled");
+            List<String> enabledWorlds = dkiConfig.enabledWorlds;
             if (!enabledWorlds.isEmpty()) {
                 getLogger().info("Enabled worlds: " + String.join(", ", enabledWorlds));
             } else {
@@ -146,7 +145,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     public EconomyManager getEconomyManager() {
-        if (!getConfig().getBoolean("economy.enabled", false)) {
+        if (!dkiConfig.economyEnabled) {
             return economyManager;
         }
 
@@ -261,7 +260,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     void startChecking() {
         stopChecking(false);
 
-        int interval = getConfig().getInt("check-interval", 100);
+        int interval = dkiConfig.checkInterval;
 
         if (isFolia) {
             GlobalRegionScheduler scheduler = Bukkit.getGlobalRegionScheduler();
@@ -501,7 +500,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     void reloadStatsSystem() {
         cleanupStatsSystem();
 
-        if (getConfig().getBoolean("stats.enabled", true)) {
+        if (dkiConfig.statsEnabled) {
             statsManager = new StatsManager(this);
             statsGUI = new StatsGUI(this);
             statsListener = new StatsListener(this);
@@ -523,8 +522,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
 
         // Initialize if GUI mode enabled
-        if (getConfig().getBoolean("economy.enabled", false)
-            && "gui".equalsIgnoreCase(getConfig().getString("economy.mode", "charge-to-keep"))) {
+        if (dkiConfig.economyEnabled && dkiConfig.economyMode == EconomyMode.GUI) {
             pendingDeathManager = new PendingDeathManager(this);
             deathConfirmGUI = new DeathConfirmGUI(this);
             getLogger().info("Death confirmation GUI mode enabled!");
@@ -547,7 +545,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     public boolean isDayTime(long time) {
-        return isTimeInRange(time, getConfig().getLong("time.day-start", 0), getConfig().getLong("time.night-start", 13000));
+        DKIConfig cfg = dkiConfig;
+        return isTimeInRange(time, cfg.dayStart, cfg.nightStart);
     }
 
     private boolean getWorldKeepInventory(World world, boolean isDay, boolean globalKeepInvDay, boolean globalKeepInvNight) {
@@ -566,7 +565,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     public void debug(String message) {
-        if (getConfig().getBoolean("debug", false)) {
+        if (dkiConfig.debug) {
             getLogger().log(Level.INFO, "[DEBUG] " + message);
         }
     }
@@ -583,6 +582,10 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         ruleManager.registerRule(new ProtectionRule());
         ruleManager.registerRule(new DeathCauseRule());
         ruleManager.registerRule(new WorldTimeRule());
+    }
+
+    void reloadRuleManager() {
+        setupRuleManager();
     }
 
     public RuleManager getRuleManager() {

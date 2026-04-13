@@ -90,7 +90,7 @@ public class DeathListener implements Listener {
                     plugin.debug("GUI mode: Saving inventory for confirmation GUI");
 
                     // Prepare inventory for saving, filtering out Soulbound items to keep them
-                    ItemStack[] contents = player.getInventory().getContents();
+                    ItemStack[] contents = player.getInventory().getStorageContents();
                     ItemStack[] armor = player.getInventory().getArmorContents();
                     ItemStack offHand = player.getInventory().getItemInOffHand();
 
@@ -177,7 +177,7 @@ public class DeathListener implements Listener {
                         );
 
                         // Only save if there are items worth saving
-                        if (pendingDeath.hasItems() || player.getLevel() > 0) {
+                        if (pendingDeath.hasItems() || player.getTotalExperience() > 0) {
                             pendingManager.addPendingDeath(pendingDeath);
 
                             // IMPORTANT: Cancel drops and disable keepInventory
@@ -518,9 +518,10 @@ public class DeathListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerRespawn(PlayerRespawnEvent event) {
+        DKIConfig cfg = plugin.getDKIConfig();
         // Check if GUI mode is enabled
-        if (!plugin.getConfig().getBoolean("economy.enabled", false)) return;
-        if (!"gui".equalsIgnoreCase(plugin.getConfig().getString("economy.mode", "charge-to-keep"))) return;
+        if (!cfg.economyEnabled) return;
+        if (cfg.economyMode != EconomyMode.GUI) return;
 
         Player player = event.getPlayer();
         PendingDeathManager pendingManager = plugin.getPendingDeathManager();
@@ -551,6 +552,7 @@ public class DeathListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         PendingDeathManager pendingManager = plugin.getPendingDeathManager();
+        DKIConfig cfg = plugin.getDKIConfig();
 
         // Preload auto-pay settings if manager exists
         if (pendingManager != null) {
@@ -558,8 +560,8 @@ public class DeathListener implements Listener {
         }
 
         // Check if GUI mode is enabled
-        if (!plugin.getConfig().getBoolean("economy.enabled", false)) return;
-        if (!"gui".equalsIgnoreCase(plugin.getConfig().getString("economy.mode", "charge-to-keep"))) return;
+        if (!cfg.economyEnabled) return;
+        if (cfg.economyMode != EconomyMode.GUI) return;
 
         if (pendingManager == null) return;
 

@@ -2,29 +2,29 @@ package xyz.superez.dynamickeepinv.rules;
 
 import org.bukkit.World;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import xyz.superez.dynamickeepinv.DKIConfig;
 import xyz.superez.dynamickeepinv.DynamicKeepInvPlugin;
 
 public class WorldTimeRule implements DeathRule {
 
     @Override
     public RuleResult evaluate(PlayerDeathEvent event, DynamicKeepInvPlugin plugin) {
+        DKIConfig cfg = plugin.getDKIConfig();
         World world = event.getEntity().getWorld();
         long time = world.getTime();
-        long dayStart = plugin.getConfig().getLong("time.day-start", 0);
-        long nightStart = plugin.getConfig().getLong("time.night-start", 13000);
+        long dayStart = cfg.dayStart;
+        long nightStart = cfg.nightStart;
 
         boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
         String baseReason = isDay ? RuleReasons.TIME_DAY : RuleReasons.TIME_NIGHT;
-        String settingPath = isDay ? "rules.day" : "rules.night";
 
-        boolean defaultKeepItems = getWorldKeepInventory(plugin, world, isDay);
-        boolean keepItems = plugin.getConfig().getBoolean(settingPath + ".keep-items", defaultKeepItems);
-        boolean keepXp = plugin.getConfig().getBoolean(settingPath + ".keep-xp", defaultKeepItems);
+        boolean keepItems = getWorldKeepInventory(plugin, cfg, world, isDay);
+        boolean keepXp = isDay ? cfg.dayKeepXp : cfg.nightKeepXp;
 
         return new RuleResult(keepItems, keepXp, baseReason);
     }
 
-    private boolean getWorldKeepInventory(DynamicKeepInvPlugin plugin, World world, boolean isDay) {
+    private boolean getWorldKeepInventory(DynamicKeepInvPlugin plugin, DKIConfig cfg, World world, boolean isDay) {
         String worldName = world.getName();
         String worldPath = "worlds.overrides." + worldName;
 
@@ -36,9 +36,7 @@ public class WorldTimeRule implements DeathRule {
         }
 
         // Fallback to global settings
-        return isDay
-            ? plugin.getConfig().getBoolean("rules.day.keep-items", true)
-            : plugin.getConfig().getBoolean("rules.night.keep-items", false);
+        return isDay ? cfg.dayKeepItems : cfg.nightKeepItems;
     }
 
     @Override
