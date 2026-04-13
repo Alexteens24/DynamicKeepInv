@@ -53,8 +53,9 @@ public class PendingDeathManager {
     }
     
     private void loadConfig() {
-        timeoutMs = plugin.getConfig().getLong("economy.gui.timeout", 30) * 1000L;
-        expireMs = plugin.getConfig().getLong("economy.gui.expire-time", 300) * 1000L;
+        DKIConfig cfg = plugin.getDKIConfig();
+        timeoutMs = cfg.guiTimeoutSec * 1000L;
+        expireMs = cfg.guiExpireSec * 1000L;
     }
     
     private void initDatabase() {
@@ -403,15 +404,14 @@ public class PendingDeathManager {
     }
 
     private void performDrop(Location dropLocation, PendingDeath pending, Player player) {
+        int xp = calculateTotalExperience(pending.getSavedLevel(), pending.getSavedExp());
+
         // Check for Graves integration (GravesX or AxGraves)
         if (player != null && (plugin.isGravesXEnabled() || plugin.isAxGravesEnabled())) {
             List<ItemStack> drops = new ArrayList<>();
             appendDroppableItems(drops, pending.getSavedInventory());
             appendDroppableItems(drops, pending.getSavedArmor());
             appendDroppableItem(drops, pending.getOffhandItem());
-
-            // Calculate XP
-            int xp = calculateTotalExperience(pending.getSavedLevel(), pending.getSavedExp());
 
             if (!drops.isEmpty() || xp > 0) {
                 // Try GravesX
@@ -438,10 +438,9 @@ public class PendingDeathManager {
         dropItemNaturally(dropLocation, pending.getOffhandItem());
         
         // Drop XP orbs
-        if (pending.getSavedLevel() > 0) {
-            int expToDrop = Math.min(pending.getSavedLevel() * 7, 100);
+        if (xp > 0) {
             dropLocation.getWorld().spawn(dropLocation, org.bukkit.entity.ExperienceOrb.class, 
-                orb -> orb.setExperience(expToDrop));
+                orb -> orb.setExperience(xp));
         }
     }
 

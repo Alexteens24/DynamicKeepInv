@@ -37,8 +37,8 @@ public class CommandCompleter implements TabCompleter {
                 commands.add("stats");
             }
 
-            if (plugin.getConfig().getBoolean("economy.enabled", false)
-                    && "gui".equalsIgnoreCase(plugin.getConfig().getString("economy.mode", "charge-to-keep"))) {
+            DKIConfig cfg = plugin.getDKIConfig();
+            if (cfg.economyEnabled && cfg.economyMode == EconomyMode.GUI) {
                 commands.add("confirm");
                 commands.add("autopay");
             }

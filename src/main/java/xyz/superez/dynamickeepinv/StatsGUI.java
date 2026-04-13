@@ -113,7 +113,7 @@ public class StatsGUI implements Listener {
             "§7Percentage of deaths saved");
         gui.setItem(25, rateItem);
 
-        if (plugin.getConfig().getBoolean("economy.enabled", false)) {
+        if (plugin.getDKIConfig().economyEnabled) {
             double totalPaid = stats.getTotalEconomyPaid(targetUUID);
             int paymentCount = stats.getEconomyPaymentCount(targetUUID);
             ItemStack economyItem = createItem(Material.GOLD_INGOT,

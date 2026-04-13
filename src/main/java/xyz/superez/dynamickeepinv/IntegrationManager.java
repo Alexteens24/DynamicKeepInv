@@ -26,31 +26,33 @@ public class IntegrationManager {
     }
 
     public void reload() {
-        if (plugin.getConfig().getBoolean("integrations.lands.enabled", false)) {
+        DKIConfig cfg = plugin.getDKIConfig();
+
+        if (cfg.landsEnabled) {
             landsHook = new LandsHook(plugin);
         } else {
             landsHook = null;
         }
 
-        if (plugin.getConfig().getBoolean("integrations.griefprevention.enabled", false)) {
+        if (cfg.gpEnabled) {
             griefPreventionHook = new GriefPreventionHook(plugin);
         } else {
             griefPreventionHook = null;
         }
 
-        if (plugin.getConfig().getBoolean("integrations.worldguard.enabled", false)) {
+        if (cfg.worldGuardEnabled) {
             worldGuardHook = new WorldGuardHook(plugin);
         } else {
             worldGuardHook = null;
         }
 
-        if (plugin.getConfig().getBoolean("integrations.towny.enabled", false)) {
+        if (cfg.townyEnabled) {
             townyHook = new TownyHook(plugin);
         } else {
             townyHook = null;
         }
 
-        if (plugin.getConfig().getBoolean("integrations.gravesx.enabled", false)) {
+        if (cfg.gravesXEnabled) {
             if (Bukkit.getPluginManager().getPlugin("GravesX") != null) {
                 gravesXHook = new GravesXHook(plugin);
                 if (!gravesXHook.setup()) {
@@ -64,7 +66,7 @@ public class IntegrationManager {
             gravesXHook = null;
         }
 
-        if (plugin.getConfig().getBoolean("integrations.axgraves.enabled", false)) {
+        if (cfg.axGravesEnabled) {
             if (Bukkit.getPluginManager().getPlugin("AxGraves") != null) {
                 axGravesHook = new AxGravesHook(plugin);
                 if (!axGravesHook.setup()) {
