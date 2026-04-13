@@ -10,6 +10,7 @@ import xyz.superez.dynamickeepinv.DynamicKeepInvPlugin;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
 
 public class GravesXHook {
     private final DynamicKeepInvPlugin plugin;
@@ -66,9 +67,8 @@ public class GravesXHook {
             );
             return true;
         } catch (Throwable t) {
-             plugin.getLogger().warning("Failed to create grave via API: " + t.getMessage());
-             t.printStackTrace();
+             plugin.getLogger().log(Level.WARNING, "Failed to create grave via API", t);
              return false;
-        }
+         }
     }
 }

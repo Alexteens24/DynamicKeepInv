@@ -21,6 +21,7 @@ import xyz.superez.dynamickeepinv.rules.RuleResult;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 
 public class DeathListener implements Listener {
     private final DynamicKeepInvPlugin plugin;
@@ -404,21 +405,30 @@ public class DeathListener implements Listener {
         // Normalize reason for stats
         String simpleReason = "unknown";
         if (reason != null) {
-            if (reason.contains("time-day") || reason.contains("day")) {
+            String normalizedReason = reason.toLowerCase(Locale.ROOT);
+            if (RuleReasons.TIME_DAY.equals(normalizedReason) || normalizedReason.contains("time-day") || normalizedReason.equals("day")) {
                 simpleReason = "day";
-            } else if (reason.contains("time-night") || reason.contains("night")) {
+            } else if (RuleReasons.TIME_NIGHT.equals(normalizedReason) || normalizedReason.contains("time-night") || normalizedReason.equals("night")) {
                 simpleReason = "night";
-            } else if (reason.contains("pvp")) {
+            } else if (RuleReasons.PVP.equals(normalizedReason) || normalizedReason.contains("pvp")) {
                 simpleReason = "pvp";
-            } else if (reason.contains("pve")) {
+            } else if (RuleReasons.PVE.equals(normalizedReason) || normalizedReason.contains("pve")) {
                 simpleReason = "pve";
-            } else if (reason.contains("lands")) {
+            } else if (normalizedReason.contains("lands")) {
                 simpleReason = "lands";
-            } else if (reason.contains("gp")) {
+            } else if (normalizedReason.startsWith("gp-") || normalizedReason.equals("gp") || normalizedReason.contains("griefprevention")) {
                 simpleReason = "griefprevention";
-            } else if (reason.equals(RuleReasons.BYPASS)) {
+            } else if (normalizedReason.startsWith("wg-") || normalizedReason.contains("worldguard")) {
+                simpleReason = "worldguard";
+            } else if (normalizedReason.startsWith("towny-") || normalizedReason.contains("towny")) {
+                simpleReason = "towny";
+            } else if (RuleReasons.FIRST_DEATH.equals(normalizedReason)) {
+                simpleReason = "first-death";
+            } else if (RuleReasons.DEATH_STREAK.equals(normalizedReason)) {
+                simpleReason = "death-streak";
+            } else if (RuleReasons.BYPASS.equals(normalizedReason)) {
                 simpleReason = "bypass";
-            } else if (reason.equals(RuleReasons.ECONOMY_BYPASS)) {
+            } else if (RuleReasons.ECONOMY_BYPASS.equals(normalizedReason) || RuleReasons.ECONOMY.equals(normalizedReason)) {
                 simpleReason = "economy";
             }
         }
