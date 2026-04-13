@@ -90,7 +90,7 @@ public class DeathListener implements Listener {
                     plugin.debug("GUI mode: Saving inventory for confirmation GUI");
 
                     // Prepare inventory for saving, filtering out Soulbound items to keep them
-                    ItemStack[] contents = player.getInventory().getContents();
+                    ItemStack[] contents = player.getInventory().getStorageContents();
                     ItemStack[] armor = player.getInventory().getArmorContents();
                     ItemStack offHand = player.getInventory().getItemInOffHand();
 

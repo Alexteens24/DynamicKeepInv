@@ -306,9 +306,9 @@ public class PendingDeathManager {
         // Collect any items currently in the player's inventory that might be overwritten
         List<ItemStack> leftovers = new ArrayList<>();
 
-        // Restore main contents (merging to preserve Soulbound/kept items)
+        // Restore main storage (merging to preserve Soulbound/kept items)
         ItemStack[] savedContents = pending.getSavedInventory();
-        ItemStack[] currentContents = player.getInventory().getContents();
+        ItemStack[] currentContents = player.getInventory().getStorageContents();
 
         for (int i = 0; i < savedContents.length && i < currentContents.length; i++) {
             if (savedContents[i] != null) {
@@ -320,10 +320,30 @@ public class PendingDeathManager {
             }
             // If savedContents[i] is null, we keep currentContents[i] (which might be a kept soulbound item)
         }
-        player.getInventory().setContents(currentContents);
+        player.getInventory().setStorageContents(currentContents);
 
-        // We do not need to restore armor/offhand explicitly as they are included in setContents (from getContents)
-        // savedContents (from getContents) covers slots 0-40 (including armor and offhand)
+        // Restore armor slots
+        ItemStack[] savedArmor = pending.getSavedArmor();
+        ItemStack[] currentArmor = player.getInventory().getArmorContents();
+        for (int i = 0; i < savedArmor.length && i < currentArmor.length; i++) {
+            if (savedArmor[i] != null) {
+                if (currentArmor[i] != null && !currentArmor[i].getType().isAir()) {
+                    leftovers.add(currentArmor[i]);
+                }
+                currentArmor[i] = savedArmor[i];
+            }
+        }
+        player.getInventory().setArmorContents(currentArmor);
+
+        // Restore offhand
+        ItemStack savedOffhand = pending.getOffhandItem();
+        if (savedOffhand != null && !savedOffhand.getType().isAir()) {
+            ItemStack currentOffhand = player.getInventory().getItemInOffHand();
+            if (currentOffhand != null && !currentOffhand.getType().isAir()) {
+                leftovers.add(currentOffhand);
+            }
+            player.getInventory().setItemInOffHand(savedOffhand);
+        }
 
         // Give back any items that were overwritten (e.g. picked up after respawn)
         if (!leftovers.isEmpty()) {
@@ -386,12 +406,9 @@ public class PendingDeathManager {
         // Check for Graves integration (GravesX or AxGraves)
         if (player != null && (plugin.isGravesXEnabled() || plugin.isAxGravesEnabled())) {
             List<ItemStack> drops = new ArrayList<>();
-
-            for (ItemStack item : pending.getSavedInventory()) {
-                if (item != null && !item.getType().isAir() && !hasVanishingCurse(item)) {
-                    drops.add(item);
-                }
-            }
+            appendDroppableItems(drops, pending.getSavedInventory());
+            appendDroppableItems(drops, pending.getSavedArmor());
+            appendDroppableItem(drops, pending.getOffhandItem());
 
             // Calculate XP
             int xp = calculateTotalExperience(pending.getSavedLevel(), pending.getSavedExp());
@@ -416,12 +433,9 @@ public class PendingDeathManager {
         }
 
         // Drop all items
-        for (ItemStack item : pending.getSavedInventory()) {
-            if (item != null && !item.getType().isAir()) {
-                if (hasVanishingCurse(item)) continue; // Skip vanishing curse
-                dropLocation.getWorld().dropItemNaturally(dropLocation, item);
-            }
-        }
+        dropItemsNaturally(dropLocation, pending.getSavedInventory());
+        dropItemsNaturally(dropLocation, pending.getSavedArmor());
+        dropItemNaturally(dropLocation, pending.getOffhandItem());
         
         // Drop XP orbs
         if (pending.getSavedLevel() > 0) {
@@ -462,6 +476,34 @@ public class PendingDeathManager {
     private boolean hasVanishingCurse(ItemStack item) {
         if (item == null || !item.hasItemMeta()) return false;
         return item.getItemMeta().hasEnchant(org.bukkit.enchantments.Enchantment.VANISHING_CURSE);
+    }
+
+    private void appendDroppableItems(List<ItemStack> target, ItemStack[] items) {
+        if (items == null) return;
+        for (ItemStack item : items) {
+            appendDroppableItem(target, item);
+        }
+    }
+
+    private void appendDroppableItem(List<ItemStack> target, ItemStack item) {
+        if (item == null || item.getType().isAir() || hasVanishingCurse(item)) {
+            return;
+        }
+        target.add(item);
+    }
+
+    private void dropItemsNaturally(Location dropLocation, ItemStack[] items) {
+        if (items == null) return;
+        for (ItemStack item : items) {
+            dropItemNaturally(dropLocation, item);
+        }
+    }
+
+    private void dropItemNaturally(Location dropLocation, ItemStack item) {
+        if (item == null || item.getType().isAir() || hasVanishingCurse(item)) {
+            return;
+        }
+        dropLocation.getWorld().dropItemNaturally(dropLocation, item);
     }
 
     /**
