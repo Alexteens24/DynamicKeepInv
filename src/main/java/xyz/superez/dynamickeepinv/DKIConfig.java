@@ -100,6 +100,9 @@ public class DKIConfig {
     public final boolean worldGuardOwnRegionKeepXp;
     public final boolean worldGuardOtherRegionKeepItems;
     public final boolean worldGuardOtherRegionKeepXp;
+    public final boolean worldGuardWildernessEnabled;
+    public final boolean worldGuardWildernessKeepItems;
+    public final boolean worldGuardWildernessKeepXp;
 
     // --- Integrations: Towny ---
     public final boolean townyEnabled;
@@ -221,6 +224,9 @@ public class DKIConfig {
         worldGuardOwnRegionKeepXp      = cfg.getBoolean("integrations.worldguard.in-own-region.keep-xp",    true);
         worldGuardOtherRegionKeepItems = cfg.getBoolean("integrations.worldguard.in-other-region.keep-items",false);
         worldGuardOtherRegionKeepXp    = cfg.getBoolean("integrations.worldguard.in-other-region.keep-xp",  false);
+        worldGuardWildernessEnabled    = cfg.getBoolean("integrations.worldguard.wilderness.enabled",       false);
+        worldGuardWildernessKeepItems  = cfg.getBoolean("integrations.worldguard.wilderness.keep-items",    false);
+        worldGuardWildernessKeepXp     = cfg.getBoolean("integrations.worldguard.wilderness.keep-xp",       false);
 
         // Towny
         townyEnabled              = cfg.getBoolean("integrations.towny.enabled",                    false);

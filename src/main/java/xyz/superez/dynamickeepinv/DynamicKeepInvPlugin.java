@@ -585,6 +585,10 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         ruleManager.registerRule(new WorldTimeRule());
     }
 
+    void reloadRuleManager() {
+        setupRuleManager();
+    }
+
     public RuleManager getRuleManager() {
         return ruleManager;
     }

@@ -3,6 +3,7 @@ package xyz.superez.dynamickeepinv.rules;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import xyz.superez.dynamickeepinv.DKIConfig;
 import xyz.superez.dynamickeepinv.DynamicKeepInvPlugin;
 import xyz.superez.dynamickeepinv.hooks.GriefPreventionHook;
 import xyz.superez.dynamickeepinv.hooks.LandsHook;
@@ -13,14 +14,15 @@ public class ProtectionRule implements DeathRule {
 
     @Override
     public RuleResult evaluate(PlayerDeathEvent event, DynamicKeepInvPlugin plugin) {
+        DKIConfig cfg = plugin.getDKIConfig();
         Player player = event.getEntity();
         Location location = player.getLocation();
 
         // 1. Check Lands
-        if (plugin.isLandsEnabled() && plugin.getConfig().getBoolean("integrations.lands.enabled", false)) {
+        if (plugin.isLandsEnabled() && cfg.landsEnabled) {
             LandsHook lands = plugin.getLandsHook();
             boolean inLand = lands.isInLand(location);
-            boolean overrideLands = plugin.getConfig().getBoolean("integrations.lands.override-lands", false);
+            boolean overrideLands = cfg.landsOverride;
 
             if (inLand) {
                 if (!overrideLands) {
@@ -28,21 +30,17 @@ public class ProtectionRule implements DeathRule {
                 }
 
                 boolean isOwnLand = lands.isInOwnLand(player);
-                String configPath = isOwnLand ? "integrations.lands.in-own-land" : "integrations.lands.in-other-land";
-
-                if (plugin.getConfig().contains(configPath)) {
-                    boolean keepItems = plugin.getConfig().getBoolean(configPath + ".keep-items", false);
-                    boolean keepXp = plugin.getConfig().getBoolean(configPath + ".keep-xp", false);
-                    String reason = isOwnLand ? RuleReasons.LANDS_OWN : RuleReasons.LANDS_OTHER;
-                    return new RuleResult(keepItems, keepXp, reason);
-                }
+                boolean keepItems = isOwnLand ? cfg.landsOwnKeepItems : cfg.landsOtherKeepItems;
+                boolean keepXp = isOwnLand ? cfg.landsOwnKeepXp : cfg.landsOtherKeepXp;
+                String reason = isOwnLand ? RuleReasons.LANDS_OWN : RuleReasons.LANDS_OTHER;
+                return new RuleResult(keepItems, keepXp, reason);
             } else {
                 // Wilderness
-                if (plugin.getConfig().getBoolean("integrations.lands.wilderness.enabled", false)) {
-                    boolean useDeathCause = plugin.getConfig().getBoolean("integrations.lands.wilderness.use-death-cause", false);
+                if (cfg.landsWildernessEnabled) {
+                    boolean useDeathCause = cfg.landsWildernessUseDeathCause;
                     if (!useDeathCause) {
-                         boolean keepItems = plugin.getConfig().getBoolean("integrations.lands.wilderness.keep-items", false);
-                         boolean keepXp = plugin.getConfig().getBoolean("integrations.lands.wilderness.keep-xp", false);
+                         boolean keepItems = cfg.landsWildernessKeepItems;
+                         boolean keepXp = cfg.landsWildernessKeepXp;
                          return new RuleResult(keepItems, keepXp, RuleReasons.LANDS_WILDERNESS);
                     }
                     // If useDeathCause is true, we return null to let DeathCauseRule handle it.
@@ -51,24 +49,20 @@ public class ProtectionRule implements DeathRule {
         }
 
         // 2. Check GriefPrevention
-        if (plugin.isGriefPreventionEnabled() && plugin.getConfig().getBoolean("integrations.griefprevention.enabled", false)) {
+        if (plugin.isGriefPreventionEnabled() && cfg.gpEnabled) {
             GriefPreventionHook gp = plugin.getGriefPreventionHook();
             if (gp.isInClaim(location)) {
                 boolean isOwnClaim = gp.isInOwnClaim(player);
-                String configPath = isOwnClaim ? "integrations.griefprevention.in-own-claim" : "integrations.griefprevention.in-other-claim";
-
-                if (plugin.getConfig().contains(configPath)) {
-                    boolean keepItems = plugin.getConfig().getBoolean(configPath + ".keep-items", false);
-                    boolean keepXp = plugin.getConfig().getBoolean(configPath + ".keep-xp", false);
-                    String reason = isOwnClaim ? RuleReasons.GP_OWN : RuleReasons.GP_OTHER;
-                    return new RuleResult(keepItems, keepXp, reason);
-                }
+                boolean keepItems = isOwnClaim ? cfg.gpOwnKeepItems : cfg.gpOtherKeepItems;
+                boolean keepXp = isOwnClaim ? cfg.gpOwnKeepXp : cfg.gpOtherKeepXp;
+                String reason = isOwnClaim ? RuleReasons.GP_OWN : RuleReasons.GP_OTHER;
+                return new RuleResult(keepItems, keepXp, reason);
             } else {
-                 if (plugin.getConfig().getBoolean("integrations.griefprevention.wilderness.enabled", false)) {
-                     boolean useDeathCause = plugin.getConfig().getBoolean("integrations.griefprevention.wilderness.use-death-cause", false);
+                 if (cfg.gpWildernessEnabled) {
+                     boolean useDeathCause = cfg.gpWildernessUseDeathCause;
                      if (!useDeathCause) {
-                         boolean keepItems = plugin.getConfig().getBoolean("integrations.griefprevention.wilderness.keep-items", false);
-                         boolean keepXp = plugin.getConfig().getBoolean("integrations.griefprevention.wilderness.keep-xp", false);
+                         boolean keepItems = cfg.gpWildernessKeepItems;
+                         boolean keepXp = cfg.gpWildernessKeepXp;
                          return new RuleResult(keepItems, keepXp, RuleReasons.GP_WILDERNESS);
                      }
                  }
@@ -76,38 +70,36 @@ public class ProtectionRule implements DeathRule {
         }
 
         // 3. Check WorldGuard
-        if (plugin.isWorldGuardEnabled() && plugin.getConfig().getBoolean("integrations.worldguard.enabled", false)) {
+        if (plugin.isWorldGuardEnabled() && cfg.worldGuardEnabled) {
             WorldGuardHook wg = plugin.getWorldGuardHook();
             if (wg.isInRegion(location)) {
                 boolean isOwnRegion = wg.isInOwnRegion(player);
-                String configPath = isOwnRegion ? "integrations.worldguard.in-own-region" : "integrations.worldguard.in-other-region";
-                boolean keepItems = plugin.getConfig().getBoolean(configPath + ".keep-items", isOwnRegion);
-                boolean keepXp    = plugin.getConfig().getBoolean(configPath + ".keep-xp",    isOwnRegion);
+                boolean keepItems = isOwnRegion ? cfg.worldGuardOwnRegionKeepItems : cfg.worldGuardOtherRegionKeepItems;
+                boolean keepXp = isOwnRegion ? cfg.worldGuardOwnRegionKeepXp : cfg.worldGuardOtherRegionKeepXp;
                 String reason = isOwnRegion ? RuleReasons.WG_OWN : RuleReasons.WG_OTHER;
                 return new RuleResult(keepItems, keepXp, reason);
             } else {
-                if (plugin.getConfig().getBoolean("integrations.worldguard.wilderness.enabled", false)) {
-                    boolean keepItems = plugin.getConfig().getBoolean("integrations.worldguard.wilderness.keep-items", false);
-                    boolean keepXp    = plugin.getConfig().getBoolean("integrations.worldguard.wilderness.keep-xp",    false);
+                if (cfg.worldGuardWildernessEnabled) {
+                    boolean keepItems = cfg.worldGuardWildernessKeepItems;
+                    boolean keepXp = cfg.worldGuardWildernessKeepXp;
                     return new RuleResult(keepItems, keepXp, RuleReasons.WG_WILDERNESS);
                 }
             }
         }
 
         // 4. Check Towny
-        if (plugin.isTownyEnabled() && plugin.getConfig().getBoolean("integrations.towny.enabled", false)) {
+        if (plugin.isTownyEnabled() && cfg.townyEnabled) {
             TownyHook towny = plugin.getTownyHook();
             if (towny.isInTown(location)) {
                 boolean isResident = towny.isInOwnTown(player);
-                String configPath = isResident ? "integrations.towny.in-own-town" : "integrations.towny.in-other-town";
-                boolean keepItems = plugin.getConfig().getBoolean(configPath + ".keep-items", isResident);
-                boolean keepXp    = plugin.getConfig().getBoolean(configPath + ".keep-xp",    isResident);
+                boolean keepItems = isResident ? cfg.townyOwnTownKeepItems : cfg.townyOtherTownKeepItems;
+                boolean keepXp = isResident ? cfg.townyOwnTownKeepXp : cfg.townyOtherTownKeepXp;
                 String reason = isResident ? RuleReasons.TOWNY_OWN : RuleReasons.TOWNY_OTHER;
                 return new RuleResult(keepItems, keepXp, reason);
             } else {
-                if (plugin.getConfig().getBoolean("integrations.towny.wilderness.enabled", false)) {
-                    boolean keepItems = plugin.getConfig().getBoolean("integrations.towny.wilderness.keep-items", false);
-                    boolean keepXp    = plugin.getConfig().getBoolean("integrations.towny.wilderness.keep-xp",    false);
+                if (cfg.townyWildernessEnabled) {
+                    boolean keepItems = cfg.townyWildernessKeepItems;
+                    boolean keepXp = cfg.townyWildernessKeepXp;
                     return new RuleResult(keepItems, keepXp, RuleReasons.TOWNY_WILDERNESS);
                 }
             }

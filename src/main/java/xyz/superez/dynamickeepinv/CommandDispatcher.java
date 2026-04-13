@@ -60,6 +60,7 @@ public class CommandDispatcher {
                 plugin.reloadConfig();
                 plugin.loadMessages();
                 plugin.reloadIntegrations();
+                plugin.reloadRuleManager();
                 plugin.reloadPendingDeathManager();
                 plugin.reloadStatsSystem();
                 if (plugin.getConfig().getBoolean("enabled", true)) {
