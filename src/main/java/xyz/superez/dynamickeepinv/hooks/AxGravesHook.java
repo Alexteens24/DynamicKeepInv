@@ -9,6 +9,7 @@ import org.bukkit.inventory.ItemStack;
 import xyz.superez.dynamickeepinv.DynamicKeepInvPlugin;
 
 import java.util.List;
+import java.util.logging.Level;
 
 public class AxGravesHook {
     private final DynamicKeepInvPlugin plugin;
@@ -67,9 +68,8 @@ public class AxGravesHook {
             grave.update();
             return true;
         } catch (Throwable t) {
-             plugin.getLogger().warning("Failed to create grave via AxGraves API: " + t.getMessage());
-             t.printStackTrace();
+             plugin.getLogger().log(Level.WARNING, "Failed to create grave via AxGraves API", t);
              return false;
-        }
+         }
     }
 }

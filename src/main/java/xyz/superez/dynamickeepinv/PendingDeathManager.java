@@ -369,10 +369,21 @@ public class PendingDeathManager {
      * Drop items at death location
      */
     private void dropItemsForPendingDeath(PendingDeath pending) {
+        Player player = Bukkit.getPlayer(pending.getPlayerId());
         World world = Bukkit.getWorld(pending.getWorldName());
         if (world == null) {
-            plugin.getLogger().warning("Cannot drop items for " + pending.getPlayerName() + ": world " + pending.getWorldName() + " not found");
-            return;
+            if (player != null && player.isOnline()) {
+                world = player.getWorld();
+            } else if (!Bukkit.getWorlds().isEmpty()) {
+                world = Bukkit.getWorlds().get(0);
+            }
+
+            if (world == null) {
+                plugin.getLogger().warning("Cannot drop items for " + pending.getPlayerName() + ": world " + pending.getWorldName() + " not found and no fallback world available");
+                return;
+            }
+
+            plugin.getLogger().warning("World " + pending.getWorldName() + " not found for " + pending.getPlayerName() + ", using fallback world " + world.getName());
         }
 
         Location dropLocation;
@@ -389,8 +400,6 @@ public class PendingDeathManager {
             }
         }
         
-        Player player = Bukkit.getPlayer(pending.getPlayerId());
-
         if (plugin.isFolia()) {
             // In Folia, we must drop items on the region thread associated with the DROP LOCATION.
             // Even if the player is online, they might be in a different region (e.g. at spawn).

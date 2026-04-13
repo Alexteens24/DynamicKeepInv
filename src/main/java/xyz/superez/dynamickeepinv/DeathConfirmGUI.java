@@ -64,6 +64,12 @@ public class DeathConfirmGUI implements Listener {
             plugin.debug("Cannot open GUI: pending death is null or already processed");
             return;
         }
+
+        PendingDeathManager manager = plugin.getPendingDeathManager();
+        if (manager == null) {
+            plugin.debug("Cannot open GUI: pending death manager is not available");
+            return;
+        }
         
         // Cancel any existing timeout
         cancelTimeout(player.getUniqueId());
@@ -106,7 +112,7 @@ public class DeathConfirmGUI implements Listener {
         infoLore.add("§a• Pay " + costFormatted + " to keep items");
         infoLore.add("§c• Drop items on the ground");
         infoLore.add("");
-        long timeoutSec = plugin.getPendingDeathManager().getTimeoutMs() / 1000;
+        long timeoutSec = manager.getTimeoutMs() / 1000;
         infoLore.add("§6⚠ Timeout: §f" + timeoutSec + " seconds");
         gui.setItem(SLOT_INFO, createItem(Material.PAPER, "§e§lDeath Notice", infoLore));
         
@@ -119,7 +125,6 @@ public class DeathConfirmGUI implements Listener {
         gui.setItem(SLOT_DROP, createItem(Material.REDSTONE_BLOCK, "§c§lDROP - Lose Items", dropLore));
         
         // Auto-pay toggle button
-        PendingDeathManager manager = plugin.getPendingDeathManager();
         boolean autoPayEnabled = manager.isAutoPayEnabled(player.getUniqueId());
         Material autoMaterial = autoPayEnabled ? Material.LIME_DYE : Material.GRAY_DYE;
         String autoTitle = autoPayEnabled ? "§a§lAuto-Pay: ON" : "§7§lAuto-Pay: OFF";
@@ -201,6 +206,10 @@ public class DeathConfirmGUI implements Listener {
      */
     private void startTimeout(UUID playerId) {
         PendingDeathManager manager = plugin.getPendingDeathManager();
+        if (manager == null) {
+            plugin.debug("Cannot start timeout: pending death manager is not available");
+            return;
+        }
         long timeoutTicks = manager.getTimeoutMs() / 50; // Convert ms to ticks
         
         if (plugin.isFolia()) {
@@ -255,6 +264,10 @@ public class DeathConfirmGUI implements Listener {
         
         // Process timeout
         PendingDeathManager manager = plugin.getPendingDeathManager();
+        if (manager == null) {
+            plugin.debug("Skipping timeout handling: pending death manager is not available");
+            return;
+        }
         manager.handleTimeout(playerId);
     }
     
@@ -275,6 +288,10 @@ public class DeathConfirmGUI implements Listener {
         if (slot < 0 || slot >= GUI_SIZE) return;
         
         PendingDeathManager manager = plugin.getPendingDeathManager();
+        if (manager == null) {
+            player.closeInventory();
+            return;
+        }
         PendingDeath pending = manager.getPendingDeath(player.getUniqueId());
         
         if (pending == null || pending.isProcessed()) {
@@ -367,6 +384,7 @@ public class DeathConfirmGUI implements Listener {
         
         // Check if pending death still exists and not processed
         PendingDeathManager manager = plugin.getPendingDeathManager();
+        if (manager == null) return;
         PendingDeath pending = manager.getPendingDeath(playerId);
         
         if (pending != null && !pending.isProcessed() && pending.isGuiOpen()) {
@@ -377,7 +395,7 @@ public class DeathConfirmGUI implements Listener {
             Long openTime = guiOpenTime.get(playerId);
             if (openTime != null) {
                 long elapsed = System.currentTimeMillis() - openTime;
-                long timeoutMs = plugin.getPendingDeathManager().getTimeoutMs();
+                long timeoutMs = manager.getTimeoutMs();
                 
                 // If closed early (not by timeout), send warning
                 if (elapsed < timeoutMs - 1000) {
@@ -417,9 +435,11 @@ public class DeathConfirmGUI implements Listener {
     public int getRemainingTime(UUID playerId) {
         Long openTime = guiOpenTime.get(playerId);
         if (openTime == null) return 0;
+        PendingDeathManager manager = plugin.getPendingDeathManager();
+        if (manager == null) return 0;
         
         long elapsed = System.currentTimeMillis() - openTime;
-        long remaining = plugin.getPendingDeathManager().getTimeoutMs() - elapsed;
+        long remaining = manager.getTimeoutMs() - elapsed;
         return (int) Math.max(0, remaining / 1000);
     }
 }
