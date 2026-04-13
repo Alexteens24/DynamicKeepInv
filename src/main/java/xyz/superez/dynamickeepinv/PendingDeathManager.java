@@ -369,11 +369,12 @@ public class PendingDeathManager {
      * Drop items at death location
      */
     private void dropItemsForPendingDeath(PendingDeath pending) {
-        Player player = Bukkit.getPlayer(pending.getPlayerId());
+        Player player = null;
         World world = Bukkit.getWorld(pending.getWorldName());
         if (world == null) {
             // Recovery priority when the stored world no longer exists:
             // 1) player's current world (if online), 2) first loaded world.
+            player = Bukkit.getPlayer(pending.getPlayerId());
             if (player != null && player.isOnline()) {
                 world = player.getWorld();
             } else if (!Bukkit.getWorlds().isEmpty()) {
@@ -386,6 +387,10 @@ public class PendingDeathManager {
             }
 
             plugin.getLogger().warning("World " + pending.getWorldName() + " not found for " + pending.getPlayerName() + ", using fallback world " + world.getName());
+        }
+
+        if (player == null) {
+            player = Bukkit.getPlayer(pending.getPlayerId());
         }
 
         Location dropLocation;
