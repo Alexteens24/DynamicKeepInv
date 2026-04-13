@@ -406,13 +406,13 @@ public class DeathListener implements Listener {
         String simpleReason = "unknown";
         if (reason != null) {
             String normalizedReason = reason.toLowerCase(Locale.ROOT);
-            if (RuleReasons.TIME_DAY.equals(reason) || normalizedReason.contains("time-day") || normalizedReason.equals("day")) {
+            if (RuleReasons.TIME_DAY.equals(normalizedReason) || normalizedReason.contains("time-day") || normalizedReason.equals("day")) {
                 simpleReason = "day";
-            } else if (RuleReasons.TIME_NIGHT.equals(reason) || normalizedReason.contains("time-night") || normalizedReason.equals("night")) {
+            } else if (RuleReasons.TIME_NIGHT.equals(normalizedReason) || normalizedReason.contains("time-night") || normalizedReason.equals("night")) {
                 simpleReason = "night";
-            } else if (RuleReasons.PVP.equals(reason) || normalizedReason.contains("pvp")) {
+            } else if (RuleReasons.PVP.equals(normalizedReason) || normalizedReason.contains("pvp")) {
                 simpleReason = "pvp";
-            } else if (RuleReasons.PVE.equals(reason) || normalizedReason.contains("pve")) {
+            } else if (RuleReasons.PVE.equals(normalizedReason) || normalizedReason.contains("pve")) {
                 simpleReason = "pve";
             } else if (normalizedReason.contains("lands")) {
                 simpleReason = "lands";
@@ -422,13 +422,13 @@ public class DeathListener implements Listener {
                 simpleReason = "worldguard";
             } else if (normalizedReason.startsWith("towny-") || normalizedReason.contains("towny")) {
                 simpleReason = "towny";
-            } else if (RuleReasons.FIRST_DEATH.equals(reason)) {
+            } else if (RuleReasons.FIRST_DEATH.equals(normalizedReason)) {
                 simpleReason = "first-death";
-            } else if (RuleReasons.DEATH_STREAK.equals(reason)) {
+            } else if (RuleReasons.DEATH_STREAK.equals(normalizedReason)) {
                 simpleReason = "death-streak";
-            } else if (reason.equals(RuleReasons.BYPASS)) {
+            } else if (RuleReasons.BYPASS.equals(normalizedReason)) {
                 simpleReason = "bypass";
-            } else if (reason.equals(RuleReasons.ECONOMY_BYPASS) || reason.equals(RuleReasons.ECONOMY)) {
+            } else if (RuleReasons.ECONOMY_BYPASS.equals(normalizedReason) || RuleReasons.ECONOMY.equals(normalizedReason)) {
                 simpleReason = "economy";
             }
         }

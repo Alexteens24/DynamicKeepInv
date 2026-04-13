@@ -372,6 +372,8 @@ public class PendingDeathManager {
         Player player = Bukkit.getPlayer(pending.getPlayerId());
         World world = Bukkit.getWorld(pending.getWorldName());
         if (world == null) {
+            // Recovery priority when the stored world no longer exists:
+            // 1) player's current world (if online), 2) first loaded world.
             if (player != null && player.isOnline()) {
                 world = player.getWorld();
             } else if (!Bukkit.getWorlds().isEmpty()) {
