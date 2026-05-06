@@ -3,6 +3,7 @@ package xyz.superez.dynamickeepinv;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -173,30 +174,31 @@ public class DeathConfirmGUI implements Listener {
         gui.setItem(17, border);
     }
 
-    /**
-     * Create an item with lore
-     */
-    private ItemStack createItem(Material material, String name, List<String> loreLines) {
+    /** Parse a string that may contain {@code §} legacy color codes into an Adventure Component. */
+    private static Component legacy(String text) {
+        return LegacyComponentSerializer.legacySection().deserialize(text)
+                .decoration(TextDecoration.ITALIC, false);
+    }
+
+    /** Create an item whose display name and lore may contain {@code §} legacy color codes. */
+    private static ItemStack createItem(Material material, String name, List<String> loreLines) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text(name).decoration(TextDecoration.ITALIC, false));
-        
+        meta.displayName(legacy(name));
         List<Component> lore = new ArrayList<>();
         for (String line : loreLines) {
-            lore.add(Component.text(line).decoration(TextDecoration.ITALIC, false));
+            lore.add(legacy(line));
         }
         meta.lore(lore);
         item.setItemMeta(meta);
         return item;
     }
-    
-    /**
-     * Create a simple item without lore
-     */
-    private ItemStack createItem(Material material, String name) {
+
+    /** Create a simple item (no lore) whose display name may contain {@code §} legacy color codes. */
+    private static ItemStack createItem(Material material, String name) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text(name).decoration(TextDecoration.ITALIC, false));
+        meta.displayName(legacy(name));
         item.setItemMeta(meta);
         return item;
     }
@@ -237,13 +239,8 @@ public class DeathConfirmGUI implements Listener {
      */
     private void cancelTimeout(UUID playerId) {
         Object task = timeoutTasks.remove(playerId);
-        if (task != null) {
-            if (task instanceof ScheduledTask) {
-                ((ScheduledTask) task).cancel();
-            } else if (task instanceof Integer) {
-                Bukkit.getScheduler().cancelTask((Integer) task);
-            }
-        }
+        if (task instanceof ScheduledTask st)    st.cancel();
+        else if (task instanceof Integer id)     Bukkit.getScheduler().cancelTask(id);
         guiOpenTime.remove(playerId);
     }
     

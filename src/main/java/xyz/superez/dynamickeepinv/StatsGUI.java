@@ -52,12 +52,16 @@ public class StatsGUI implements Listener {
             return;
         }
 
-        // If offline, load async first using CompletableFuture
+        // Offline: load async then open GUI back on the viewer's entity thread
         viewer.sendMessage(plugin.parseMessage("&eLoading stats for " + targetName + "..."));
 
         plugin.getStatsManager().loadStats(targetUUID).thenRun(() -> {
-            // Now open GUI on main thread
-            Bukkit.getScheduler().runTask(plugin, () -> openGUI(viewer, targetUUID, targetName));
+            if (!viewer.isOnline()) return;
+            if (plugin.isFolia()) {
+                viewer.getScheduler().run(plugin, task -> openGUI(viewer, targetUUID, targetName), null);
+            } else {
+                Bukkit.getScheduler().runTask(plugin, () -> openGUI(viewer, targetUUID, targetName));
+            }
         });
     }
 
@@ -167,22 +171,14 @@ public class StatsGUI implements Listener {
     }
 
     private void fillBackground(Inventory gui) {
-        ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
-        ItemMeta meta = border.getItemMeta();
-        meta.displayName(Component.text(" "));
-        border.setItemMeta(meta);
-
-        ItemStack inner = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        ItemMeta innerMeta = inner.getItemMeta();
-        innerMeta.displayName(Component.text(" "));
-        inner.setItemMeta(innerMeta);
+        ItemStack border = createItem(Material.BLACK_STAINED_GLASS_PANE, " ");
+        ItemStack inner  = createItem(Material.GRAY_STAINED_GLASS_PANE,  " ");
 
         for (int i = 0; i < 45; i++) {
             gui.setItem(i, inner);
         }
 
-        int[] borderSlots = {0,1,2,3,5,6,7,8,9,17,18,26,27,35,36,37,38,39,41,42,44};
-        for (int slot : borderSlots) {
+        for (int slot : new int[]{0,1,2,3,5,6,7,8,9,17,18,26,27,35,36,37,38,39,41,42,44}) {
             gui.setItem(slot, border);
         }
     }
