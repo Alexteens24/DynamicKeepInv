@@ -26,6 +26,8 @@ import xyz.superez.dynamickeepinv.hooks.MMOItemsHook;
 import xyz.superez.dynamickeepinv.hooks.WorldGuardHook;
 import xyz.superez.dynamickeepinv.hooks.TownyHook;
 import xyz.superez.dynamickeepinv.rules.*;
+import xyz.superez.dynamickeepinv.service.GraveService;
+import xyz.superez.dynamickeepinv.service.SoulboundService;
 
 import java.io.File;
 import java.time.Duration;
@@ -58,6 +60,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     private int economyRetryCount = 0;
 
     private IntegrationManager integrationManager;
+    private SoulboundService soulboundService;
+    private GraveService graveService;
     private CommandDispatcher commandDispatcher;
     private DynamicKeepInvExpansion placeholderExpansion;
     private StatsManager statsManager;
@@ -78,6 +82,8 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         integrationManager = new IntegrationManager(this);
         commandDispatcher = new CommandDispatcher(this);
         reloadIntegrations();
+        soulboundService = new SoulboundService(this);
+        graveService = new GraveService(this);
         setupRuleManager();
 
         getServer().getPluginManager().registerEvents(new WorldListener(this), this);
@@ -550,17 +556,11 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     private boolean getWorldKeepInventory(World world, boolean isDay, boolean globalKeepInvDay, boolean globalKeepInvNight) {
-        String worldName = world.getName();
-        String worldPath = "worlds.overrides." + worldName;
-
-        if (getConfig().contains(worldPath)) {
-            String timePath = isDay ? ".day" : ".night";
-            if (getConfig().contains(worldPath + timePath)) {
-                return getConfig().getBoolean(worldPath + timePath);
-            }
+        DKIConfig.WorldTimeOverride override = dkiConfig.worldOverrides.get(world.getName());
+        if (override != null) {
+            Boolean value = isDay ? override.day() : override.night();
+            if (value != null) return value;
         }
-
-        // Fallback to global settings
         return isDay ? globalKeepInvDay : globalKeepInvNight;
     }
 
@@ -666,5 +666,13 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
     public boolean isFolia() {
         return isFolia;
+    }
+
+    public SoulboundService getSoulboundService() {
+        return soulboundService;
+    }
+
+    public GraveService getGraveService() {
+        return graveService;
     }
 }

@@ -10,6 +10,7 @@ import xyz.superez.dynamickeepinv.hooks.GriefPreventionHook;
 import xyz.superez.dynamickeepinv.hooks.LandsHook;
 import xyz.superez.dynamickeepinv.hooks.TownyHook;
 import xyz.superez.dynamickeepinv.hooks.WorldGuardHook;
+import xyz.superez.dynamickeepinv.rules.DeathStreakRule;
 
 public class CommandDispatcher {
 
@@ -205,6 +206,17 @@ public class CommandDispatcher {
         return true;
     }
 
+    /**
+     * Diagnostic command: walks the same rule chain as RuleManager and reports
+     * which rule would fire for the target player at their current location.
+     *
+     * Rule order mirrors DynamicKeepInvPlugin.setupRuleManager():
+     *   BypassPermissionRule → FirstDeathRule → DeathStreakRule
+     *   → ProtectionRule → DeathCauseRule (*) → WorldTimeRule
+     *
+     * (*) DeathCauseRule requires a real killer from a PlayerDeathEvent and cannot
+     * be simulated here. It will be shown as a note if enabled.
+     */
     private void handleTestCommand(CommandSender sender, String[] args) {
         Player target;
         if (args.length >= 2) {
@@ -223,73 +235,143 @@ public class CommandDispatcher {
         DKIConfig cfg = plugin.getDKIConfig();
         sender.sendMessage(plugin.parseMessage("&7--- &eDKI Diagnostic: &f" + target.getName() + " &7---"));
         sender.sendMessage(plugin.parseMessage("&7World: &f" + target.getWorld().getName()
-                + " &7| Loc: &f" + target.getLocation().getBlockX() + "," + target.getLocation().getBlockY() + "," + target.getLocation().getBlockZ()));
+                + " &7| Loc: &f" + target.getLocation().getBlockX()
+                + "," + target.getLocation().getBlockY()
+                + "," + target.getLocation().getBlockZ()));
 
         if (!cfg.enabled) {
             sender.sendMessage(plugin.parseMessage("&c[DISABLED] Plugin is disabled globally."));
             return;
         }
 
-        // 1. Bypass permission
-        if (target.hasPermission("dynamickeepinv.bypass")) {
+        // 1. BypassPermissionRule
+        if (cfg.bypassPermissionEnabled && target.hasPermission("dynamickeepinv.bypass")) {
             sender.sendMessage(plugin.parseMessage("&a[BYPASS] Has bypass permission → keep items & xp"));
             return;
         }
 
-        // 2. First-death rule
+        // 2. FirstDeathRule
         if (cfg.firstDeathEnabled && plugin.getStatsManager() != null) {
             int deaths = plugin.getStatsManager().getTotalDeaths(target.getUniqueId());
             if (deaths == 0) {
-                sender.sendMessage(plugin.parseMessage("&a[FIRST-DEATH] 0 deaths on record → keepItems=" + cfg.firstDeathKeepItems + " keepXp=" + cfg.firstDeathKeepXp));
+                sender.sendMessage(plugin.parseMessage("&a[FIRST-DEATH] 0 deaths on record"
+                        + " → keepItems=" + cfg.firstDeathKeepItems
+                        + " keepXp=" + cfg.firstDeathKeepXp));
                 return;
             }
         }
 
-        // 3. Lands
+        // 3. DeathStreakRule
+        if (cfg.deathStreakEnabled) {
+            xyz.superez.dynamickeepinv.rules.RuleManager rm = plugin.getRuleManager();
+            DeathStreakRule streakRule = rm != null ? rm.getRule(DeathStreakRule.class) : null;
+            int streakCount = streakRule != null
+                    ? streakRule.getRecentDeathCount(target.getUniqueId(), (long) cfg.deathStreakWindowSec * 1000L)
+                    : 0;
+            sender.sendMessage(plugin.parseMessage("&7[STREAK] " + streakCount + "/" + cfg.deathStreakThreshold
+                    + " deaths in window (" + cfg.deathStreakWindowSec + "s)"
+                    + (streakCount >= cfg.deathStreakThreshold
+                       ? " &a→ TRIGGERED keepItems=" + cfg.deathStreakKeepItems + " keepXp=" + cfg.deathStreakKeepXp
+                       : " &7→ not triggered")));
+            if (streakCount >= cfg.deathStreakThreshold) return;
+        }
+
+        // 4. ProtectionRule — Lands
         if (plugin.isLandsEnabled() && cfg.landsEnabled) {
             LandsHook lands = plugin.getLandsHook();
-            if (lands.isInLand(target.getLocation())) {
+            boolean inLand = lands.isInLand(target.getLocation());
+            if (inLand) {
+                if (!cfg.landsOverride) {
+                    sender.sendMessage(plugin.parseMessage("&e[LANDS] In land, override disabled → deferred to Lands plugin"));
+                    return;
+                }
                 boolean own = lands.isInOwnLand(target);
-                sender.sendMessage(plugin.parseMessage("&e[LANDS] In " + (own ? "own" : "other") + " land → keepItems=" + (own ? cfg.landsOwnKeepItems : cfg.landsOtherKeepItems) + " keepXp=" + (own ? cfg.landsOwnKeepXp : cfg.landsOtherKeepXp)));
+                sender.sendMessage(plugin.parseMessage("&e[LANDS] In " + (own ? "own" : "other") + " land"
+                        + " → keepItems=" + (own ? cfg.landsOwnKeepItems : cfg.landsOtherKeepItems)
+                        + " keepXp=" + (own ? cfg.landsOwnKeepXp : cfg.landsOtherKeepXp)));
+                return;
+            } else if (cfg.landsWildernessEnabled && !cfg.landsWildernessUseDeathCause) {
+                sender.sendMessage(plugin.parseMessage("&e[LANDS-WILD] In Lands wilderness"
+                        + " → keepItems=" + cfg.landsWildernessKeepItems
+                        + " keepXp=" + cfg.landsWildernessKeepXp));
                 return;
             }
         }
 
-        // 4. GriefPrevention
+        // 4. ProtectionRule — GriefPrevention
         if (plugin.isGriefPreventionEnabled() && cfg.gpEnabled) {
             GriefPreventionHook gp = plugin.getGriefPreventionHook();
             if (gp.isInClaim(target.getLocation())) {
                 boolean own = gp.isInOwnClaim(target);
-                sender.sendMessage(plugin.parseMessage("&e[GP] In " + (own ? "own" : "other") + " claim → keepItems=" + (own ? cfg.gpOwnKeepItems : cfg.gpOtherKeepItems) + " keepXp=" + (own ? cfg.gpOwnKeepXp : cfg.gpOtherKeepXp)));
+                sender.sendMessage(plugin.parseMessage("&e[GP] In " + (own ? "own" : "other") + " claim"
+                        + " → keepItems=" + (own ? cfg.gpOwnKeepItems : cfg.gpOtherKeepItems)
+                        + " keepXp=" + (own ? cfg.gpOwnKeepXp : cfg.gpOtherKeepXp)));
+                return;
+            } else if (cfg.gpWildernessEnabled && !cfg.gpWildernessUseDeathCause) {
+                sender.sendMessage(plugin.parseMessage("&e[GP-WILD] In GP wilderness"
+                        + " → keepItems=" + cfg.gpWildernessKeepItems
+                        + " keepXp=" + cfg.gpWildernessKeepXp));
                 return;
             }
         }
 
-        // 5. WorldGuard
+        // 4. ProtectionRule — WorldGuard
         if (plugin.isWorldGuardEnabled() && cfg.worldGuardEnabled) {
             WorldGuardHook wg = plugin.getWorldGuardHook();
             if (wg.isInRegion(target.getLocation())) {
                 boolean own = wg.isInOwnRegion(target);
-                sender.sendMessage(plugin.parseMessage("&e[WG] In " + (own ? "own" : "other") + " region → keepItems=" + (own ? cfg.worldGuardOwnRegionKeepItems : cfg.worldGuardOtherRegionKeepItems) + " keepXp=" + (own ? cfg.worldGuardOwnRegionKeepXp : cfg.worldGuardOtherRegionKeepXp)));
+                sender.sendMessage(plugin.parseMessage("&e[WG] In " + (own ? "own" : "other") + " region"
+                        + " → keepItems=" + (own ? cfg.worldGuardOwnRegionKeepItems : cfg.worldGuardOtherRegionKeepItems)
+                        + " keepXp=" + (own ? cfg.worldGuardOwnRegionKeepXp : cfg.worldGuardOtherRegionKeepXp)));
+                return;
+            } else if (cfg.worldGuardWildernessEnabled) {
+                sender.sendMessage(plugin.parseMessage("&e[WG-WILD] In WG wilderness"
+                        + " → keepItems=" + cfg.worldGuardWildernessKeepItems
+                        + " keepXp=" + cfg.worldGuardWildernessKeepXp));
                 return;
             }
         }
 
-        // 6. Towny
+        // 4. ProtectionRule — Towny
         if (plugin.isTownyEnabled() && cfg.townyEnabled) {
             TownyHook towny = plugin.getTownyHook();
             if (towny.isInTown(target.getLocation())) {
                 boolean resident = towny.isInOwnTown(target);
                 String town = towny.getTownName(target.getLocation());
-                sender.sendMessage(plugin.parseMessage("&e[TOWNY] In town " + (town != null ? town : "?") + " (resident=" + resident + ") → keepItems=" + (resident ? cfg.townyOwnTownKeepItems : cfg.townyOtherTownKeepItems)));
+                sender.sendMessage(plugin.parseMessage("&e[TOWNY] In town " + (town != null ? town : "?")
+                        + " (resident=" + resident + ")"
+                        + " → keepItems=" + (resident ? cfg.townyOwnTownKeepItems : cfg.townyOtherTownKeepItems)
+                        + " keepXp=" + (resident ? cfg.townyOwnTownKeepXp : cfg.townyOtherTownKeepXp)));
+                return;
+            } else if (cfg.townyWildernessEnabled) {
+                sender.sendMessage(plugin.parseMessage("&e[TOWNY-WILD] In Towny wilderness"
+                        + " → keepItems=" + cfg.townyWildernessKeepItems
+                        + " keepXp=" + cfg.townyWildernessKeepXp));
                 return;
             }
         }
 
-        // 7. World time fallback
+        // 5. DeathCauseRule — cannot simulate without a real killer
+        if (cfg.deathCauseEnabled) {
+            sender.sendMessage(plugin.parseMessage("&7[DEATH-CAUSE] Enabled (pvp/pve)"
+                    + " — cannot simulate without real death; killer unknown at this location."
+                    + " PvP → keepItems=" + cfg.pvpKeepItems
+                    + " | PvE → keepItems=" + cfg.pveKeepItems));
+        }
+
+        // 6. WorldTimeRule (fallback)
         long time = target.getWorld().getTime();
         boolean isDay = plugin.isTimeInRange(time, cfg.dayStart, cfg.nightStart);
-        sender.sendMessage(plugin.parseMessage("&7[TIME] " + (isDay ? "&aDay" : "&9Night") + " &7(time=" + time + ") → keepItems=" + (isDay ? cfg.dayKeepItems : cfg.nightKeepItems) + " keepXp=" + (isDay ? cfg.dayKeepXp : cfg.nightKeepXp)));
+        DKIConfig.WorldTimeOverride override = cfg.worldOverrides.get(target.getWorld().getName());
+        boolean keepItems = isDay ? cfg.dayKeepItems : cfg.nightKeepItems;
+        boolean keepXp    = isDay ? cfg.dayKeepXp    : cfg.nightKeepXp;
+        if (override != null) {
+            Boolean ov = isDay ? override.day() : override.night();
+            if (ov != null) keepItems = ov;
+        }
+        sender.sendMessage(plugin.parseMessage("&7[TIME] " + (isDay ? "&aDay" : "&9Night")
+                + " &7(time=" + time + ")"
+                + " → keepItems=" + keepItems + " keepXp=" + keepXp));
     }
 
     private void showStatus(CommandSender sender) {

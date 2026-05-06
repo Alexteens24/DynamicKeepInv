@@ -37,164 +37,135 @@ public class DynamicKeepInvExpansion extends PlaceholderExpansion {
 
     @Override
     public @Nullable String onPlaceholderRequest(Player player, @NotNull String params) {
-        if (player == null) {
-            return "";
-        }
+        if (player == null) return "";
 
+        DKIConfig cfg = plugin.getDKIConfig();
         World world = player.getWorld();
+        String lower = params.toLowerCase();
 
         // %dynamickeepinv_enabled%
-        if (params.equalsIgnoreCase("enabled")) {
-            return plugin.getConfig().getBoolean("enabled", true) ? "true" : "false";
+        if (lower.equals("enabled")) {
+            return cfg.enabled ? "true" : "false";
         }
 
         // %dynamickeepinv_keepinventory%
-        if (params.equalsIgnoreCase("keepinventory")) {
+        if (lower.equals("keepinventory")) {
             Boolean value = world.getGameRuleValue(GameRule.KEEP_INVENTORY);
             return value != null && value ? "true" : "false";
         }
 
         // %dynamickeepinv_keepinventory_formatted%
-        if (params.equalsIgnoreCase("keepinventory_formatted")) {
+        if (lower.equals("keepinventory_formatted")) {
             Boolean value = world.getGameRuleValue(GameRule.KEEP_INVENTORY);
             return value != null && value ? "ON" : "OFF";
         }
 
         // %dynamickeepinv_time%
-        if (params.equalsIgnoreCase("time")) {
+        if (lower.equals("time")) {
             return String.valueOf(world.getTime());
         }
 
         // %dynamickeepinv_isday%
-        if (params.equalsIgnoreCase("isday")) {
-            long time = world.getTime();
-            long dayStart = plugin.getConfig().getLong("time.day-start", 0);
-            long nightStart = plugin.getConfig().getLong("time.night-start", 13000);
-            return plugin.isTimeInRange(time, dayStart, nightStart) ? "true" : "false";
+        if (lower.equals("isday")) {
+            return plugin.isTimeInRange(world.getTime(), cfg.dayStart, cfg.nightStart) ? "true" : "false";
         }
 
         // %dynamickeepinv_isnight%
-        if (params.equalsIgnoreCase("isnight")) {
-            long time = world.getTime();
-            long dayStart = plugin.getConfig().getLong("time.day-start", 0);
-            long nightStart = plugin.getConfig().getLong("time.night-start", 13000);
-            return plugin.isTimeInRange(time, dayStart, nightStart) ? "false" : "true";
+        if (lower.equals("isnight")) {
+            return plugin.isTimeInRange(world.getTime(), cfg.dayStart, cfg.nightStart) ? "false" : "true";
         }
 
         // %dynamickeepinv_period%
-        if (params.equalsIgnoreCase("period")) {
-            long time = world.getTime();
-            long dayStart = plugin.getConfig().getLong("time.day-start", 0);
-            long nightStart = plugin.getConfig().getLong("time.night-start", 13000);
-            return plugin.isTimeInRange(time, dayStart, nightStart) ? "Day" : "Night";
+        if (lower.equals("period")) {
+            return plugin.isTimeInRange(world.getTime(), cfg.dayStart, cfg.nightStart) ? "Day" : "Night";
         }
 
-        // %dynamickeepinv_period_<lang>% (dynamickeepinv_period_vi, dynamickeepinv_period_en)
-        if (params.toLowerCase().startsWith("period_")) {
-            String lang = params.substring(7).toLowerCase();
-            long time = world.getTime();
-            long dayStart = plugin.getConfig().getLong("time.day-start", 0);
-            long nightStart = plugin.getConfig().getLong("time.night-start", 13000);
-            boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
-
-            if (lang.equals("vi")) {
-                return isDay ? "Ngày" : "Đêm";
-            } else {
-                return isDay ? "Day" : "Night";
-            }
+        // %dynamickeepinv_period_<lang>%  (e.g. period_vi, period_en)
+        if (lower.startsWith("period_")) {
+            String lang = lower.substring(7);
+            boolean isDay = plugin.isTimeInRange(world.getTime(), cfg.dayStart, cfg.nightStart);
+            return isDay ? (lang.equals("vi") ? "Ngày" : "Day")
+                         : (lang.equals("vi") ? "Đêm"  : "Night");
         }
 
         // %dynamickeepinv_world%
-        if (params.equalsIgnoreCase("world")) {
+        if (lower.equals("world")) {
             return world.getName();
         }
 
         // %dynamickeepinv_world_enabled%
-        if (params.equalsIgnoreCase("world_enabled")) {
+        if (lower.equals("world_enabled")) {
             return plugin.isWorldEnabled(world) ? "true" : "false";
         }
 
         // %dynamickeepinv_has_bypass%
-        if (params.equalsIgnoreCase("has_bypass")) {
+        if (lower.equals("has_bypass")) {
             return player.hasPermission("dynamickeepinv.bypass") ? "true" : "false";
         }
 
-        // %dynamickeepinv_advanced_enabled%
-        if (params.equalsIgnoreCase("advanced_enabled")) {
-            // Deprecated mapped to global
-            return plugin.getConfig().getBoolean("enabled", true) ? "true" : "false";
+        // %dynamickeepinv_advanced_enabled% (deprecated alias for enabled)
+        if (lower.equals("advanced_enabled")) {
+            return cfg.enabled ? "true" : "false";
         }
 
         // %dynamickeepinv_economy_enabled%
-        if (params.equalsIgnoreCase("economy_enabled")) {
-            return plugin.getConfig().getBoolean("economy.enabled", false) ? "true" : "false";
+        if (lower.equals("economy_enabled")) {
+            return cfg.economyEnabled ? "true" : "false";
         }
 
         // %dynamickeepinv_economy_cost%
-        if (params.equalsIgnoreCase("economy_cost")) {
-            return String.valueOf(plugin.getConfig().getDouble("economy.cost", 0.0));
+        if (lower.equals("economy_cost")) {
+            return String.valueOf(cfg.economyCost);
         }
 
         // %dynamickeepinv_lands_enabled%
-        if (params.equalsIgnoreCase("lands_enabled")) {
-            return plugin.getConfig().getBoolean("integrations.lands.enabled", false) ? "true" : "false";
+        if (lower.equals("lands_enabled")) {
+            return cfg.landsEnabled ? "true" : "false";
         }
 
         // %dynamickeepinv_gp_enabled%
-        if (params.equalsIgnoreCase("gp_enabled")) {
-            return plugin.getConfig().getBoolean("integrations.griefprevention.enabled", false) ? "true" : "false";
+        if (lower.equals("gp_enabled")) {
+            return cfg.gpEnabled ? "true" : "false";
         }
 
-        if (params.equalsIgnoreCase("stats_enabled")) {
-            return plugin.getConfig().getBoolean("stats.enabled", true) ? "true" : "false";
+        // --- Stats placeholders ---
+
+        if (lower.equals("stats_enabled")) {
+            return cfg.statsEnabled ? "true" : "false";
         }
 
-        if (params.equalsIgnoreCase("stats_deaths_saved")) {
-            StatsManager stats = plugin.getStatsManager();
+        StatsManager stats = plugin.getStatsManager();
+
+        if (lower.equals("stats_deaths_saved")) {
             return stats != null ? String.valueOf(stats.getDeathsSaved(player.getUniqueId())) : "0";
         }
 
-        if (params.equalsIgnoreCase("stats_deaths_lost")) {
-            StatsManager stats = plugin.getStatsManager();
+        if (lower.equals("stats_deaths_lost")) {
             return stats != null ? String.valueOf(stats.getDeathsLost(player.getUniqueId())) : "0";
         }
 
-        if (params.equalsIgnoreCase("stats_total_deaths")) {
-            StatsManager stats = plugin.getStatsManager();
+        if (lower.equals("stats_total_deaths")) {
             return stats != null ? String.valueOf(stats.getTotalDeaths(player.getUniqueId())) : "0";
         }
 
-        if (params.equalsIgnoreCase("stats_save_rate")) {
-            StatsManager stats = plugin.getStatsManager();
-            if (stats != null) {
-                double rate = stats.getSaveRate(player.getUniqueId());
-                return String.format("%.1f%%", rate);
-            }
-            return "0%";
+        if (lower.equals("stats_save_rate")) {
+            return stats != null ? String.format("%.1f%%", stats.getSaveRate(player.getUniqueId())) : "0%";
         }
 
-        if (params.equalsIgnoreCase("stats_economy_paid")) {
-            StatsManager stats = plugin.getStatsManager();
+        if (lower.equals("stats_economy_paid")) {
             return stats != null ? String.format("%.2f", stats.getTotalEconomyPaid(player.getUniqueId())) : "0";
         }
 
-        if (params.equalsIgnoreCase("stats_global_saved")) {
-            StatsManager stats = plugin.getStatsManager();
+        if (lower.equals("stats_global_saved")) {
             return stats != null ? String.valueOf(stats.getGlobalDeathsSaved()) : "0";
         }
 
-        if (params.equalsIgnoreCase("stats_global_lost")) {
-            StatsManager stats = plugin.getStatsManager();
+        if (lower.equals("stats_global_lost")) {
             return stats != null ? String.valueOf(stats.getGlobalDeathsLost()) : "0";
         }
 
-        if (params.equalsIgnoreCase("stats_global_rate")) {
-            StatsManager stats = plugin.getStatsManager();
-            if (stats != null) {
-                double rate = stats.getGlobalSaveRate();
-                return String.format("%.1f%%", rate);
-            }
-            return "0%";
+        if (lower.equals("stats_global_rate")) {
+            return stats != null ? String.format("%.1f%%", stats.getGlobalSaveRate()) : "0%";
         }
 
         return null;

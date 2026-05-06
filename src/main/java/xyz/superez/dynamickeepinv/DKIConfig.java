@@ -1,8 +1,12 @@
 package xyz.superez.dynamickeepinv;
 
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Cached snapshot of config.yml values.
@@ -10,6 +14,13 @@ import java.util.List;
  * Created on startup and refreshed by {@link DynamicKeepInvPlugin#reloadConfig()}.
  */
 public class DKIConfig {
+
+    /**
+     * Per-world keepInventory overrides from {@code worlds.overrides}.
+     * Either component may be null, meaning "fall back to global setting".
+     */
+    public record WorldTimeOverride(Boolean day, Boolean night) {}
+
 
     // --- Core ---
     public final boolean enabled;
@@ -38,6 +49,7 @@ public class DKIConfig {
 
     // --- Worlds ---
     public final List<String> enabledWorlds;
+    public final Map<String, WorldTimeOverride> worldOverrides;
 
     // --- Messages / Broadcast ---
     public final boolean broadcastEnabled;
@@ -117,9 +129,6 @@ public class DKIConfig {
     // --- MMOItems ---
     public final List<String> mmoProtectedTags;
 
-    // --- Rules: Biome ---
-    public final boolean biomeRuleEnabled;
-
     // --- Rules: First Death ---
     public final boolean firstDeathEnabled;
     public final boolean firstDeathKeepItems;
@@ -162,6 +171,20 @@ public class DKIConfig {
 
         // Worlds
         enabledWorlds      = cfg.getStringList("worlds.enabled");
+
+        ConfigurationSection overridesSection = cfg.getConfigurationSection("worlds.overrides");
+        if (overridesSection != null) {
+            Map<String, WorldTimeOverride> tmp = new HashMap<>();
+            for (String worldName : overridesSection.getKeys(false)) {
+                String base = "worlds.overrides." + worldName;
+                Boolean day   = cfg.contains(base + ".day")   ? cfg.getBoolean(base + ".day")   : null;
+                Boolean night = cfg.contains(base + ".night") ? cfg.getBoolean(base + ".night") : null;
+                tmp.put(worldName, new WorldTimeOverride(day, night));
+            }
+            worldOverrides = Collections.unmodifiableMap(tmp);
+        } else {
+            worldOverrides = Map.of();
+        }
 
         // Broadcast
         broadcastEnabled       = cfg.getBoolean("messages.broadcast.enabled",            true);
@@ -240,9 +263,6 @@ public class DKIConfig {
 
         // MMOItems
         mmoProtectedTags   = cfg.getStringList("hooks.mmoitems.protected-tags");
-
-        // Biome rule
-        biomeRuleEnabled   = cfg.getBoolean("rules.biome.enabled", false);
 
         // First death
         firstDeathEnabled  = cfg.getBoolean("rules.first-death.enabled",    false);

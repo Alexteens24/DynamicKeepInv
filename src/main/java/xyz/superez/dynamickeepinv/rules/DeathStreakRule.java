@@ -58,6 +58,21 @@ public class DeathStreakRule implements DeathRule {
         return "DeathStreakRule";
     }
 
+    /**
+     * Returns how many deaths this player has recorded within the active window.
+     * Used by the {@code /dki test} diagnostic command.
+     */
+    public int getRecentDeathCount(UUID uuid, long windowMs) {
+        Deque<Long> deque = recentDeaths.get(uuid);
+        if (deque == null) return 0;
+        long now = System.currentTimeMillis();
+        int count = 0;
+        for (long ts : deque) {
+            if ((now - ts) <= windowMs) count++;
+        }
+        return count;
+    }
+
     /** Call on server shutdown or rule re-registration to free memory. */
     public void clear() {
         recentDeaths.clear();

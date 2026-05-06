@@ -32,6 +32,18 @@ public class RuleManager {
         return names;
     }
 
+    /**
+     * Returns the first registered rule of the given type, or {@code null} if not present.
+     * Useful for diagnostic commands that need to inspect rule-internal state.
+     */
+    @SuppressWarnings("unchecked")
+    public <T extends DeathRule> T getRule(Class<T> type) {
+        for (DeathRule rule : rules) {
+            if (type.isInstance(rule)) return (T) rule;
+        }
+        return null;
+    }
+
     public RuleResult evaluate(PlayerDeathEvent event) {
         for (DeathRule rule : rules) {
             plugin.debug("Evaluating rule: " + rule.getName());

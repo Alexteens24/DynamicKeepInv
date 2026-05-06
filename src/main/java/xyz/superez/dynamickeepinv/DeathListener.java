@@ -4,7 +4,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameRule;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -13,15 +12,14 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
-import xyz.superez.dynamickeepinv.hooks.MMOItemsHook;
 import xyz.superez.dynamickeepinv.rules.RuleManager;
 import xyz.superez.dynamickeepinv.rules.RuleReasons;
 import xyz.superez.dynamickeepinv.rules.RuleResult;
+import xyz.superez.dynamickeepinv.service.GraveService;
+import xyz.superez.dynamickeepinv.service.SoulboundService;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 
 public class DeathListener implements Listener {
     private final DynamicKeepInvPlugin plugin;
@@ -90,63 +88,23 @@ public class DeathListener implements Listener {
                 if (eco != null && eco.isEnabled()) {
                     plugin.debug("GUI mode: Saving inventory for confirmation GUI");
 
-                    // Prepare inventory for saving, filtering out Soulbound items to keep them
+                    // Snapshot inventory, routing soulbound items to keepList
                     ItemStack[] contents = player.getInventory().getStorageContents();
                     ItemStack[] armor = player.getInventory().getArmorContents();
                     ItemStack offHand = player.getInventory().getItemInOffHand();
 
-                    // Arrays to pass to PendingDeath (without soulbound items)
                     ItemStack[] savedContents = new ItemStack[contents.length];
                     ItemStack[] savedArmor = new ItemStack[armor.length];
                     ItemStack savedOffHand = null;
 
+                    SoulboundService soulbound = plugin.getSoulboundService();
                     int keptSoulbound = 0;
+                    keptSoulbound += soulbound.filterArrayToKeep(contents, event.getItemsToKeep(), savedContents);
+                    keptSoulbound += soulbound.filterArrayToKeep(armor, event.getItemsToKeep(), savedArmor);
 
-                    // Filter contents
-                    for (int i = 0; i < contents.length; i++) {
-                        ItemStack item = contents[i];
-                        if (item != null && !item.getType().isAir()) {
-                            boolean isSoulbound = false;
-                            if (plugin.isMMOItemsEnabled()) {
-                                isSoulbound = plugin.getMMOItemsHook().isSoulbound(item);
-                            }
-
-                            if (isSoulbound) {
-                                event.getItemsToKeep().add(item.clone());
-                                keptSoulbound++;
-                                // Leave null in savedContents
-                            } else {
-                                savedContents[i] = item.clone();
-                            }
-                        }
-                    }
-
-                    // Filter armor
-                    for (int i = 0; i < armor.length; i++) {
-                        ItemStack item = armor[i];
-                        if (item != null && !item.getType().isAir()) {
-                            boolean isSoulbound = false;
-                            if (plugin.isMMOItemsEnabled()) {
-                                isSoulbound = plugin.getMMOItemsHook().isSoulbound(item);
-                            }
-
-                            if (isSoulbound) {
-                                event.getItemsToKeep().add(item.clone());
-                                keptSoulbound++;
-                            } else {
-                                savedArmor[i] = item.clone();
-                            }
-                        }
-                    }
-
-                    // Filter offhand
+                    // Offhand handled separately (single item, not an array slot)
                     if (offHand != null && !offHand.getType().isAir()) {
-                        boolean isSoulbound = false;
-                        if (plugin.isMMOItemsEnabled()) {
-                            isSoulbound = plugin.getMMOItemsHook().isSoulbound(offHand);
-                        }
-
-                        if (isSoulbound) {
+                        if (soulbound.isSoulbound(offHand)) {
                             event.getItemsToKeep().add(offHand.clone());
                             keptSoulbound++;
                         } else {
@@ -296,41 +254,16 @@ public class DeathListener implements Listener {
         applyKeepInventorySettings(event, keepItems, keepXp);
         plugin.debug("Event keepInventory after processing: " + event.getKeepInventory());
 
-        // Check if we should create a grave (GravesX / AxGraves support)
-        // Only if items are NOT kept (meaning they are dropped) and a hook is enabled
-        if (!keepItems && (plugin.isGravesXEnabled() || plugin.isAxGravesEnabled())) {
+        // Attempt grave creation when items are dropped and a graves integration is active
+        GraveService graveService = plugin.getGraveService();
+        if (!keepItems && graveService.isAnyEnabled()) {
             if (event.getDrops() != null && !event.getDrops().isEmpty()) {
                 List<ItemStack> dropsToSave = new ArrayList<>(event.getDrops());
                 int xpToStore = keepXp ? 0 : player.getTotalExperience();
-                boolean graveCreated = false;
 
-                // Try GravesX first
-                if (plugin.isGravesXEnabled()) {
-                    plugin.debug("GravesX enabled and items dropped. Creating grave...");
-                    if (plugin.getGravesXHook().createGrave(player, deathLocation, dropsToSave, xpToStore)) {
-                        graveCreated = true;
-                        plugin.debug("Grave created with " + dropsToSave.size() + " items and " + xpToStore + " XP.");
-                    } else {
-                        plugin.debug("Failed to create GravesX grave, trying fallback...");
-                    }
-                }
-
-                // Fallback to AxGraves
-                if (!graveCreated && plugin.isAxGravesEnabled()) {
-                    plugin.debug("AxGraves enabled and items dropped. Creating grave...");
-                    if (plugin.getAxGravesHook().createGrave(player, deathLocation, dropsToSave, xpToStore)) {
-                        graveCreated = true;
-                        plugin.debug("Grave created via AxGraves with " + dropsToSave.size() + " items and " + xpToStore + " XP.");
-                    } else {
-                        plugin.debug("Failed to create AxGraves grave, items will drop normally.");
-                    }
-                }
-
-                if (graveCreated) {
+                if (graveService.tryCreate(player, deathLocation, dropsToSave, xpToStore)) {
                     event.getDrops().clear();
-                    if (!keepXp) {
-                        event.setDroppedExp(0);
-                    }
+                    if (!keepXp) event.setDroppedExp(0);
                 } else if (cfg.gravesFallbackDrop) {
                     plugin.getLogger().warning("[DKI] Grave creation failed for " + player.getName()
                             + " — items will drop at death location (fallback).");
@@ -393,51 +326,41 @@ public class DeathListener implements Listener {
     }
 
     private void trackDeathStats(Player player, boolean keepItems, boolean keepXp, String reason) {
-        if (!plugin.getDKIConfig().statsEnabled) {
-            return;
-        }
+        if (!plugin.getDKIConfig().statsEnabled) return;
 
         StatsManager stats = plugin.getStatsManager();
-        if (stats == null) {
-            return;
-        }
+        if (stats == null) return;
 
-        // Normalize reason for stats
-        String simpleReason = "unknown";
-        if (reason != null) {
-            String normalizedReason = reason.toLowerCase(Locale.ROOT);
-            if (RuleReasons.TIME_DAY.equals(normalizedReason) || normalizedReason.contains("time-day") || normalizedReason.equals("day")) {
-                simpleReason = "day";
-            } else if (RuleReasons.TIME_NIGHT.equals(normalizedReason) || normalizedReason.contains("time-night") || normalizedReason.equals("night")) {
-                simpleReason = "night";
-            } else if (RuleReasons.PVP.equals(normalizedReason) || normalizedReason.contains("pvp")) {
-                simpleReason = "pvp";
-            } else if (RuleReasons.PVE.equals(normalizedReason) || normalizedReason.contains("pve")) {
-                simpleReason = "pve";
-            } else if (normalizedReason.contains("lands")) {
-                simpleReason = "lands";
-            } else if (normalizedReason.startsWith("gp-") || normalizedReason.equals("gp") || normalizedReason.contains("griefprevention")) {
-                simpleReason = "griefprevention";
-            } else if (normalizedReason.startsWith("wg-") || normalizedReason.contains("worldguard")) {
-                simpleReason = "worldguard";
-            } else if (normalizedReason.startsWith("towny-") || normalizedReason.contains("towny")) {
-                simpleReason = "towny";
-            } else if (RuleReasons.FIRST_DEATH.equals(normalizedReason)) {
-                simpleReason = "first-death";
-            } else if (RuleReasons.DEATH_STREAK.equals(normalizedReason)) {
-                simpleReason = "death-streak";
-            } else if (RuleReasons.BYPASS.equals(normalizedReason)) {
-                simpleReason = "bypass";
-            } else if (RuleReasons.ECONOMY_BYPASS.equals(normalizedReason) || RuleReasons.ECONOMY.equals(normalizedReason)) {
-                simpleReason = "economy";
-            }
-        }
+        String simpleReason = normalizeReasonForStats(reason);
 
         if (keepItems || keepXp) {
             stats.recordDeathSaved(player, simpleReason);
         } else {
             stats.recordDeathLost(player, simpleReason);
         }
+    }
+
+    private static String normalizeReasonForStats(String reason) {
+        if (reason == null) return "unknown";
+        return switch (reason) {
+            case RuleReasons.TIME_DAY                               -> "day";
+            case RuleReasons.TIME_NIGHT                             -> "night";
+            case RuleReasons.PVP                                    -> "pvp";
+            case RuleReasons.PVE                                    -> "pve";
+            case RuleReasons.LANDS_OWN, RuleReasons.LANDS_OTHER,
+                 RuleReasons.LANDS_WILDERNESS, RuleReasons.LANDS_DEFER -> "lands";
+            case RuleReasons.GP_OWN, RuleReasons.GP_OTHER,
+                 RuleReasons.GP_WILDERNESS                          -> "griefprevention";
+            case RuleReasons.WG_OWN, RuleReasons.WG_OTHER,
+                 RuleReasons.WG_WILDERNESS                          -> "worldguard";
+            case RuleReasons.TOWNY_OWN, RuleReasons.TOWNY_OTHER,
+                 RuleReasons.TOWNY_WILDERNESS                       -> "towny";
+            case RuleReasons.FIRST_DEATH                            -> "first-death";
+            case RuleReasons.DEATH_STREAK                           -> "death-streak";
+            case RuleReasons.BYPASS                                 -> "bypass";
+            case RuleReasons.ECONOMY_BYPASS, RuleReasons.ECONOMY    -> "economy";
+            default                                                 -> "unknown";
+        };
     }
 
     private void applyKeepInventorySettings(PlayerDeathEvent event, boolean keepItems, boolean keepXp) {
@@ -455,55 +378,20 @@ public class DeathListener implements Listener {
         } else {
             event.setKeepInventory(false);
 
-            // Handle MMOItems Soulbound support
-            if (plugin.isMMOItemsEnabled()) {
-                MMOItemsHook hook = plugin.getMMOItemsHook();
-                if (event.getDrops() != null && !event.getDrops().isEmpty()) {
-                    Iterator<ItemStack> it = event.getDrops().iterator();
-                    int savedCount = 0;
-                    while (it.hasNext()) {
-                        ItemStack drop = it.next();
-                        if (hook.isSoulbound(drop)) {
-                            it.remove();
-                            event.getItemsToKeep().add(drop);
-                            savedCount++;
-                        }
-                    }
-                    if (savedCount > 0) {
-                        plugin.debug("Saved " + savedCount + " MMOItems soulbound items from drops");
-                    }
-                }
+            SoulboundService soulbound = plugin.getSoulboundService();
+
+            // Move soulbound items from drops to keepList
+            int savedCount = soulbound.filterDropsInPlace(event);
+            if (savedCount > 0) {
+                plugin.debug("Saved " + savedCount + " MMOItems soulbound items from drops");
             }
 
+            // If the gamerule was keepInventory=true, drops list may be empty — rebuild from inventory
             Boolean gameruleKeepInv = player.getWorld().getGameRuleValue(GameRule.KEEP_INVENTORY);
             boolean wasKeepingInventory = gameruleKeepInv != null && gameruleKeepInv;
             if (event.getDrops() != null && event.getDrops().isEmpty() && wasKeepingInventory) {
                 plugin.debug("Drops empty and gamerule was keepInventory=true, forcing inventory to drops...");
-                int addedItems = 0;
-                int savedSoulbound = 0;
-                for (ItemStack item : player.getInventory().getContents()) {
-                    if (item != null && !item.getType().isAir()) {
-                        // Check for Curse of Vanishing
-                        if (item.hasItemMeta() && item.getItemMeta().hasEnchant(Enchantment.VANISHING_CURSE)) {
-                            continue;
-                        }
-
-                        boolean isSoulbound = false;
-                        if (plugin.isMMOItemsEnabled()) {
-                            isSoulbound = plugin.getMMOItemsHook().isSoulbound(item);
-                        }
-
-                        if (isSoulbound) {
-                            event.getItemsToKeep().add(item.clone());
-                            savedSoulbound++;
-                        } else {
-                            event.getDrops().add(item.clone());
-                            addedItems++;
-                        }
-                    }
-                }
-                plugin.debug("Added " + addedItems + " items to drops, kept " + savedSoulbound + " soulbound items");
-                player.getInventory().clear();
+                soulbound.populateForcedDrops(event, player);
             } else {
                 int dropSize = (event.getDrops() != null) ? event.getDrops().size() : 0;
                 plugin.debug("Drops already exist (" + dropSize + " items), skipping force drop");

@@ -18,24 +18,18 @@ public class WorldTimeRule implements DeathRule {
         boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
         String baseReason = isDay ? RuleReasons.TIME_DAY : RuleReasons.TIME_NIGHT;
 
-        boolean keepItems = getWorldKeepInventory(plugin, cfg, world, isDay);
+        boolean keepItems = getWorldKeepInventory(cfg, world, isDay);
         boolean keepXp = isDay ? cfg.dayKeepXp : cfg.nightKeepXp;
 
         return new RuleResult(keepItems, keepXp, baseReason);
     }
 
-    private boolean getWorldKeepInventory(DynamicKeepInvPlugin plugin, DKIConfig cfg, World world, boolean isDay) {
-        String worldName = world.getName();
-        String worldPath = "worlds.overrides." + worldName;
-
-        if (plugin.getConfig().contains(worldPath)) {
-            String timePath = isDay ? ".day" : ".night";
-            if (plugin.getConfig().contains(worldPath + timePath)) {
-                return plugin.getConfig().getBoolean(worldPath + timePath);
-            }
+    private boolean getWorldKeepInventory(DKIConfig cfg, World world, boolean isDay) {
+        DKIConfig.WorldTimeOverride override = cfg.worldOverrides.get(world.getName());
+        if (override != null) {
+            Boolean value = isDay ? override.day() : override.night();
+            if (value != null) return value;
         }
-
-        // Fallback to global settings
         return isDay ? cfg.dayKeepItems : cfg.nightKeepItems;
     }
 

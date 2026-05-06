@@ -8,6 +8,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.io.BukkitObjectInputStream;
 import org.bukkit.util.io.BukkitObjectOutputStream;
 
+import xyz.superez.dynamickeepinv.service.GraveService;
+
 import java.io.*;
 import java.sql.*;
 import java.util.Base64;
@@ -399,7 +401,7 @@ public class PendingDeathManager {
             dropLocation = new Location(world, pending.getX(), pending.getY(), pending.getZ());
         } else {
             // Fallback for old data: try player location or spawn
-            Player player = Bukkit.getPlayer(pending.getPlayerId());
+            player = Bukkit.getPlayer(pending.getPlayerId());
             if (player != null && player.isOnline()) {
                 dropLocation = player.getLocation();
             } else {
@@ -407,43 +409,35 @@ public class PendingDeathManager {
             }
         }
         
+        final Location finalDropLocation = dropLocation;
+        final Player finalPlayer = player;
+
         if (plugin.isFolia()) {
             // In Folia, we must drop items on the region thread associated with the DROP LOCATION.
             // Even if the player is online, they might be in a different region (e.g. at spawn).
             // So we always schedule on the drop location's region.
-            Runnable dropTask = () -> performDrop(dropLocation, pending, player);
-            // Use run instead of execute to ensure proper scheduling (handles unloaded chunks gracefully by queueing if needed)
-            Bukkit.getRegionScheduler().run(plugin, dropLocation, task -> dropTask.run());
+            Bukkit.getRegionScheduler().run(plugin, finalDropLocation,
+                    task -> performDrop(finalDropLocation, pending, finalPlayer));
         } else {
-            performDrop(dropLocation, pending, player);
+            performDrop(finalDropLocation, pending, finalPlayer);
         }
     }
 
     private void performDrop(Location dropLocation, PendingDeath pending, Player player) {
         int xp = calculateTotalExperience(pending.getSavedLevel(), pending.getSavedExp());
 
-        // Check for Graves integration (GravesX or AxGraves)
-        if (player != null && (plugin.isGravesXEnabled() || plugin.isAxGravesEnabled())) {
+        // Attempt grave creation via GraveService (GravesX → AxGraves fallback)
+        GraveService graveService = plugin.getGraveService();
+        if (player != null && graveService.isAnyEnabled()) {
             List<ItemStack> drops = new ArrayList<>();
             appendDroppableItems(drops, pending.getSavedInventory());
             appendDroppableItems(drops, pending.getSavedArmor());
             appendDroppableItem(drops, pending.getOffhandItem());
 
             if (!drops.isEmpty() || xp > 0) {
-                // Try GravesX
-                if (plugin.isGravesXEnabled()) {
-                    if (plugin.getGravesXHook().createGrave(player, dropLocation, drops, xp)) {
-                        plugin.debug("Grave created via GravesX for pending death of " + pending.getPlayerName());
-                        return; // Grave created, skip natural drops
-                    }
-                }
-
-                // Try AxGraves
-                if (plugin.isAxGravesEnabled()) {
-                    if (plugin.getAxGravesHook().createGrave(player, dropLocation, drops, xp)) {
-                        plugin.debug("Grave created via AxGraves for pending death of " + pending.getPlayerName());
-                        return; // Grave created, skip natural drops
-                    }
+                if (graveService.tryCreate(player, dropLocation, drops, xp)) {
+                    plugin.debug("Grave created for pending death of " + pending.getPlayerName());
+                    return;
                 }
             }
         }

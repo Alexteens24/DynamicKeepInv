@@ -289,28 +289,21 @@ public class StatsManager {
 
     private void updateReasonStats(UUID uuid, String reason, boolean saved) {
         if (!isConnectionValid()) return;
-        String insertSql = "INSERT OR IGNORE INTO death_reasons (uuid, reason) VALUES (?, ?)";
+
+        // Single UPSERT: insert row with 0 counts if new, then atomically increment the right column.
+        String sql = saved
+            ? "INSERT INTO death_reasons (uuid, reason, saved_count, lost_count) VALUES (?, ?, 1, 0) " +
+              "ON CONFLICT(uuid, reason) DO UPDATE SET saved_count = saved_count + 1"
+            : "INSERT INTO death_reasons (uuid, reason, saved_count, lost_count) VALUES (?, ?, 0, 1) " +
+              "ON CONFLICT(uuid, reason) DO UPDATE SET lost_count = lost_count + 1";
+
         synchronized (dbLock) {
-            try (PreparedStatement pstmt = connection.prepareStatement(insertSql)) {
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
                 pstmt.setString(1, uuid.toString());
                 pstmt.setString(2, reason);
                 pstmt.executeUpdate();
             } catch (SQLException e) {
-                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
-            }
-        }
-
-        String updateSql = saved
-            ? "UPDATE death_reasons SET saved_count = saved_count + 1 WHERE uuid = ? AND reason = ?"
-            : "UPDATE death_reasons SET lost_count = lost_count + 1 WHERE uuid = ? AND reason = ?";
-
-        synchronized (dbLock) {
-            try (PreparedStatement pstmt = connection.prepareStatement(updateSql)) {
-                pstmt.setString(1, uuid.toString());
-                pstmt.setString(2, reason);
-                pstmt.executeUpdate();
-            } catch (SQLException e) {
-                plugin.getLogger().log(Level.SEVERE, "Database error!", e);
+                plugin.getLogger().log(Level.SEVERE, "Database error updating reason stats!", e);
             }
         }
     }
