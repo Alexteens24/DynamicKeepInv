@@ -65,27 +65,24 @@ public class DynamicKeepInvExpansion extends PlaceholderExpansion {
             return String.valueOf(world.getTime());
         }
 
-        // %dynamickeepinv_isday%
+        // %dynamickeepinv_isday% — true when world time is in the first segment (lowest milestone at); legacy alias
         if (lower.equals("isday")) {
-            return plugin.isTimeInRange(world.getTime(), cfg.dayStart, cfg.nightStart) ? "true" : "false";
+            return plugin.scheduleSegmentIndex(world.getTime()) == 0 ? "true" : "false";
         }
 
         // %dynamickeepinv_isnight%
         if (lower.equals("isnight")) {
-            return plugin.isTimeInRange(world.getTime(), cfg.dayStart, cfg.nightStart) ? "false" : "true";
+            return plugin.scheduleSegmentIndex(world.getTime()) == 0 ? "false" : "true";
         }
 
-        // %dynamickeepinv_period%
+        // %dynamickeepinv_period% — active segment index
         if (lower.equals("period")) {
-            return plugin.isTimeInRange(world.getTime(), cfg.dayStart, cfg.nightStart) ? "Day" : "Night";
+            return String.valueOf(plugin.scheduleSegmentIndex(world.getTime()));
         }
 
-        // %dynamickeepinv_period_<lang>%  (e.g. period_vi, period_en)
+        // %dynamickeepinv_period_<lang>%  (kept for compatibility; same as period)
         if (lower.startsWith("period_")) {
-            String lang = lower.substring(7);
-            boolean isDay = plugin.isTimeInRange(world.getTime(), cfg.dayStart, cfg.nightStart);
-            return isDay ? (lang.equals("vi") ? "Ngày" : "Day")
-                         : (lang.equals("vi") ? "Đêm"  : "Night");
+            return String.valueOf(plugin.scheduleSegmentIndex(world.getTime()));
         }
 
         // %dynamickeepinv_world%

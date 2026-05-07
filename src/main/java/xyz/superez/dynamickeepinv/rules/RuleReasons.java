@@ -11,9 +11,16 @@ public final class RuleReasons {
     public static final String PVP              = "pvp";
     public static final String PVE              = "pve";
 
-    // Time-based
+    // Time-based (legacy reasons still accepted from older persisted data)
     public static final String TIME_DAY         = "time-day";
     public static final String TIME_NIGHT       = "time-night";
+
+    /** Active schedule segment index from {@code schedule.milestones} (reason value is this prefix + index). */
+    public static final String TIME_SEGMENT_PREFIX = "time-segment-";
+
+    public static String timeSegmentReason(int index) {
+        return TIME_SEGMENT_PREFIX + index;
+    }
 
     // Lands integration
     public static final String LANDS_DEFER      = "lands-defer";
@@ -43,4 +50,32 @@ public final class RuleReasons {
     // Special rules
     public static final String FIRST_DEATH      = "first-death";
     public static final String DEATH_STREAK     = "death-streak";
+
+    /**
+     * Maps a rule-reason string (typically a constant defined in this class) to the short bucket keys
+     * used by stats / death breakdown (for example {@code day}, {@code lands}).
+     */
+    public static String normalizeForStats(String reason) {
+        if (reason == null) {
+            return UNKNOWN;
+        }
+        if (reason.startsWith(TIME_SEGMENT_PREFIX)) {
+            return "schedule";
+        }
+        return switch (reason) {
+            case TIME_DAY -> "day";
+            case TIME_NIGHT -> "night";
+            case PVP -> "pvp";
+            case PVE -> "pve";
+            case LANDS_OWN, LANDS_OTHER, LANDS_WILDERNESS, LANDS_DEFER -> "lands";
+            case GP_OWN, GP_OTHER, GP_WILDERNESS -> "griefprevention";
+            case WG_OWN, WG_OTHER, WG_WILDERNESS -> "worldguard";
+            case TOWNY_OWN, TOWNY_OTHER, TOWNY_WILDERNESS -> "towny";
+            case FIRST_DEATH -> "first-death";
+            case DEATH_STREAK -> "death-streak";
+            case BYPASS -> "bypass";
+            case ECONOMY_BYPASS, ECONOMY -> "economy";
+            default -> UNKNOWN;
+        };
+    }
 }

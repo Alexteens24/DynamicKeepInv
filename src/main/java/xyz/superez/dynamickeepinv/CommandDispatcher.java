@@ -64,7 +64,7 @@ public class CommandDispatcher {
                 plugin.reloadRuleManager();
                 plugin.reloadPendingDeathManager();
                 plugin.reloadStatsSystem();
-                if (plugin.getConfig().getBoolean("enabled", true)) {
+                if (configPluginEnabled(plugin.getConfig())) {
                     plugin.startChecking();
                 } else {
                     plugin.stopChecking(true);
@@ -73,7 +73,7 @@ public class CommandDispatcher {
                 break;
 
             case "enable":
-                plugin.getConfig().set("enabled", true);
+                setConfigPluginEnabled(plugin.getConfig(), true);
                 plugin.saveConfig();
                 plugin.refreshDKIConfig();
                 plugin.startChecking();
@@ -81,7 +81,7 @@ public class CommandDispatcher {
                 break;
 
             case "disable":
-                plugin.getConfig().set("enabled", false);
+                setConfigPluginEnabled(plugin.getConfig(), false);
                 plugin.saveConfig();
                 plugin.refreshDKIConfig();
                 plugin.stopChecking(true);
@@ -89,8 +89,8 @@ public class CommandDispatcher {
                 break;
 
             case "toggle":
-                boolean newState = !plugin.getConfig().getBoolean("enabled", true);
-                plugin.getConfig().set("enabled", newState);
+                boolean newState = !configPluginEnabled(plugin.getConfig());
+                setConfigPluginEnabled(plugin.getConfig(), newState);
                 plugin.saveConfig();
                 plugin.refreshDKIConfig();
                 if (newState) {
@@ -361,17 +361,23 @@ public class CommandDispatcher {
 
         // 6. WorldTimeRule (fallback)
         long time = target.getWorld().getTime();
-        boolean isDay = plugin.isTimeInRange(time, cfg.dayStart, cfg.nightStart);
+        int seg = ScheduleSupport.segmentIndex(time, cfg.scheduleMilestones);
+        ScheduleSupport.ScheduleMilestone m = cfg.scheduleMilestones.get(seg);
+        boolean keepItems = m.keepItems();
+        boolean keepXp = m.keepXp();
         DKIConfig.WorldTimeOverride override = cfg.worldOverrides.get(target.getWorld().getName());
-        boolean keepItems = isDay ? cfg.dayKeepItems : cfg.nightKeepItems;
-        boolean keepXp    = isDay ? cfg.dayKeepXp    : cfg.nightKeepXp;
         if (override != null) {
-            Boolean ov = isDay ? override.day() : override.night();
-            if (ov != null) keepItems = ov;
+            Boolean oi = override.resolveKeepItems(m.at(), seg);
+            if (oi != null) {
+                keepItems = oi;
+            }
+            Boolean ox = override.resolveKeepXp(m.at());
+            if (ox != null) {
+                keepXp = ox;
+            }
         }
-        sender.sendMessage(plugin.parseMessage("&7[TIME] " + (isDay ? "&aDay" : "&9Night")
-                + " &7(time=" + time + ")"
-                + " → keepItems=" + keepItems + " keepXp=" + keepXp));
+        sender.sendMessage(plugin.parseMessage("&7[TIME] &eSegment " + seg + " &7(start tick " + m.at()
+                + ", world time=" + time + ") → keepItems=" + keepItems + " keepXp=" + keepXp));
     }
 
     private void showStatus(CommandSender sender) {
@@ -379,10 +385,8 @@ public class CommandDispatcher {
         sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.header")));
         sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.enabled")
                 .replace("{value}", String.valueOf(cfg.enabled))));
-        sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.keep-inv-day")
-                .replace("{value}", String.valueOf(cfg.dayKeepItems))));
-        sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.keep-inv-night")
-                .replace("{value}", String.valueOf(cfg.nightKeepItems))));
+        sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.schedule")
+                .replace("{segments}", cfg.scheduleStatusSummary())));
         sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.check-interval")
                 .replace("{value}", String.valueOf(cfg.checkInterval))));
 
@@ -401,14 +405,16 @@ public class CommandDispatcher {
         }
 
         sender.sendMessage(plugin.parseMessage(plugin.getMessage("status.world-header")));
-        long dayStart = cfg.dayStart;
-        long nightStart = cfg.nightStart;
         for (World world : Bukkit.getWorlds()) {
             long time = world.getTime();
-            boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
+            int seg = ScheduleSupport.segmentIndex(time, cfg.scheduleMilestones);
+            ScheduleSupport.ScheduleMilestone m = cfg.scheduleMilestones.get(seg);
             Boolean keepInv = world.getGameRuleValue(GameRule.KEEP_INVENTORY);
 
-            String period = isDay ? plugin.getMessage("status.day") : plugin.getMessage("status.night");
+            String period = plugin.getMessage("status.schedule-period")
+                    .replace("{segment}", String.valueOf(seg))
+                    .replace("{at}", String.valueOf(m.at()))
+                    .replace("{keep}", String.valueOf(m.keepItems()));
             String status = (keepInv != null && keepInv) ? plugin.getMessage("status.on") : plugin.getMessage("status.off");
 
             String worldInfo = plugin.getMessage("status.world-info")
@@ -419,5 +425,14 @@ public class CommandDispatcher {
 
             sender.sendMessage(plugin.parseMessage(worldInfo));
         }
+    }
+
+    private static boolean configPluginEnabled(org.bukkit.configuration.file.FileConfiguration cfg) {
+        return ConfigReadCompat.firstBool(cfg, "plugin.enabled", "enabled", true);
+    }
+
+    private static void setConfigPluginEnabled(org.bukkit.configuration.file.FileConfiguration cfg, boolean v) {
+        cfg.set("plugin.enabled", v);
+        cfg.set("enabled", null);
     }
 }

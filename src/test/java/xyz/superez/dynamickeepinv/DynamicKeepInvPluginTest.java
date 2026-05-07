@@ -53,14 +53,16 @@ class DynamicKeepInvPluginTest {
     void testConfigDefaults() {
         System.out.println("Running: testConfigDefaults");
 
-        assertTrue(plugin.getConfig().getBoolean("enabled"),
+        assertTrue(plugin.getConfig().getBoolean("plugin.enabled"),
                 "Plugin should be enabled by default");
-        // Updated to new config paths
-        assertTrue(plugin.getConfig().getBoolean("rules.day.keep-items"),
-                "Keep inventory should be ON during day");
-        assertFalse(plugin.getConfig().getBoolean("rules.night.keep-items"),
-                "Keep inventory should be OFF during night");
-        assertEquals(100, plugin.getConfig().getInt("check-interval"),
+        DKIConfig dki = plugin.getDKIConfig();
+        assertFalse(dki.scheduleMilestones.isEmpty(), "Schedule milestones should be present");
+        assertTrue(dki.scheduleMilestones.get(0).keepItems(),
+                "First schedule segment should keep items by default");
+        assertEquals(13000L, dki.scheduleMilestones.get(1).at());
+        assertFalse(dki.scheduleMilestones.get(1).keepItems(),
+                "Second schedule segment should not keep items by default");
+        assertEquals(100, plugin.getConfig().getInt("plugin.check-interval"),
                 "Check interval should be 100 ticks");
 
         System.out.println("✓ Config defaults are correct");
@@ -120,7 +122,8 @@ class DynamicKeepInvPluginTest {
         // Transition to night
         world.setTime(18000);
         // Advance enough ticks to allow the scheduled task (100 tick interval) to run again
-        server.getScheduler().performTicks(plugin.getConfig().getInt("check-interval", 100));
+        server.getScheduler().performTicks(plugin.getConfig().getInt("plugin.check-interval",
+                plugin.getConfig().getInt("check-interval", 100)));
         Boolean nightKeepInv = world.getGameRuleValue(GameRule.KEEP_INVENTORY);
         System.out.println("Night (18000): Keep Inventory = " + nightKeepInv);
 
@@ -147,11 +150,13 @@ class DynamicKeepInvPluginTest {
     void testToggleCommand() {
         System.out.println("Running: testToggleCommand");
 
-        boolean initialState = plugin.getConfig().getBoolean("enabled");
+        boolean initialState = plugin.getConfig().getBoolean("plugin.enabled",
+                plugin.getConfig().getBoolean("enabled", true));
         System.out.println("Initial state: " + initialState);
 
         executeCommand("toggle");
-        boolean newState = plugin.getConfig().getBoolean("enabled");
+        boolean newState = plugin.getConfig().getBoolean("plugin.enabled",
+                plugin.getConfig().getBoolean("enabled", true));
         System.out.println("New state: " + newState);
 
         assertNotEquals(initialState, newState, "Toggle should change state");
@@ -202,7 +207,8 @@ class DynamicKeepInvPluginTest {
         // Pre-condition: Set world_nether to FALSE manually to verify plugin doesn't change it to TRUE (Day)
         worldNether.setGameRule(GameRule.KEEP_INVENTORY, false);
 
-        server.getScheduler().performTicks(plugin.getConfig().getInt("check-interval", 100));
+        server.getScheduler().performTicks(plugin.getConfig().getInt("plugin.check-interval",
+                plugin.getConfig().getInt("check-interval", 100)));
 
         // Enabled world should be TRUE (Day)
         assertTrue(world.getGameRuleValue(GameRule.KEEP_INVENTORY), "Enabled world should be modified");

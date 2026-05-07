@@ -24,8 +24,8 @@ messages:
     status:
       header: "&6=== DynamicKeepInv Status ==="
       enabled: "&eEnabled: &f{value}"
-      keep-inv-day: "&eKeep Inv (Day): &f{value}"
-      keep-inv-night: "&eKeep Inv (Night): &f{value}"
+      schedule: "&eSchedule (world time): &f{segments}"
+      schedule-period: "&eseg{segment} &7from tick &f{at} &7(keepItems={keep})"
       check-interval: "&eCheck Interval: &f{value} ticks"
       world-header: "&6=== World Status ==="
       world-info: "&e{world}: &fTime={time} &b{period} &7(KeepInv: {status}&7)"
@@ -43,6 +43,7 @@ messages:
     game:
       day-detected: "&aWorld '{world}': &eDay&a detected. Keep Inventory is now &aON"
       night-detected: "&eWorld '{world}': &7Night&e detected. Keep Inventory is now &cOFF"
+      period-changed: "&eWorld '{world}': &7schedule segment &f{segment} &7(time={time}, start tick={at}, keepItems={keep-items})"
     
     economy:
       paid: "&aYou paid &6{amount} &ato keep your inventory."
@@ -86,6 +87,10 @@ messages:
       economy-bypass: "&aYou paid to keep your items!"
       time-day: "&7(Daytime protection)"
       time-night: "&7(Nighttime - no protection)"
+      time-segment-0: "&7(Schedule segment 0)"
+      time-segment-1: "&7(Schedule segment 1)"
+      time-segment-2: "&7(Schedule segment 2)"
+      time-segment-3: "&7(Schedule segment 3)"
       pvp: "&7(PvP death)"
       pve: "&7(PvE death)"
     
@@ -111,8 +116,8 @@ messages:
     status:
       header: "&6=== Trạng Thái DynamicKeepInv ==="
       enabled: "&eĐang bật: &f{value}"
-      keep-inv-day: "&eGiữ đồ (Ban ngày): &f{value}"
-      keep-inv-night: "&eGiữ đồ (Ban đêm): &f{value}"
+      schedule: "&eLịch (thời gian thế giới): &f{segments}"
+      schedule-period: "&eseg{segment} &7từ tick &f{at} &7(keepItems={keep})"
       check-interval: "&eKhoảng kiểm tra: &f{value} ticks"
       world-header: "&6=== Trạng Thái Thế Giới ==="
       world-info: "&e{world}: &fTime={time} &b{period} &7(KeepInv: {status}&7)"
@@ -130,6 +135,7 @@ messages:
     game:
       day-detected: "&aThế giới '{world}': Phát hiện &eBan ngày&a. Keep Inventory đã &aBẬT"
       night-detected: "&eThế giới '{world}': Phát hiện &7Ban đêm&e. Keep Inventory đã &cTẮT"
+      period-changed: "&eThế giới '{world}': &7segment lịch &f{segment} &7(time={time}, tick={at}, keepItems={keep-items})"
 
     economy:
       paid: "&aBạn đã trả &6{amount} &ađể giữ lại kho đồ."
@@ -173,6 +179,10 @@ messages:
       economy-bypass: "&aBạn đã trả tiền để giữ đồ!"
       time-day: "&7(Bảo vệ ban ngày)"
       time-night: "&7(Ban đêm - không bảo vệ)"
+      time-segment-0: "&7(Segment lịch 0)"
+      time-segment-1: "&7(Segment lịch 1)"
+      time-segment-2: "&7(Segment lịch 2)"
+      time-segment-3: "&7(Segment lịch 3)"
       pvp: "&7(Chết do PvP)"
       pve: "&7(Chết do PvE)"
     

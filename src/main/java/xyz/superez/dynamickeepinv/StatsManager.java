@@ -194,70 +194,45 @@ public class StatsManager {
     }
 
     public void recordDeathSaved(Player player, String reason) {
-        if (isShuttingDown || !isConnectionValid()) return;
-        final UUID uuid = player.getUniqueId();
-        final String playerName = player.getName();
-        final long time = System.currentTimeMillis();
+        recordDeathOutcome(player.getUniqueId(), player.getName(), reason, true);
+    }
 
-        asyncExecutor.execute(() -> {
-            if (isShuttingDown) return;
-            ensurePlayerExists(uuid, playerName);
-
-            String sql = "UPDATE player_stats SET " +
-                         "deaths_saved = deaths_saved + 1, " +
-                         "total_deaths = total_deaths + 1, " +
-                         "last_death_time = ?, " +
-                         "last_death_reason = ?, " +
-                         "last_death_saved = 1, " +
-                         "player_name = ? " +
-                         "WHERE uuid = ?";
-
-            synchronized (dbLock) {
-                try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-                    pstmt.setLong(1, time);
-                    pstmt.setString(2, reason);
-                    pstmt.setString(3, playerName);
-                    pstmt.setString(4, uuid.toString());
-                    pstmt.executeUpdate();
-                } catch (SQLException e) {
-                    plugin.getLogger().log(Level.SEVERE, "Database error!", e);
-                }
-            }
-
-            updateReasonStats(uuid, reason, true);
-
-            // Update cache in memory
-            PlayerStatsData cached = statsCache.get(uuid);
-            if (cached != null) {
-                cached.incrementSaved(time, reason);
-                cached.incrementReason(reason, true);
-            }
-
-            // Invalidate global stats cache so it updates next time (or optimistically update)
-            synchronized(this) {
-                cachedGlobalDeathsSaved++;
-            }
-        });
+    /**
+     * Record a death loss when the player may be offline (e.g. economy GUI timed out while disconnected).
+     */
+    public void recordDeathLost(UUID uuid, String playerName, String reason) {
+        recordDeathOutcome(uuid, playerName, reason, false);
     }
 
     public void recordDeathLost(Player player, String reason) {
+        recordDeathOutcome(player.getUniqueId(), player.getName(), reason, false);
+    }
+
+    private void recordDeathOutcome(UUID uuid, String playerName, String reason, boolean saved) {
         if (isShuttingDown || !isConnectionValid()) return;
-        final UUID uuid = player.getUniqueId();
-        final String playerName = player.getName();
         final long time = System.currentTimeMillis();
 
         asyncExecutor.execute(() -> {
             if (isShuttingDown) return;
             ensurePlayerExists(uuid, playerName);
 
-            String sql = "UPDATE player_stats SET " +
-                         "deaths_lost = deaths_lost + 1, " +
-                         "total_deaths = total_deaths + 1, " +
-                         "last_death_time = ?, " +
-                         "last_death_reason = ?, " +
-                         "last_death_saved = 0, " +
-                         "player_name = ? " +
-                         "WHERE uuid = ?";
+            String sql = saved
+                ? "UPDATE player_stats SET " +
+                  "deaths_saved = deaths_saved + 1, " +
+                  "total_deaths = total_deaths + 1, " +
+                  "last_death_time = ?, " +
+                  "last_death_reason = ?, " +
+                  "last_death_saved = 1, " +
+                  "player_name = ? " +
+                  "WHERE uuid = ?"
+                : "UPDATE player_stats SET " +
+                  "deaths_lost = deaths_lost + 1, " +
+                  "total_deaths = total_deaths + 1, " +
+                  "last_death_time = ?, " +
+                  "last_death_reason = ?, " +
+                  "last_death_saved = 0, " +
+                  "player_name = ? " +
+                  "WHERE uuid = ?";
 
             synchronized (dbLock) {
                 try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
@@ -271,18 +246,25 @@ public class StatsManager {
                 }
             }
 
-            updateReasonStats(uuid, reason, false);
+            updateReasonStats(uuid, reason, saved);
 
-            // Update cache in memory
             PlayerStatsData cached = statsCache.get(uuid);
             if (cached != null) {
-                cached.incrementLost(time, reason);
-                cached.incrementReason(reason, false);
+                if (saved) {
+                    cached.incrementSaved(time, reason);
+                    cached.incrementReason(reason, true);
+                } else {
+                    cached.incrementLost(time, reason);
+                    cached.incrementReason(reason, false);
+                }
             }
 
-            // Invalidate global stats cache so it updates next time (or optimistically update)
-            synchronized(this) {
-                cachedGlobalDeathsLost++;
+            synchronized (this) {
+                if (saved) {
+                    cachedGlobalDeathsSaved++;
+                } else {
+                    cachedGlobalDeathsLost++;
+                }
             }
         });
     }

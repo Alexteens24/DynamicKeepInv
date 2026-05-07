@@ -14,7 +14,9 @@ import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.title.Title;
 import org.bukkit.entity.Player;
 
@@ -40,10 +42,12 @@ import org.bukkit.Sound;
 
 public class DynamicKeepInvPlugin extends JavaPlugin {
 
+    private static final LegacyComponentSerializer LEGACY_AMPERSAND = LegacyComponentSerializer.legacyAmpersand();
+    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private BukkitRunnable checkTask;
     private ScheduledTask foliaTask;
-    private final Map<String, Boolean> lastWasDayMap = new ConcurrentHashMap<>();
+    private final Map<String, Integer> lastScheduleSegmentIndex = new ConcurrentHashMap<>();
     private final Map<String, Boolean> originalKeepInvValues = new ConcurrentHashMap<>();
     private final Map<String, Long> lastBroadcastTime = new ConcurrentHashMap<>();
     private FileConfiguration messagesConfig;
@@ -77,6 +81,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         detectFolia();
         saveDefaultConfig();
         new ConfigMigration(this).checkAndMigrate();
+        reloadConfig();
         dkiConfig = new DKIConfig(getConfig());
         loadMessages();
         integrationManager = new IntegrationManager(this);
@@ -146,7 +151,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
             originalKeepInvValues.remove(worldName);
         }
 
-        lastWasDayMap.remove(worldName);
+        lastScheduleSegmentIndex.remove(worldName);
         lastBroadcastTime.remove(worldName);
     }
 
@@ -260,7 +265,27 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
     }
 
     public Component parseMessage(String message) {
-        return LegacyComponentSerializer.legacyAmpersand().deserialize(message);
+        if (message == null) {
+            return Component.empty();
+        }
+        DKIConfig cfg = dkiConfig;
+        if (cfg != null && cfg.messageFormat == MessageFormatMode.MINIMESSAGE) {
+            try {
+                return MINI_MESSAGE.deserialize(message);
+            } catch (Exception e) {
+                getLogger().warning("MiniMessage parse failed (check messages.format / messages.yml): " + e.getMessage());
+                return Component.text(message);
+            }
+        }
+        return LEGACY_AMPERSAND.deserialize(message);
+    }
+
+    /** Plain text for logs (works for both legacy and MiniMessage components). */
+    public String serializeMessagePlain(Component component) {
+        if (component == null) {
+            return "";
+        }
+        return PlainTextComponentSerializer.plainText().serialize(component);
     }
 
     void startChecking() {
@@ -306,89 +331,77 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
 
     private void checkAndUpdateKeepInventory() {
         DKIConfig cfg = dkiConfig;
-        boolean keepInvDay = cfg.dayKeepItems;
-        boolean keepInvNight = cfg.nightKeepItems;
-        long dayStart = cfg.dayStart;
-        long nightStart = cfg.nightStart;
-        long dayTrigger = cfg.dayTrigger;
-        long nightTrigger = cfg.nightTrigger;
 
         for (World world : Bukkit.getWorlds()) {
             if (!isWorldEnabled(world)) {
                 continue;
             }
 
-            final long finalDayTrigger = dayTrigger;
-            final long finalNightTrigger = nightTrigger;
             if (isFolia) {
                 final World currentWorld = world;
                 Bukkit.getRegionScheduler().execute(this, currentWorld.getSpawnLocation(), () ->
-                        processWorld(currentWorld, keepInvDay, keepInvNight, dayStart, nightStart, finalDayTrigger, finalNightTrigger));
+                        processWorld(currentWorld));
             } else {
-                processWorld(world, keepInvDay, keepInvNight, dayStart, nightStart, dayTrigger, nightTrigger);
+                processWorld(world);
             }
         }
     }
 
-    private void processWorld(World world, boolean keepInvDay, boolean keepInvNight,
-                              long dayStart, long nightStart, long dayTrigger, long nightTrigger) {
+    private void processWorld(World world) {
         if (isShuttingDown) {
             return;
         }
 
+        DKIConfig cfg = dkiConfig;
         long time = world.getTime();
-        boolean isDay = isTimeInRange(time, dayStart, nightStart);
-        boolean shouldTriggerDay = isTimeInRange(time, dayTrigger, nightTrigger);
-        boolean shouldKeepInv = getWorldKeepInventory(world, isDay, keepInvDay, keepInvNight);
+        int seg = ScheduleSupport.segmentIndex(time, cfg.scheduleMilestones);
+        ScheduleSupport.ScheduleMilestone m = cfg.scheduleMilestones.get(seg);
+        boolean shouldKeepInv = resolveWorldKeepInventory(world, seg, m.at(), m.keepItems());
 
         Boolean currentKeepInv = world.getGameRuleValue(GameRule.KEEP_INVENTORY);
         if (currentKeepInv == null || currentKeepInv != shouldKeepInv) {
             rememberOriginalGameRule(world, currentKeepInv);
 
-            debug(String.format("Updating World: %s, Time: %d, IsDay: %s, TriggerDay: %s, KeepInv: %s -> %s",
-                    world.getName(), time, isDay, shouldTriggerDay, currentKeepInv, shouldKeepInv));
+            debug(String.format("Updating World: %s, Time: %d, Segment: %d, KeepInv: %s -> %s",
+                    world.getName(), time, seg, currentKeepInv, shouldKeepInv));
 
             world.setGameRule(GameRule.KEEP_INVENTORY, shouldKeepInv);
 
-            Boolean lastWasDay = lastWasDayMap.get(world.getName());
-            if (lastWasDay != null && lastWasDay != isDay) {
-                String msgKey = isDay ? "game.day-detected" : "game.night-detected";
-                String message = getMessage(msgKey);
+            Integer lastSeg = lastScheduleSegmentIndex.get(world.getName());
+            if (lastSeg != null && lastSeg != seg
+                    && cfg.broadcastEnabled
+                    && cfg.broadcastPeriodChange
+                    && m.announce()) {
+                String message = getMessage("game.period-changed");
                 if (message != null && !message.startsWith("Missing message:")) {
-                    message = message.replace("{world}", world.getName());
-                    getLogger().info(LegacyComponentSerializer.legacyAmpersand().serialize(parseMessage(message)));
+                    message = message.replace("{world}", world.getName())
+                            .replace("{time}", String.valueOf(time))
+                            .replace("{segment}", String.valueOf(seg))
+                            .replace("{at}", String.valueOf(m.at()))
+                            .replace("{keep-items}", String.valueOf(m.keepItems()));
+                    getLogger().info(serializeMessagePlain(parseMessage(message)));
 
-                    if (shouldBroadcast(isDay)) {
-                        long currentTime = System.currentTimeMillis();
-                        Long lastTime = lastBroadcastTime.get(world.getName());
-                        if (lastTime == null || (currentTime - lastTime) >= BROADCAST_COOLDOWN) {
-                            lastBroadcastTime.put(world.getName(), currentTime);
-                            sendNotifications(world, message, isDay);
-                        }
+                    long currentTime = System.currentTimeMillis();
+                    Long lastTime = lastBroadcastTime.get(world.getName());
+                    if (lastTime == null || (currentTime - lastTime) >= BROADCAST_COOLDOWN) {
+                        lastBroadcastTime.put(world.getName(), currentTime);
+                        sendNotifications(world, message, m.keepItems());
                     }
                 }
             }
         }
 
-        lastWasDayMap.put(world.getName(), isDay);
+        lastScheduleSegmentIndex.put(world.getName(), seg);
     }
 
-    private boolean shouldBroadcast(boolean isDay) {
-        DKIConfig cfg = dkiConfig;
-        if (!cfg.broadcastEnabled) return false;
-        if (isDay  && !cfg.broadcastDayChange)  return false;
-        if (!isDay && !cfg.broadcastNightChange) return false;
-        return true;
-    }
-
-    private void sendNotifications(World world, String message, boolean isDay) {
+    private void sendNotifications(World world, String message, boolean segmentKeepItems) {
         DKIConfig cfg = dkiConfig;
         Component component = parseMessage(message);
         boolean chat       = cfg.broadcastChat;
         boolean actionBar  = cfg.broadcastActionBar;
         boolean titleEnabled = cfg.broadcastTitle;
         boolean soundEnabled = cfg.broadcastSoundEnabled;
-        String soundName = isDay ? cfg.broadcastSoundDay : cfg.broadcastSoundNight;
+        String soundName = segmentKeepItems ? cfg.broadcastSoundDay : cfg.broadcastSoundNight;
         String broadcastPerm = cfg.broadcastPermission;
         Sound sound = null;
 
@@ -479,7 +492,7 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         }
 
         originalKeepInvValues.clear();
-        lastWasDayMap.clear();
+        lastScheduleSegmentIndex.clear();
         lastBroadcastTime.clear();
     }
 
@@ -550,18 +563,26 @@ public class DynamicKeepInvPlugin extends JavaPlugin {
         return normalizedTime >= start || normalizedTime < end;
     }
 
-    public boolean isDayTime(long time) {
-        DKIConfig cfg = dkiConfig;
-        return isTimeInRange(time, cfg.dayStart, cfg.nightStart);
+    public int scheduleSegmentIndex(long time) {
+        return ScheduleSupport.segmentIndex(time, dkiConfig.scheduleMilestones);
     }
 
-    private boolean getWorldKeepInventory(World world, boolean isDay, boolean globalKeepInvDay, boolean globalKeepInvNight) {
+    /**
+     * @return true if world time is in the first segment (lowest milestone {@code at} after sorting).
+     */
+    public boolean isDayTime(long time) {
+        return scheduleSegmentIndex(time) == 0;
+    }
+
+    private boolean resolveWorldKeepInventory(World world, int segmentIndex, long segmentStartAt, boolean globalKeepItems) {
         DKIConfig.WorldTimeOverride override = dkiConfig.worldOverrides.get(world.getName());
         if (override != null) {
-            Boolean value = isDay ? override.day() : override.night();
-            if (value != null) return value;
+            Boolean value = override.resolveKeepItems(segmentStartAt, segmentIndex);
+            if (value != null) {
+                return value;
+            }
         }
-        return isDay ? globalKeepInvDay : globalKeepInvNight;
+        return globalKeepItems;
     }
 
     public void debug(String message) {

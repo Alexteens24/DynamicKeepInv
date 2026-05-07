@@ -69,9 +69,9 @@ class CommandDispatcherTest {
 
     @Test
     void testCommandDetectsFirstDeathRule() {
-        plugin.getConfig().set("rules.first-death.enabled", true);
-        plugin.getConfig().set("rules.first-death.keep-items", true);
-        plugin.getConfig().set("rules.first-death.keep-xp", false);
+        plugin.getConfig().set("death-rules.first-death.enabled", true);
+        plugin.getConfig().set("death-rules.first-death.keep-items", true);
+        plugin.getConfig().set("death-rules.first-death.keep-xp", false);
         plugin.refreshDKIConfig();
 
         PlayerMock target = server.addPlayer("FirstDeathUser");
@@ -98,7 +98,8 @@ class CommandDispatcherTest {
         dispatcher.dispatch(sender, dummyCommand(), "dki", new String[]{"test", target.getName()});
 
         List<String> messages = capturedMessages(sender);
-        assertTrue(messages.stream().anyMatch(msg -> msg.contains("[TIME]") && msg.contains("Night")));
+        assertTrue(messages.stream().anyMatch(msg ->
+                msg.contains("[TIME]") && msg.contains("Segment") && msg.contains("18000")));
     }
 
     @Test

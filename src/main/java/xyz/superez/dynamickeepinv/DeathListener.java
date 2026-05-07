@@ -136,7 +136,7 @@ public class DeathListener implements Listener {
                         );
 
                         // Only save if there are items worth saving
-                        if (pendingDeath.hasItems() || player.getTotalExperience() > 0) {
+                        if (pendingDeath.hasItems() || player.calculateTotalExperiencePoints() > 0) {
                             pendingManager.addPendingDeath(pendingDeath);
 
                             // IMPORTANT: Cancel drops and disable keepInventory
@@ -259,7 +259,7 @@ public class DeathListener implements Listener {
         if (!keepItems && graveService.isAnyEnabled()) {
             if (event.getDrops() != null && !event.getDrops().isEmpty()) {
                 List<ItemStack> dropsToSave = new ArrayList<>(event.getDrops());
-                int xpToStore = keepXp ? 0 : player.getTotalExperience();
+                int xpToStore = keepXp ? 0 : player.calculateTotalExperiencePoints();
 
                 if (graveService.tryCreate(player, deathLocation, dropsToSave, xpToStore)) {
                     event.getDrops().clear();
@@ -331,36 +331,13 @@ public class DeathListener implements Listener {
         StatsManager stats = plugin.getStatsManager();
         if (stats == null) return;
 
-        String simpleReason = normalizeReasonForStats(reason);
+        String simpleReason = RuleReasons.normalizeForStats(reason);
 
         if (keepItems || keepXp) {
             stats.recordDeathSaved(player, simpleReason);
         } else {
             stats.recordDeathLost(player, simpleReason);
         }
-    }
-
-    private static String normalizeReasonForStats(String reason) {
-        if (reason == null) return "unknown";
-        return switch (reason) {
-            case RuleReasons.TIME_DAY                               -> "day";
-            case RuleReasons.TIME_NIGHT                             -> "night";
-            case RuleReasons.PVP                                    -> "pvp";
-            case RuleReasons.PVE                                    -> "pve";
-            case RuleReasons.LANDS_OWN, RuleReasons.LANDS_OTHER,
-                 RuleReasons.LANDS_WILDERNESS, RuleReasons.LANDS_DEFER -> "lands";
-            case RuleReasons.GP_OWN, RuleReasons.GP_OTHER,
-                 RuleReasons.GP_WILDERNESS                          -> "griefprevention";
-            case RuleReasons.WG_OWN, RuleReasons.WG_OTHER,
-                 RuleReasons.WG_WILDERNESS                          -> "worldguard";
-            case RuleReasons.TOWNY_OWN, RuleReasons.TOWNY_OTHER,
-                 RuleReasons.TOWNY_WILDERNESS                       -> "towny";
-            case RuleReasons.FIRST_DEATH                            -> "first-death";
-            case RuleReasons.DEATH_STREAK                           -> "death-streak";
-            case RuleReasons.BYPASS                                 -> "bypass";
-            case RuleReasons.ECONOMY_BYPASS, RuleReasons.ECONOMY    -> "economy";
-            default                                                 -> "unknown";
-        };
     }
 
     private void applyKeepInventorySettings(PlayerDeathEvent event, boolean keepItems, boolean keepXp) {
@@ -399,15 +376,17 @@ public class DeathListener implements Listener {
             plugin.debug("Set to DROP inventory");
         }
 
+        // Paper 1.20.4: use shouldDropExperience + calculateTotalExperiencePoints (not getTotalExperience,
+        // which is a separate lifetime counter — see Player Javadoc).
         if (keepXp) {
             event.setKeepLevel(true);
+            event.setShouldDropExperience(false);
             event.setDroppedExp(0);
         } else {
             event.setKeepLevel(false);
+            event.setShouldDropExperience(true);
             if (event.getDroppedExp() == 0) {
-                int level = player.getLevel();
-                int exp = Math.min(level * 7, 100);
-                event.setDroppedExp(exp);
+                event.setDroppedExp(player.calculateTotalExperiencePoints());
             }
         }
     }

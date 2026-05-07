@@ -4,6 +4,7 @@ import org.bukkit.World;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import xyz.superez.dynamickeepinv.DKIConfig;
 import xyz.superez.dynamickeepinv.DynamicKeepInvPlugin;
+import xyz.superez.dynamickeepinv.ScheduleSupport;
 
 public class WorldTimeRule implements DeathRule {
 
@@ -12,25 +13,25 @@ public class WorldTimeRule implements DeathRule {
         DKIConfig cfg = plugin.getDKIConfig();
         World world = event.getEntity().getWorld();
         long time = world.getTime();
-        long dayStart = cfg.dayStart;
-        long nightStart = cfg.nightStart;
+        int seg = ScheduleSupport.segmentIndex(time, cfg.scheduleMilestones);
+        ScheduleSupport.ScheduleMilestone m = cfg.scheduleMilestones.get(seg);
 
-        boolean isDay = plugin.isTimeInRange(time, dayStart, nightStart);
-        String baseReason = isDay ? RuleReasons.TIME_DAY : RuleReasons.TIME_NIGHT;
+        boolean keepItems = m.keepItems();
+        boolean keepXp = m.keepXp();
 
-        boolean keepItems = getWorldKeepInventory(cfg, world, isDay);
-        boolean keepXp = isDay ? cfg.dayKeepXp : cfg.nightKeepXp;
-
-        return new RuleResult(keepItems, keepXp, baseReason);
-    }
-
-    private boolean getWorldKeepInventory(DKIConfig cfg, World world, boolean isDay) {
         DKIConfig.WorldTimeOverride override = cfg.worldOverrides.get(world.getName());
         if (override != null) {
-            Boolean value = isDay ? override.day() : override.night();
-            if (value != null) return value;
+            Boolean oi = override.resolveKeepItems(m.at(), seg);
+            if (oi != null) {
+                keepItems = oi;
+            }
+            Boolean ox = override.resolveKeepXp(m.at());
+            if (ox != null) {
+                keepXp = ox;
+            }
         }
-        return isDay ? cfg.dayKeepItems : cfg.nightKeepItems;
+
+        return new RuleResult(keepItems, keepXp, RuleReasons.timeSegmentReason(seg));
     }
 
     @Override

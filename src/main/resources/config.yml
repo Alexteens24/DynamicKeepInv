@@ -1,34 +1,42 @@
-# DynamicKeepInv Configuration
-# Wiki: https://github.com/Alexteens24/DynamicKeepInv/wiki
-config-version: 6
+# DynamicKeepInv — https://github.com/Alexteens24/DynamicKeepInv/wiki
+config-version: 11
 
-# --- Core Settings ---
-enabled: true
-debug: false
-check-interval: 100
+# =============================================================================
+# 1 — Plugin core
+# =============================================================================
+plugin:
+  enabled: true
+  debug: false
+  # Server ticks between keepInventory checks (20 ticks = 1 second)
+  check-interval: 100
 
-# --- Time Configuration ---
-time:
-  day-start: 0
-  night-start: 13000
-  triggers:
-    day: -1
-    night: -1
+# How strings from messages.yml are parsed: legacy (& codes) or minimessage
+# (Legacy nested key messages.format is still read if this is blank; this key wins when both are set.)
+message-format: legacy
 
-# --- Keep Inventory Rules ---
-rules:
-  # Default rules for day/night
-  day:
-    keep-items: true
-    keep-xp: true
-  night:
-    keep-items: false
-    keep-xp: false
+# =============================================================================
+# 2 — Schedule (world time 0–23999)
+# Each milestone starts a segment [at, next-at) with wrap at 24000.
+# keep-items / keep-xp apply while world time is in that segment (before the next milestone).
+# announce: if true, players may be notified when entering this segment (see broadcast.period-change).
+# =============================================================================
+schedule:
+  milestones:
+    - at: 0
+      keep-items: true
+      keep-xp: true
+      announce: true
+    - at: 13000
+      keep-items: false
+      keep-xp: false
+      announce: true
 
-  # Bypass permission: dynamickeepinv.bypass
+# =============================================================================
+# 3 — Death rules (bypass, PvP/PvE, streak, first death — NOT day/night; use schedule.milestones)
+# =============================================================================
+death-rules:
   bypass-permission: true
 
-  # PvP vs PvE Rules (Overwrites time rules if enabled)
   death-cause:
     enabled: false
     pvp:
@@ -38,100 +46,97 @@ rules:
       keep-items: true
       keep-xp: true
 
-  # First-death leniency: keep items/xp on the player's very first death
   first-death:
     enabled: false
     keep-items: true
     keep-xp: true
 
-  # Death streak: keep items/xp if the player dies N times within a time window
   streak:
     enabled: false
-    threshold: 3          # Number of deaths required to trigger
-    window-seconds: 300   # Time window in seconds
+    threshold: 3
+    window-seconds: 300
     keep-items: false
     keep-xp: false
 
-# --- World Settings ---
+# =============================================================================
+# 4 — Worlds (empty enabled = all worlds)
+# =============================================================================
 worlds:
-  # Empty = all worlds
   enabled: []
-  # Per-world overrides. Example:
+  # Optional per-world overrides (legacy day/night booleans = first two segments only).
+  # Prefer: segments."<tick>" with keep-items / keep-xp matching a milestone "at".
   # overrides:
   #   world_nether:
-  #     day: false
-  #     night: false
+  #     segments:
+  #       "0":
+  #         keep-items: false
   overrides: {}
 
-# --- Messages & Broadcasts ---
-messages:
-  broadcast:
-    enabled: true
-    permission: ""  # Leave empty to broadcast to all; set to a permission node to restrict who sees it
-    events:
-      day-change: true
-      night-change: true
-    display:
-      chat: true
-      action-bar: false
-      title: false
-    sound:
-      enabled: false
-      day: "ENTITY_PLAYER_LEVELUP"
-      night: "ENTITY_WITHER_SPAWN"
+# =============================================================================
+# 5 — Broadcasts when the schedule segment changes (world-wide)
+# =============================================================================
+broadcast:
+  enabled: true
+  period-change: true
+  permission: ""
+  use-chat: true
+  use-action-bar: false
+  use-title: false
+  sound:
+    enabled: false
+    day: "ENTITY_PLAYER_LEVELUP"
+    night: "ENTITY_WITHER_SPAWN"
 
-  death:
-    enabled: true
-    chat: true
-    action-bar: false
+# =============================================================================
+# 6 — Per-player death feedback (only the dying player)
+# =============================================================================
+death-feedback:
+  enabled: true
+  chat: true
+  action-bar: false
 
-# --- Integrations ---
+# =============================================================================
+# 7 — Integrations
+# =============================================================================
 integrations:
-  # Lands
   lands:
     enabled: false
     override-lands: false
     in-own-land:
-        keep-items: false
-        keep-xp: false
+      keep-items: false
+      keep-xp: false
     in-other-land:
-        keep-items: false
-        keep-xp: false
+      keep-items: false
+      keep-xp: false
     wilderness:
-        enabled: false
-        use-death-cause: false
-        keep-items: false
-        keep-xp: false
+      enabled: false
+      use-death-cause: false
+      keep-items: false
+      keep-xp: false
 
-  # GriefPrevention
   griefprevention:
     enabled: false
     in-own-claim:
-        keep-items: true
-        keep-xp: true
+      keep-items: true
+      keep-xp: true
     in-other-claim:
-        keep-items: false
-        keep-xp: false
+      keep-items: false
+      keep-xp: false
     wilderness:
-        enabled: false
-        use-death-cause: false
-        keep-items: false
-        keep-xp: false
+      enabled: false
+      use-death-cause: false
+      keep-items: false
+      keep-xp: false
 
-  # GravesX
   gravesx:
     enabled: false
 
-  # AxGraves
   axgraves:
     enabled: false
 
-  # Graves shared settings
   graves:
-    # If grave creation fails, log a warning. Items drop normally (vanilla behavior) as fallback.
     fallback-on-fail: true
 
-  # WorldGuard
   worldguard:
     enabled: false
     in-own-region:
@@ -145,7 +150,6 @@ integrations:
       keep-items: false
       keep-xp: false
 
-  # Towny
   towny:
     enabled: false
     in-own-town:
@@ -159,25 +163,25 @@ integrations:
       keep-items: false
       keep-xp: false
 
-# --- MMOItems ---
-hooks:
-  mmoitems:
-    # Tags to treat as protected (items kept regardless of death settings). Leave empty for default (MMOITEMS_SOULBOUND only).
-    protected-tags: []
+# =============================================================================
+# 8 — MMOItems (protected NBT tags)
+# =============================================================================
+mmoitems:
+  protected-tags: []
 
-# --- Economy ---
-# Requires Vault
+# =============================================================================
+# 9 — Economy (Vault)
+# =============================================================================
 economy:
   enabled: false
   cost: 100.0
-  # Modes: "charge-to-keep" (auto-charge), "charge-to-bypass", "gui" (player confirms)
   mode: "charge-to-keep"
   gui:
-    # Timeout in seconds
     timeout: 30
-    # Expire time in seconds (for disconnects)
     expire-time: 300
 
-# --- Statistics ---
+# =============================================================================
+# 10 — Statistics
+# =============================================================================
 stats:
   enabled: true

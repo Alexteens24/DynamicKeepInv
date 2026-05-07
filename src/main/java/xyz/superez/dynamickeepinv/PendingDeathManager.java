@@ -8,6 +8,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.io.BukkitObjectInputStream;
 import org.bukkit.util.io.BukkitObjectOutputStream;
 
+import xyz.superez.dynamickeepinv.rules.RuleReasons;
 import xyz.superez.dynamickeepinv.service.GraveService;
 
 import java.io.*;
@@ -221,7 +222,7 @@ public class PendingDeathManager {
         StatsManager stats = plugin.getStatsManager();
         if (stats != null) {
             stats.recordEconomyPayment(player, cost);
-            stats.recordDeathSaved(player, pending.getDeathReason());
+            stats.recordDeathSaved(player, RuleReasons.normalizeForStats(pending.getDeathReason()));
         }
         
         // Clean up
@@ -255,7 +256,7 @@ public class PendingDeathManager {
         // Record stats
         StatsManager stats = plugin.getStatsManager();
         if (stats != null) {
-            stats.recordDeathLost(player, pending.getDeathReason());
+            stats.recordDeathLost(player, RuleReasons.normalizeForStats(pending.getDeathReason()));
         }
         
         // Clean up
@@ -290,10 +291,11 @@ public class PendingDeathManager {
         
         dropItemsForPendingDeath(pending);
         
-        // Record stats
+        // Record stats (count even when player is offline)
         StatsManager stats = plugin.getStatsManager();
-        if (stats != null && player != null) {
-            stats.recordDeathLost(player, pending.getDeathReason());
+        if (stats != null) {
+            stats.recordDeathLost(playerId, pending.getPlayerName(),
+                    RuleReasons.normalizeForStats(pending.getDeathReason()));
         }
         
         pendingDeaths.remove(playerId);
@@ -362,9 +364,8 @@ public class PendingDeathManager {
             }
         }
 
-        player.setLevel(pending.getSavedLevel());
-        player.setExp(pending.getSavedExp());
-        player.updateInventory();
+        // Paper 1.20.4: set level + bar from total points (avoids desync vs setLevel/setExp alone).
+        player.setExperienceLevelAndProgress(calculateTotalExperience(pending.getSavedLevel(), pending.getSavedExp()));
     }
     
     /**
@@ -672,7 +673,7 @@ public class PendingDeathManager {
         StatsManager stats = plugin.getStatsManager();
         if (stats != null) {
             stats.recordEconomyPayment(player, cost);
-            stats.recordDeathSaved(player, pending.getDeathReason());
+            stats.recordDeathSaved(player, RuleReasons.normalizeForStats(pending.getDeathReason()));
         }
         
         // Clean up

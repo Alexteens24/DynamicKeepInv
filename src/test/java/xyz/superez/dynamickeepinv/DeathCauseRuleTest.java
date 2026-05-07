@@ -1,6 +1,6 @@
 package xyz.superez.dynamickeepinv;
 
-import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,31 +12,47 @@ import xyz.superez.dynamickeepinv.rules.DeathCauseRule;
 import xyz.superez.dynamickeepinv.rules.RuleReasons;
 import xyz.superez.dynamickeepinv.rules.RuleResult;
 
+import java.util.List;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 
 class DeathCauseRuleTest {
 
-    @Mock private DynamicKeepInvPlugin plugin;
-    @Mock private FileConfiguration config;
-    @Mock private PlayerDeathEvent event;
-    @Mock private Player player;
-    @Mock private Player killer;
+    @Mock
+    private DynamicKeepInvPlugin plugin;
+    @Mock
+    private PlayerDeathEvent event;
+    @Mock
+    private Player player;
+    @Mock
+    private Player killer;
 
     private DeathCauseRule rule;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        when(plugin.getConfig()).thenReturn(config);
         when(event.getEntity()).thenReturn(player);
         rule = new DeathCauseRule();
+    }
+
+    private static YamlConfiguration baseYaml() {
+        YamlConfiguration y = new YamlConfiguration();
+        y.set("schedule.milestones", List.of(
+                Map.of("at", 0, "keep-items", true, "keep-xp", true, "announce", true),
+                Map.of("at", 13000, "keep-items", false, "keep-xp", false, "announce", true)));
+        y.set("death-rules.bypass-permission", true);
+        return y;
     }
 
     @Test
     @DisplayName("Rule disabled in config → null")
     void testRuleDisabled() {
-        when(config.getBoolean("rules.death-cause.enabled", false)).thenReturn(false);
+        YamlConfiguration y = baseYaml();
+        y.set("death-rules.death-cause.enabled", false);
+        when(plugin.getDKIConfig()).thenReturn(new DKIConfig(y));
 
         RuleResult result = rule.evaluate(event, plugin);
 
@@ -46,10 +62,12 @@ class DeathCauseRuleTest {
     @Test
     @DisplayName("PvP death (killer present) → PVP reason, reads pvp config")
     void testPvpDeath() {
-        when(config.getBoolean("rules.death-cause.enabled", false)).thenReturn(true);
+        YamlConfiguration y = baseYaml();
+        y.set("death-rules.death-cause.enabled", true);
+        y.set("death-rules.death-cause.pvp.keep-items", true);
+        y.set("death-rules.death-cause.pvp.keep-xp", false);
+        when(plugin.getDKIConfig()).thenReturn(new DKIConfig(y));
         when(player.getKiller()).thenReturn(killer);
-        when(config.getBoolean("rules.death-cause.pvp.keep-items", false)).thenReturn(true);
-        when(config.getBoolean("rules.death-cause.pvp.keep-xp", false)).thenReturn(false);
 
         RuleResult result = rule.evaluate(event, plugin);
 
@@ -62,10 +80,12 @@ class DeathCauseRuleTest {
     @Test
     @DisplayName("PvE death (no killer) → PVE reason, reads pve config")
     void testPveDeath() {
-        when(config.getBoolean("rules.death-cause.enabled", false)).thenReturn(true);
+        YamlConfiguration y = baseYaml();
+        y.set("death-rules.death-cause.enabled", true);
+        y.set("death-rules.death-cause.pve.keep-items", false);
+        y.set("death-rules.death-cause.pve.keep-xp", true);
+        when(plugin.getDKIConfig()).thenReturn(new DKIConfig(y));
         when(player.getKiller()).thenReturn(null);
-        when(config.getBoolean("rules.death-cause.pve.keep-items", false)).thenReturn(false);
-        when(config.getBoolean("rules.death-cause.pve.keep-xp", false)).thenReturn(true);
 
         RuleResult result = rule.evaluate(event, plugin);
 

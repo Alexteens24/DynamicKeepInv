@@ -71,7 +71,7 @@ class DeathListenerTest {
     @Test
     @DisplayName("Plugin disabled in config → event unmodified")
     void testPluginDisabledSkipsProcessing() {
-        plugin.getConfig().set("enabled", false);
+        plugin.getConfig().set("plugin.enabled", false);
         plugin.refreshDKIConfig();
         world.setTime(6000); // Day (would normally keep)
         PlayerMock player = server.addPlayer();
@@ -110,7 +110,10 @@ class DeathListenerTest {
     @DisplayName("keepXp=true during day → keep level set, droppedExp zeroed")
     void testDayKeepsXp() {
         // Default config: rules.day.keep-xp defaults; set it explicitly
-        plugin.getConfig().set("rules.day.keep-xp", true);
+        plugin.getConfig().set("schedule.milestones", java.util.List.of(
+                java.util.Map.of("at", 0, "keep-items", true, "keep-xp", true, "announce", true),
+                java.util.Map.of("at", 13000, "keep-items", false, "keep-xp", false, "announce", true)
+        ));
         world.setTime(6000);
         PlayerMock player = server.addPlayer();
         player.teleport(world.getSpawnLocation());
@@ -126,7 +129,10 @@ class DeathListenerTest {
     @Test
     @DisplayName("keepItems=false night → droppedExp > 0 if player has XP")
     void testNightDropsXp() {
-        plugin.getConfig().set("rules.night.keep-xp", false);
+        plugin.getConfig().set("schedule.milestones", java.util.List.of(
+                java.util.Map.of("at", 0, "keep-items", true, "keep-xp", true, "announce", true),
+                java.util.Map.of("at", 13000, "keep-items", false, "keep-xp", false, "announce", true)
+        ));
         world.setTime(18000);
         PlayerMock player = server.addPlayer();
         player.teleport(world.getSpawnLocation());

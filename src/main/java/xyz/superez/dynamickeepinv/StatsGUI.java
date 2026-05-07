@@ -3,6 +3,7 @@ package xyz.superez.dynamickeepinv;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -16,9 +17,10 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 
 import java.text.DecimalFormat;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,7 +32,8 @@ public class StatsGUI implements Listener {
                     .color(NamedTextColor.GOLD)
                     .decorate(TextDecoration.BOLD);
     private final DecimalFormat df = new DecimalFormat("#.##");
-    private final SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+    private static final DateTimeFormatter LAST_DEATH_TIME_FMT =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.systemDefault());
 
     public StatsGUI(DynamicKeepInvPlugin plugin) {
         this.plugin = plugin;
@@ -131,7 +134,9 @@ public class StatsGUI implements Listener {
         String lastReason = stats.getLastDeathReason(targetUUID);
         boolean lastSaved = stats.wasLastDeathSaved(targetUUID);
 
-        String timeStr = lastDeathTime > 0 ? sdf.format(new Date(lastDeathTime)) : "Never";
+        String timeStr = lastDeathTime > 0
+                ? LAST_DEATH_TIME_FMT.format(Instant.ofEpochMilli(lastDeathTime))
+                : "Never";
         String savedStr = lastSaved ? "§aYes" : "§cNo";
         ItemStack lastDeathItem = createItem(Material.CLOCK,
             "§b§lLast Death",
@@ -183,14 +188,20 @@ public class StatsGUI implements Listener {
         }
     }
 
+    /** Item names/lore that use legacy {@code §} codes (Paper Adventure / client display). */
+    private static Component legacy(String text) {
+        return LegacyComponentSerializer.legacySection().deserialize(text)
+                .decoration(TextDecoration.ITALIC, false);
+    }
+
     private ItemStack createItem(Material material, String name, String... loreLines) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text(name).decoration(TextDecoration.ITALIC, false));
+        meta.displayName(legacy(name));
 
         List<Component> lore = new ArrayList<>();
         for (String line : loreLines) {
-            lore.add(Component.text(line).decoration(TextDecoration.ITALIC, false));
+            lore.add(legacy(line));
         }
         meta.lore(lore);
         item.setItemMeta(meta);
@@ -200,7 +211,7 @@ public class StatsGUI implements Listener {
     private ItemStack createProgressBar(double percentage) {
         ItemStack item = new ItemStack(Material.EXPERIENCE_BOTTLE);
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("§6§lProgress Bar").decoration(TextDecoration.ITALIC, false));
+        meta.displayName(legacy("§6§lProgress Bar"));
 
         List<Component> lore = new ArrayList<>();
         int filled = (int) (percentage / 10);
@@ -213,8 +224,8 @@ public class StatsGUI implements Listener {
             }
         }
         bar.append("§8]");
-        lore.add(Component.text(bar.toString()).decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("§7" + df.format(percentage) + "% save rate").decoration(TextDecoration.ITALIC, false));
+        lore.add(legacy(bar.toString()));
+        lore.add(legacy("§7" + df.format(percentage) + "% save rate"));
         meta.lore(lore);
         item.setItemMeta(meta);
         return item;
@@ -227,13 +238,14 @@ public class StatsGUI implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player)) return;
+        if (!(event.getWhoClicked() instanceof Player player)) return;
         if (!(event.getInventory().getHolder() instanceof StatsGuiHolder)) return;
 
         event.setCancelled(true);
 
-        if (event.getSlot() == 44) {
-            event.getWhoClicked().closeInventory();
+        // Top inventory slots are rawSlot 0..44 for a 45-slot custom GUI
+        if (event.getRawSlot() == 44) {
+            player.closeInventory();
         }
     }
 

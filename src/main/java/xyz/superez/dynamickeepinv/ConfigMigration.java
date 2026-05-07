@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 
@@ -52,6 +53,18 @@ public class ConfigMigration {
         int addedKeys = 0;
         int removedKeys = 0;
 
+        if ("config.yml".equals(filename)) {
+            if (ConfigLayoutMigration.migrateLegacyLayoutToV9(config, plugin.getLogger())) {
+                changed = true;
+            }
+            if (ConfigLayoutMigration.migrateScheduleMilestoneKeysV10(config, plugin.getLogger())) {
+                changed = true;
+            }
+            if (ConfigLayoutMigration.migrateScheduleToMilestonesV11(config, plugin.getLogger())) {
+                changed = true;
+            }
+        }
+
         // Check for missing keys (Add)
         for (String key : defConfig.getKeys(true)) {
             if (!config.contains(key)) {
@@ -62,9 +75,7 @@ public class ConfigMigration {
             }
         }
 
-        // Check for extra keys (Remove)
-        // We iterate over the user's config keys and check if they exist in the default config.
-        // Note: getKeys(true) returns all keys (nested).
+        // Check for extra keys (Remove) — snapshot keys after merge so layout migration is reflected
         Set<String> userKeys = new HashSet<>(config.getKeys(true));
         for (String key : userKeys) {
             // We need to check if the key is present in the default config.
@@ -74,6 +85,10 @@ public class ConfigMigration {
             if (filename.equals("config.yml")) {
                 if (key.startsWith("worlds.overrides")) {
                     continue; // Skip dynamic world overrides
+                }
+                // Legacy nested key — keep so old configs are not stripped on migrate
+                if ("messages.format".equals(key)) {
+                    continue;
                 }
             }
 
@@ -121,35 +136,15 @@ public class ConfigMigration {
     private void validateConfig(FileConfiguration config) {
         boolean ok = true;
 
-        long dayStart   = config.getLong("time.day-start",   0);
-        long nightStart = config.getLong("time.night-start", 13000);
-        if (dayStart < 0 || dayStart > 24000) {
-            plugin.getLogger().warning("[Config] time.day-start must be between 0 and 24000, got: " + dayStart);
-            ok = false;
-        }
-        if (nightStart < 0 || nightStart > 24000) {
-            plugin.getLogger().warning("[Config] time.night-start must be between 0 and 24000, got: " + nightStart);
-            ok = false;
-        }
-        if (dayStart >= nightStart) {
-            plugin.getLogger().warning("[Config] time.day-start (" + dayStart + ") should be less than time.night-start (" + nightStart + ").");
+        String rulesForSchedule = ConfigReadCompat.rulesRoot(config);
+        List<ScheduleSupport.ScheduleMilestone> milestones = ScheduleSupport.loadMilestones(config, rulesForSchedule);
+        if (!ScheduleSupport.validateMilestones(milestones, plugin.getLogger())) {
             ok = false;
         }
 
-        long dayTrigger   = config.getLong("time.triggers.day",   -1);
-        long nightTrigger = config.getLong("time.triggers.night", -1);
-        if (dayTrigger != -1 && (dayTrigger < 0 || dayTrigger > 24000)) {
-            plugin.getLogger().warning("[Config] time.triggers.day must be -1 or between 0 and 24000, got: " + dayTrigger);
-            ok = false;
-        }
-        if (nightTrigger != -1 && (nightTrigger < 0 || nightTrigger > 24000)) {
-            plugin.getLogger().warning("[Config] time.triggers.night must be -1 or between 0 and 24000, got: " + nightTrigger);
-            ok = false;
-        }
-
-        int checkInterval = config.getInt("check-interval", 100);
+        int checkInterval = ConfigReadCompat.firstInt(config, "plugin.check-interval", "check-interval", 100);
         if (checkInterval <= 0) {
-            plugin.getLogger().warning("[Config] check-interval must be > 0, got: " + checkInterval);
+            plugin.getLogger().warning("[Config] plugin.check-interval must be > 0, got: " + checkInterval);
             ok = false;
         }
 
@@ -179,11 +174,33 @@ public class ConfigMigration {
             ok = false;
         }
 
+        String msgFormat = firstNonBlank(config.getString("message-format"), config.getString("messages.format"));
+        if (msgFormat != null) {
+            String f = msgFormat.trim().toLowerCase();
+            if (!f.equals("legacy")
+                    && !f.equals("minimessage")
+                    && !f.equals("mini")
+                    && !f.equals("mm")) {
+                plugin.getLogger().warning("[Config] message-format (or messages.format) must be 'legacy' or 'minimessage' (aliases: mini, mm). Got: " + msgFormat);
+                ok = false;
+            }
+        }
+
         if (ok) {
             plugin.getLogger().info("[Config] Validation passed.");
         } else {
             plugin.getLogger().warning("[Config] One or more config values are invalid. Plugin will attempt to continue with defaults where possible.");
         }
+    }
+
+    private static String firstNonBlank(String a, String b) {
+        if (a != null && !a.isBlank()) {
+            return a;
+        }
+        if (b != null && !b.isBlank()) {
+            return b;
+        }
+        return null;
     }
 }
 

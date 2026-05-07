@@ -90,11 +90,9 @@ public class ConfigMigrationTest {
             writer.write("worlds:\n  overrides:\n    my_custom_world:\n      day: true\n");
         }
 
-        // Mock default config resource
-        String defaultConfigContent = "config-version: 2\n" +
-                                      "worlds:\n  overrides: {}\n";
-        InputStream defConfigStream = new ByteArrayInputStream(defaultConfigContent.getBytes(StandardCharsets.UTF_8));
-        when(plugin.getResource("config.yml")).thenReturn(defConfigStream);
+        // Default = shipped config.yml (v9) from the test classpath
+        when(plugin.getResource("config.yml")).thenAnswer(inv ->
+                ConfigMigrationTest.class.getResourceAsStream("/config.yml"));
 
         when(plugin.getResource("messages.yml")).thenReturn(null);
 
@@ -155,13 +153,11 @@ public class ConfigMigrationTest {
             writer.write("time:\n  day-start: 0\n  night-start: 13000\n  triggers:\n    day: -1\n    night: -1\n");
             writer.write("check-interval: 100\n");
             writer.write("economy:\n  cost: 10\n  mode: gui\n  gui:\n    timeout: 30\n    expire-time: 300\n");
+            writer.write("message-format: legacy\n");
         }
 
-        String defaultConfigContent = "config-version: 6\n" +
-                "time:\n  day-start: 0\n  night-start: 13000\n  triggers:\n    day: -1\n    night: -1\n" +
-                "check-interval: 100\n" +
-                "economy:\n  cost: 10\n  mode: gui\n  gui:\n    timeout: 30\n    expire-time: 300\n";
-        when(plugin.getResource("config.yml")).thenReturn(new ByteArrayInputStream(defaultConfigContent.getBytes(StandardCharsets.UTF_8)));
+        when(plugin.getResource("config.yml")).thenAnswer(inv ->
+                ConfigMigrationTest.class.getResourceAsStream("/config.yml"));
         when(plugin.getResource("messages.yml")).thenReturn(null);
 
         new ConfigMigration(plugin).checkAndMigrate();
@@ -178,25 +174,23 @@ public class ConfigMigrationTest {
             writer.write("time:\n  day-start: 14000\n  night-start: 13000\n  triggers:\n    day: 25000\n    night: -2\n");
             writer.write("check-interval: 0\n");
             writer.write("economy:\n  cost: -1\n  mode: bad-mode\n  gui:\n    timeout: 0\n    expire-time: 0\n");
+            writer.write("message-format: not-a-format\n");
         }
 
-        String defaultConfigContent = "config-version: 6\n" +
-                "time:\n  day-start: 0\n  night-start: 13000\n  triggers:\n    day: -1\n    night: -1\n" +
-                "check-interval: 100\n" +
-                "economy:\n  cost: 10\n  mode: charge-to-keep\n  gui:\n    timeout: 30\n    expire-time: 300\n";
-        when(plugin.getResource("config.yml")).thenReturn(new ByteArrayInputStream(defaultConfigContent.getBytes(StandardCharsets.UTF_8)));
+        when(plugin.getResource("config.yml")).thenAnswer(inv ->
+                ConfigMigrationTest.class.getResourceAsStream("/config.yml"));
         when(plugin.getResource("messages.yml")).thenReturn(null);
 
         new ConfigMigration(plugin).checkAndMigrate();
 
-        verify(logger).warning(contains("time.day-start (14000) should be less than time.night-start (13000)"));
-        verify(logger).warning(contains("time.triggers.day must be -1 or between 0 and 24000"));
-        verify(logger).warning(contains("time.triggers.night must be -1 or between 0 and 24000"));
-        verify(logger).warning(contains("check-interval must be > 0"));
+        verify(logger, never()).warning(contains("[Config] schedule.switch-to-day-rules-at"));
+        verify(logger, never()).warning(contains("broadcast-day-crossing-at"));
+        verify(logger).warning(contains("plugin.check-interval must be > 0"));
         verify(logger).warning(contains("economy.cost must be >= 0"));
         verify(logger).warning(contains("economy.gui.timeout must be > 0"));
         verify(logger).warning(contains("economy.gui.expire-time must be > 0"));
         verify(logger).warning(contains("economy.mode must be 'charge-to-keep', 'charge-to-bypass', or 'gui'"));
+        verify(logger).warning(contains("message-format (or messages.format) must be 'legacy' or 'minimessage'"));
         verify(logger).warning(contains("[Config] One or more config values are invalid"));
     }
 }

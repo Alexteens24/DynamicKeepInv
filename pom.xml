@@ -16,17 +16,22 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
 
-        <!-- Dependency versions -->
+        <!-- Dependency versions (compile-only; servers use their own plugin jars) -->
         <paper.version>1.20.4-R0.1-SNAPSHOT</paper.version>
         <vault.version>1.7</vault.version>
-        <lands.version>7.10.13</lands.version>
-        <griefprevention.version>16.18.2</griefprevention.version>
-        <placeholderapi.version>2.11.6</placeholderapi.version>
-        <gravesx.version>4.9.9.2-api</gravesx.version>
-        <axgraves.version>1.24.0</axgraves.version>
+        <!-- JitPack: https://jitpack.io/#angeschossen/LandsAPI -->
+        <lands.version>7.25.4</lands.version>
+        <!-- JitPack: https://jitpack.io/#GriefPrevention/GriefPrevention -->
+        <griefprevention.version>16.18.7</griefprevention.version>
+        <placeholderapi.version>2.11.7</placeholderapi.version>
+        <!-- https://repo.cwhead.dev/repository/maven-public/ -->
+        <gravesx.version>4.9.10.10-api</gravesx.version>
+        <!-- Artillex repo + JitPack mirror -->
+        <axgraves.version>1.27.0</axgraves.version>
         <worldguard.version>7.0.11</worldguard.version>
-        <towny.version>0.98.3.0</towny.version>
-        <sqlite.version>3.45.1.0</sqlite.version>
+        <!-- JitPack: https://jitpack.io/#TownyAdvanced/Towny (Glare repo often lags / 404 on newer builds) -->
+        <towny.version>0.102.0.13</towny.version>
+        <sqlite.version>3.49.1.0</sqlite.version>
         <junit.version>5.10.1</junit.version>
         <mockito.version>5.11.0</mockito.version>
         <mockbukkit.version>3.86.0</mockbukkit.version>
@@ -67,11 +72,6 @@
         <repository>
             <id>enginehub</id>
             <url>https://maven.enginehub.org/repo/</url>
-        </repository>
-        <!-- Towny Repository -->
-        <repository>
-            <id>towny</id>
-            <url>https://repo.glaremasters.me/repository/towny/</url>
         </repository>
     </repositories>
 
@@ -140,9 +140,9 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Towny API -->
+        <!-- Towny API (JitPack builds from TownyAdvanced/Towny tags) -->
         <dependency>
-            <groupId>com.palmergames.bukkit.towny</groupId>
+            <groupId>com.github.TownyAdvanced</groupId>
             <artifactId>Towny</artifactId>
             <version>${towny.version}</version>
             <scope>provided</scope>
@@ -215,6 +215,10 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
+                <configuration>
+                    <!-- Mockito / Byte Buddy: allow running on newer JVMs before official class file support -->
+                    <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                </configuration>
             </plugin>
 
             <plugin>
